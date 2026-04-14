@@ -1,0 +1,1 @@
+resource "tencentcloud_cfw_sync_asset" "sync_asset" {}

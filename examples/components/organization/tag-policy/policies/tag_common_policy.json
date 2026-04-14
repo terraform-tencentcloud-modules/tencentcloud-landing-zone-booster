@@ -1,0 +1,14 @@
+{
+  "tags": {
+    "tag_policy_test": {
+        "tag_key": {"@@assign": "principal test"},
+        "tag_value": {"@@assign": ["billtest"]},
+        "resource_type_scope":{"@@assign": ["cvm:instance", "cvm:volume"] },
+        "detection":{"@@assign": "on"},
+        "correction": {"@@assign": "on"},
+        "auto_assign":{"@@assign":"on"},
+        "enforced_for": { "@@assign": [ "*"] },
+        "auto_assign_value": { "@@assign": "on" }
+    }
+  }
+}
