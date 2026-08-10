@@ -44,6 +44,8 @@ resource "tencentcloud_waf_clb_domain" "waf_clb_domain" {
 }
 
 resource "tencentcloud_waf_log_post_cls_flow" "log_post_cls_flow" {
+  count = var.enable_cls_log ? 1 : 0
+  
   cls_region     = var.cls_region
   log_topic_name = var.log_topic_name
   log_type       = var.log_type

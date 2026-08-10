@@ -2,7 +2,7 @@ locals {
   has_vpc = var.vpc_id != null && var.vpc_id != ""
   route_next_type = "HAVIP"
   # get vpc default route table
-  default_routetable = local.has_vpc ? try([ for rt in data.tencentcloud_vpc_route_tables.route_tables.instance_list : rt if rt.is_default ][0], null) : null
+  default_routetable = local.has_vpc ? [ for rt in data.tencentcloud_vpc_route_tables.route_tables.instance_list : rt ][0] : null
   # get ccn route entry infos
   ccn_route_entries = local.default_routetable != null ? [ for rei in local.default_routetable.route_entry_infos : rei if rei.next_type == "CCN" ] : []
   # route item count
@@ -11,7 +11,8 @@ locals {
 
 # get vpc route tables
 data "tencentcloud_vpc_route_tables" "route_tables" {
-  vpc_id = var.vpc_id
+  vpc_id           = var.vpc_id
+  association_main = true
 }
 
 # enbaled or disable ccn route entries

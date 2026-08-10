@@ -14,7 +14,7 @@ resource "tencentcloud_vpc" "vpc" {
   tags         = merge(var.tags, var.common_tags)
 }
 
-resource "tencentcloud_subnet" "subnet" {
+resource "tencentcloud_subnet" "subnets" {
   count = length(var.subnet_cidrs)
   
   vpc_id            = tencentcloud_vpc.vpc.id

@@ -1,6 +1,6 @@
 # TencentCloud SSL Module for Terraform
 
-## terraform-tencentcloud-ssl-certificate
+## terraform-tencentcloud-ssl-free-certificate
 
 A terraform module used to create TencentCloud SSL Certificate.
 

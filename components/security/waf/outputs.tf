@@ -35,27 +35,27 @@ output "domain_ids" {
 # Waf log post cls flow output
 output "log_post_cls_id" {
   description = "ID of the resource."
-  value       = tencentcloud_waf_log_post_cls_flow.log_post_cls_flow.id
+  value       = var.enable_cls_log ? tencentcloud_waf_log_post_cls_flow.log_post_cls_flow[0].id : null
 }
 
 output "log_post_cls_flow_id" {
   description = "Unique ID for post cls flow."
-  value       = tencentcloud_waf_log_post_cls_flow.log_post_cls_flow.flow_id
+  value       = var.enable_cls_log ? tencentcloud_waf_log_post_cls_flow.log_post_cls_flow[0].flow_id : null
 }
 
 output "log_post_cls_log_topic_id" {
   description = "CLS log topic ID."
-  value       = tencentcloud_waf_log_post_cls_flow.log_post_cls_flow.log_topic_id
+  value       = var.enable_cls_log ? tencentcloud_waf_log_post_cls_flow.log_post_cls_flow[0].log_topic_id : null
 }
 
 output "log_post_cls_logset_id" {
   description = "CLS logset ID."
-  value       = tencentcloud_waf_log_post_cls_flow.log_post_cls_flow.logset_id
+  value       = var.enable_cls_log ? tencentcloud_waf_log_post_cls_flow.log_post_cls_flow[0].logset_id : null
 }
 
 output "log_post_cls_status" {
   description = "Status 0-Off 1-On."
-  value       = tencentcloud_waf_log_post_cls_flow.log_post_cls_flow.status
+  value       = var.enable_cls_log ? tencentcloud_waf_log_post_cls_flow.log_post_cls_flow[0].status : null
 }
 
 output "attack_log_post_config_id" {

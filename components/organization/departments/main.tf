@@ -10,6 +10,7 @@ locals {
     parent_id = node.parent_id
     name      = node.name
     remark    = node.remark
+    tags      = node.tags
   }}
   l1_node_ids = { for k, node in tencentcloud_organization_org_node.l1_nodes: k => node.id }
 
@@ -20,6 +21,7 @@ locals {
         l1_node_name:   l1_node.name,
         l2_node_name:   l2_node.name
         l2_node_remark: l2_node.remark
+        l2_node_tags:   l2_node.tags
       }
     ]
   ])
@@ -27,6 +29,7 @@ locals {
     parent_id = local.l1_node_ids[l2.l1_node_name]
     name      = l2.l2_node_name
     remark    = l2.l2_node_remark
+    tags      = l2.l2_node_tags
   } }
   l2_node_ids = { for k, node in tencentcloud_organization_org_node.l2_nodes: k => node.id }
 }
@@ -37,6 +40,7 @@ resource "tencentcloud_organization_org_node" "l1_nodes" {
   parent_node_id = each.value.parent_id != null ? each.value.parent_id : local.parent_node_id
   name           = each.value.name
   remark         = each.value.remark
+  tags           = each.value.tags
 }
 
 resource "tencentcloud_organization_org_node" "l2_nodes" {
@@ -45,6 +49,8 @@ resource "tencentcloud_organization_org_node" "l2_nodes" {
   parent_node_id = each.value.parent_id != null ? each.value.parent_id : local.parent_node_id
   name           = each.value.name
   remark         = each.value.remark
+
+  tags           = each.value.tags
 
   depends_on = [ tencentcloud_organization_org_node.l1_nodes ]
 }

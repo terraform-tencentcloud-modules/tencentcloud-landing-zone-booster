@@ -4,9 +4,11 @@ variable "org_nodes" {
     parent_id = optional(number, null)
     name      = string
     remark    = optional(string)
+    tags      = optional(map(string))
     sub_nodes = optional(list(object({
       name   = string
       remark = optional(string)
+      tags   = optional(map(string))
     })), [])
   }))
   default = []

@@ -95,10 +95,22 @@ variable "domain_configs" {
 ################################################################################
 # Waf log post cls flow vars
 ################################################################################
+variable "enable_cls_log" {
+  description = "(Optional, String) The region where the CLS is delivered. The default value is ap-shanghai."
+  type        = bool
+  default     = false
+}
+
 variable "cls_region" {
   description = "(Optional, String) The region where the CLS is delivered. The default value is ap-shanghai."
   type        = string
   default     = "ap-shanghai"
+}
+
+variable "logset_name" {
+  description = "(Optional, String) The name of the log set where the delivered CLS is located. The default value is waf_post_logset."
+  type        = string
+  default     = "waf_post_logset"
 }
 
 variable "log_topic_name" {
@@ -115,12 +127,6 @@ variable "log_type" {
     condition     = contains([1, 2], var.log_type)
     error_message = "log_type must be 1 or 2."
   }
-}
-
-variable "logset_name" {
-  description = "(Optional, String) The name of the log set where the delivered CLS is located. The default value is waf_post_logset."
-  type        = string
-  default     = "waf_post_logset"
 }
 
 ################################################################################

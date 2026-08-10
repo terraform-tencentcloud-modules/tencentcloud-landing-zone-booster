@@ -3,9 +3,9 @@ locals {
   vpc_instance   = try(data.tencentcloud_vpc_instances.vpc.instance_list.0, {})
   vpc_id         = try(var.vpc_id, "") != "" ? var.vpc_id : try(local.vpc_instance.vpc_id, null)
 
-  default_route_table_id = [
+  default_route_table_id = try([
     for rt in data.tencentcloud_vpc_route_tables.route_tables.instance_list : rt.route_table_id if rt.is_default
-  ][0]
+  ][0], "")
 
   routable_attachments = {
     default = {
@@ -35,8 +35,8 @@ resource "tencentcloud_nat_gateway" "nat" {
   count               = try(var.create_nat_gateway, true) ? 1 : 0
   name                = var.nat_gateway_name
   vpc_id              = local.vpc_id
-  bandwidth           = var.nat_product_version == 2 ? 5000 : var.nat_gateway_bandwidth
-  max_concurrent      = var.nat_product_version == 2 ? 2000000 : var.nat_gateway_concurrent
+  bandwidth           = var.nat_product_version == 2 ? null : var.nat_gateway_bandwidth
+  max_concurrent      = var.nat_product_version == 2 ? null : var.nat_gateway_concurrent
   assigned_eip_set    = length(var.nat_public_ips) > 0 ? var.nat_public_ips : try(tencentcloud_eip.eips.*.public_ip, null)
   nat_product_version = var.nat_product_version
   tags                = var.tags

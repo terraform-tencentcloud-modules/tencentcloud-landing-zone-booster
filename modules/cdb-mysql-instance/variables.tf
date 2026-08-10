@@ -1,48 +1,12 @@
-variable "create_mysql_instance" {
-  description = "Whether to create mysql instance."
-  type        = bool
-  default     = true
-}
-
-variable "create_mysql_account" {
-  description = "Whether to create mysql account."
-  type        = bool
-  default     = true
-}
-
-variable "create_backup_policy" {
-  description = "Whether to create mysql backup policy."
-  type        = bool
-  default     = true
-}
-
-variable "create_account_privilege" {
-  description = "Whether to create mysql account privilege."
-  type        = bool
-  default     = false
-}
-
-variable "create_mysql_privilege" {
-  description = "Whether to create mysql privilege."
-  type        = bool
-  default     = false
-}
-
-variable "create_mysql_readonly_instance" {
-  description = "Whether to create mysql readonly instance."
-  type        = bool
-  default     = false
-}
-
+##################################################
+# resource: tencentcloud_mysql_instance
+##################################################
 variable "instance_id" {
   description = "The id of a mysql instance."
   type        = string
   default     = ""
 }
 
-###############
-# MySQL instance
-###############
 variable "instance_name" {
   description = "The name of a mysql instance."
   type        = string
@@ -61,7 +25,7 @@ variable "volume_size" {
   default     = 200
 }
 
-variable "cpu" {
+variable "cpu_count" {
   description = "Cpu cores."
   type        = number
   default     = 2
@@ -116,7 +80,6 @@ variable "parameters" {
 }
 
 # MySQL instance net configuration
-
 variable "internet_service" {
   description = "Indicates whether to enable the access to an instance from public network: 0 - No, 1 - Yes."
   type        = number
@@ -142,7 +105,6 @@ variable "subnet_id" {
 }
 
 # MySQL instance payment configuration
-
 variable "charge_type" {
   description = "Pay type of instance, valid values are PREPAID, POSTPAID. Default is POSTPAID."
   type        = string
@@ -167,7 +129,6 @@ variable "force_delete" {
 }
 
 # MySQL instance slave configuration
-
 variable "first_slave_zone" {
   description = "Zone information about first slave instance."
   type        = string
@@ -192,24 +153,43 @@ variable "slave_sync_mode" {
   default     = 0
 }
 
-##################
-# readonly instance
-##################
-
+##################################################
+# resource: tencentcloud_mysql_readonly_instance
+##################################################
 variable "readonly_instances" {
   description = "Multiple readonly instances.Every element of the list contains a tencentcloud_mysql_readonly_instance configuration object.See https://www.terraform.io/docs/providers/tencentcloud/r/mysql_readonly_instance.html for configuration guide."
-  default     = []
+  type        = list(object({
+    master_instance_id = string # Indicates the master instance ID of recovery instances.
+    instance_name      = string
+    cpu_count          = number
+    mem_size           = number
+    volume_size        = number
+    device_type        = optional(string, "UNIVERSAL")
+    intranet_port      = optional(number, 3306)
+    charge_type        = optional(string, "POSTPAID")
+    prepaid_period     = optional(number)
+    security_groups    = optional(list(string))
+    master_region      = optional(string)
+    zone               = optional(string)
+    vpc_id             = optional(string)
+    subnet_id          = optional(string)
+    slave_deploy_mode  = optional(number)
+    ro_group_id        = optional(string)
+    auto_renew_flag    = optional(number)
+    force_delete       = optional(bool)
+    tags               = optional(map(string))
+  }))
+  default = []
 }
 
-variable "readonly_instance_zone" {
-  description = "Zone information of readonly instance."
-  type        = string
-  default     = ""
+##################################################
+# resource: tencentcloud_mysql_backup_policy
+##################################################
+variable "create_backup_policy" {
+  description = "Whether to create mysql backup policy."
+  type        = bool
+  default     = false
 }
-
-###############
-# backup policy
-###############
 
 variable "backup_model" {
   description = "Backup method. Supported values include: 'physical' - physical backup."
@@ -218,48 +198,430 @@ variable "backup_model" {
 }
 
 variable "backup_time" {
-  description = " Instance backup time, in the format of \"HH:mm-HH:mm\". Time setting interval is four hours. Default to \"02:00-06:00\". The following value can be supported: 02:00-06:00, 06:00-10:00, 10:00-14:00, 14:00-18:00, 18:00-22:00, and 22:00-02:00."
+  description = "Instance backup time, in the format of \"HH:mm-HH:mm\". Time setting interval is four hours. Default to \"02:00-06:00\". The following value can be supported: 02:00-06:00, 06:00-10:00, 10:00-14:00, 14:00-18:00, 18:00-22:00, and 22:00-02:00."
   type        = string
   default     = "02:00-06:00"
 }
 
 variable "retention_period" {
-  description = " Instance backup retention days. Valid values: [7-730]. And default value is 7."
+  description = "Instance backup retention days. Valid values: [7-730]. And default value is 7."
   type        = number
   default     = 7
 }
 
-##########
-# account
-##########
-
-variable "accounts" {
-  description = "Multiple account instances.Every element of the list contains a tencentcloud_mysql_account configuration object.See https://www.terraform.io/docs/providers/tencentcloud/r/mysql_account.html for configuration guide."
-  type        = any
-  default     = {}
+variable "binlog_period" {
+  description = "Binlog retention time, in days. The minimum value is 7 days and the maximum value is 1830 days. This value cannot be set greater than the backup file retention time."
+  type        = number
+  default     = 7
 }
 
-##
-# databases
-##
+variable "enable_binlog_standby" {
+  description = "Whether to enable the log backup standard storage policy, `off` - close, `on` - open, the default is off."
+  type        = string
+  default     = "off"
+}
+
+variable "binlog_standby_days" {
+  description = "The standard starting number of days for log backup storage. The log backup will be converted when it reaches the standard starting number of days for storage. The minimum is 30 days and must not be greater than the number of days for log backup retention."
+  type        = number
+  default     = null
+}
+
+##################################################
+# resource: tencentcloud_mysql_database
+##################################################
 variable "databases" {
-  type = any
-  default = {}
+  description = "databases of mysql instance"
+  type = list(object({
+    db_name            = string
+    character_set_name = string
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for db in var.databases : contains(["utf8", "gbk", "latin1", "utf8mb4"], db.character_set_name)
+    ])
+    error_message = "Invalid value for character_set_name. Valid values: `utf8`, `gbk`, `latin1`, `utf8mb4`."
+  }
 }
 
-#################
-# account privilege 
-#################
-variable "account_privilege" {
-  description = "Multiple account privilege configuration instances.Every element of the list contains a tencentcloud_mysql_account_privilege configuration object.See https://www.terraform.io/docs/providers/tencentcloud/r/mysql_account_privilege.html for configuration guide."
-  default     = []
+##################################################
+# resource: tencentcloud_mysql_account
+##################################################
+variable "mysql_accounts" {
+  description = "Multiple account instances.Every element of the list contains a tencentcloud_mysql_account configuration object.See https://www.terraform.io/docs/providers/tencentcloud/r/mysql_account.html for configuration guide."
+  type = list(object({
+    name                 = string # Account name.
+    password             = optional(string, null) # Operation password.
+    host                 = optional(string, "%") # Account host, default is `%`.
+    description          = optional(string, "--") # Database description. Default is `--`.
+    max_user_connections = optional(number, 10240) # The maximum number of available connections for a new account, the default value is 10240, and the maximum value that can be set is 10240.
+    
+    # Global privileges. Available values for Privileges:
+    #   SELECT, INSERT, UPDATE, DELETE, CREATE, PROCESS,
+    #   DROP, REFERENCES, INDEX, ALTER, SHOW DATABASES,
+    #   CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE,
+    #   CREATE VIEW, SHOW VIEW, CREATE ROUTINE,
+    #   ALTER ROUTINE, EVENT, TRIGGER, REPLICATION SLAVE,
+    #   REPLICATION CLIENT
+    global = set(string)
+
+    # Database privileges list. Privileges:
+    #   SELECT, INSERT, UPDATE, DELETE, CREATE,
+    #   DROP, REFERENCES, INDEX, ALTER,
+    #   CREATE TEMPORARY TABLES, LOCK TABLES,
+    #   EXECUTE, CREATE VIEW, SHOW VIEW,
+    #   CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER
+    database = optional(list(object({
+      database_name = string
+      privileges    = set(string)
+    })), [])
+
+    # Table privileges list. Privileges:
+    #   SELECT, INSERT, UPDATE, DELETE, CREATE,
+    #   DROP, REFERENCES, INDEX, ALTER,
+    #   CREATE VIEW, SHOW VIEW, TRIGGER
+    table = optional(list(object({
+      database_name = string
+      table_name    = string
+      privileges    = set(string)
+    })), [])
+
+    # Column privileges list. Privileges:
+    #   SELECT, INSERT, UPDATE, REFERENCES
+    column = optional(list(object({
+      database_name = string
+      table_name    = string
+      column_name   = string
+      privileges    = set(string)
+    })), [])
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts : account.name != null && account.name != ""
+    ])
+    error_message = "Invalid value for name. The account name must not be empty."
+  }
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts : !contains(["root", "mysql.sys", "tencentroot"], account.name)
+    ])
+    error_message = "Invalid value for name. The following account names are forbidden: root, mysql.sys, tencentroot"
+  }
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts : account.password == null || (length(account.password) >= 8 && length(account.password) <= 32)
+    ])
+    error_message = "Invalid value for password. The password length must be between 8 and 32 characters."
+  }
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts : account.max_user_connections >= 1 && account.max_user_connections <= 10240
+    ])
+    error_message = "Invalid value for max_user_connections. The value must be between 1 and 10240."
+  }
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts : length(account.global) > 0
+    ])
+    error_message = "Invalid configuration: global privileges must contain at least one privilege."
+  }
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts :
+      alltrue([
+        for g in account.global :
+        contains([
+          "SELECT",
+          "INSERT",
+          "UPDATE",
+          "DELETE",
+          "CREATE",
+          "PROCESS",
+          "DROP",
+          "REFERENCES",
+          "INDEX",
+          "ALTER",
+          "SHOW DATABASES",
+          "CREATE TEMPORARY TABLES",
+          "LOCK TABLES",
+          "EXECUTE",
+          "CREATE VIEW",
+          "SHOW VIEW",
+          "CREATE ROUTINE",
+          "ALTER ROUTINE",
+          "EVENT",
+          "TRIGGER",
+          "REPLICATION SLAVE",
+          "REPLICATION CLIENT"
+        ], g)
+      ])
+    ])
+    error_message = "Invalid value in global privileges."
+  }
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts :
+      alltrue([
+        for db in account.database :
+        alltrue([
+          for p in db.privileges :
+          contains([
+            "SELECT",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "CREATE",
+            "DROP",
+            "REFERENCES",
+            "INDEX",
+            "ALTER",
+            "CREATE TEMPORARY TABLES",
+            "LOCK TABLES",
+            "EXECUTE",
+            "CREATE VIEW",
+            "SHOW VIEW",
+            "CREATE ROUTINE",
+            "ALTER ROUTINE",
+            "EVENT",
+            "TRIGGER"
+          ], p)
+        ])
+      ])
+    ])
+    error_message = "Invalid value in database privileges."
+  }
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts :
+      alltrue([
+        for tb in account.table :
+        alltrue([
+          for p in tb.privileges :
+          contains([
+            "SELECT",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "CREATE",
+            "DROP",
+            "REFERENCES",
+            "INDEX",
+            "ALTER",
+            "CREATE VIEW",
+            "SHOW VIEW",
+            "TRIGGER"
+          ], p)
+        ])
+      ])
+    ])
+    error_message = "Invalid value in table privileges."
+  }
+
+  validation {
+    condition = alltrue([
+      for account in var.mysql_accounts :
+      alltrue([
+        for col in account.column :
+        alltrue([
+          for p in col.privileges :
+          contains([
+            "SELECT",
+            "INSERT",
+            "UPDATE",
+            "REFERENCES"
+          ], p)
+        ])
+      ])
+    ])
+    error_message = "Invalid value in column privileges."
+  }
 }
 
-#################
-# database privilege
-#################
+##################################################
+# resource: tencentcloud_mysql_privilege
+##################################################
+# variable "mysql_privileges" {
+#   description = "Multiple privilege configuration instances.Every element of the list contains a tencentcloud_mysql_privilege configuration object.See https://www.terraform.io/docs/providers/tencentcloud/r/mysql_privilege.html for configuration guide."
+#   type = list(object({
+#     account_name = string # Account name. The forbidden value is:root,mysql.sys,tencentroot.
+#     account_host = optional(string, "%") # Account host, default is `%`.
 
-variable "mysql_privilege" {
-  description = "Multiple privilege configuration instances.Every element of the list contains a tencentcloud_mysql_privilege configuration object.See https://www.terraform.io/docs/providers/tencentcloud/r/mysql_privilege.html for configuration guide."
-  default     = []
-}
+#     # Global privileges. Available values for Privileges:
+#     #   SELECT, INSERT, UPDATE, DELETE, CREATE, PROCESS,
+#     #   DROP, REFERENCES, INDEX, ALTER, SHOW DATABASES,
+#     #   CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE,
+#     #   CREATE VIEW, SHOW VIEW, CREATE ROUTINE,
+#     #   ALTER ROUTINE, EVENT, TRIGGER, REPLICATION SLAVE,
+#     #   REPLICATION CLIENT
+#     global = set(string)
+
+#     # Database privileges list. Privileges:
+#     #   SELECT, INSERT, UPDATE, DELETE, CREATE,
+#     #   DROP, REFERENCES, INDEX, ALTER,
+#     #   CREATE TEMPORARY TABLES, LOCK TABLES,
+#     #   EXECUTE, CREATE VIEW, SHOW VIEW,
+#     #   CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER
+#     database = optional(list(object({
+#       database_name = string
+#       privileges    = set(string)
+#     })), [])
+
+#     # Table privileges list. Privileges:
+#     #   SELECT, INSERT, UPDATE, DELETE, CREATE,
+#     #   DROP, REFERENCES, INDEX, ALTER,
+#     #   CREATE VIEW, SHOW VIEW, TRIGGER
+#     table = optional(list(object({
+#       database_name = string
+#       table_name    = string
+#       privileges    = set(string)
+#     })), [])
+
+#     # Column privileges list. Privileges:
+#     #   SELECT, INSERT, UPDATE, REFERENCES
+#     column = optional(list(object({
+#       database_name = string
+#       table_name    = string
+#       column_name   = string
+#       privileges    = set(string)
+#     })), [])
+#   }))
+#   default = []
+
+#   validation {
+#     condition = alltrue([
+#       for privilege in var.mysql_privileges : !contains(["root", "mysql.sys", "tencentroot"], privilege.account_name)
+#     ])
+#     error_message = "Invalid value for account_name. The following account names are forbidden: root, mysql.sys, tencentroot"
+#   }
+
+#   validation {
+#     condition = alltrue([
+#       for privilege in var.mysql_privileges : length(privilege.global) > 0
+#     ])
+#     error_message = "Invalid configuration: global privileges must contain at least one privilege."
+#   }
+
+#   validation {
+#     condition = alltrue([
+#       for privilege in var.mysql_privileges :
+#       alltrue([
+#         for g in privilege.global :
+#         contains([
+#           "SELECT",
+#           "INSERT",
+#           "UPDATE",
+#           "DELETE",
+#           "CREATE",
+#           "PROCESS",
+#           "DROP",
+#           "REFERENCES",
+#           "INDEX",
+#           "ALTER",
+#           "SHOW DATABASES",
+#           "CREATE TEMPORARY TABLES",
+#           "LOCK TABLES",
+#           "EXECUTE",
+#           "CREATE VIEW",
+#           "SHOW VIEW",
+#           "CREATE ROUTINE",
+#           "ALTER ROUTINE",
+#           "EVENT",
+#           "TRIGGER",
+#           "REPLICATION SLAVE",
+#           "REPLICATION CLIENT"
+#         ], g)
+#       ])
+#     ])
+#     error_message = "Invalid value in global privileges."
+#   }
+
+#   validation {
+#     condition = alltrue([
+#       for privilege in var.mysql_privileges :
+#       alltrue([
+#         for db in privilege.database :
+#         alltrue([
+#           for p in db.privileges :
+#           contains([
+#             "SELECT",
+#             "INSERT",
+#             "UPDATE",
+#             "DELETE",
+#             "CREATE",
+#             "DROP",
+#             "REFERENCES",
+#             "INDEX",
+#             "ALTER",
+#             "CREATE TEMPORARY TABLES",
+#             "LOCK TABLES",
+#             "EXECUTE",
+#             "CREATE VIEW",
+#             "SHOW VIEW",
+#             "CREATE ROUTINE",
+#             "ALTER ROUTINE",
+#             "EVENT",
+#             "TRIGGER"
+#           ], p)
+#         ])
+#       ])
+#     ])
+#     error_message = "Invalid value in database privileges."
+#   }
+
+#   validation {
+#     condition = alltrue([
+#       for privilege in var.mysql_privileges :
+#       alltrue([
+#         for tb in privilege.table :
+#         alltrue([
+#           for p in tb.privileges :
+#           contains([
+#             "SELECT",
+#             "INSERT",
+#             "UPDATE",
+#             "DELETE",
+#             "CREATE",
+#             "DROP",
+#             "REFERENCES",
+#             "INDEX",
+#             "ALTER",
+#             "CREATE VIEW",
+#             "SHOW VIEW",
+#             "TRIGGER"
+#           ], p)
+#         ])
+#       ])
+#     ])
+#     error_message = "Invalid value in table privileges."
+#   }
+
+#   validation {
+#     condition = alltrue([
+#       for privilege in var.mysql_privileges :
+#       alltrue([
+#         for col in privilege.column :
+#         alltrue([
+#           for p in col.privileges :
+#           contains([
+#             "SELECT",
+#             "INSERT",
+#             "UPDATE",
+#             "REFERENCES"
+#           ], p)
+#         ])
+#       ])
+#     ])
+#     error_message = "Invalid value in column privileges."
+#   }
+# }

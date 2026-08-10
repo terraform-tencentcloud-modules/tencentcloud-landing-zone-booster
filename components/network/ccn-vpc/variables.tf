@@ -44,12 +44,6 @@ variable "subnet_tags" {
   default     = {}
 }
 
-variable "default_subnet_name" {
-  description = "Specify the default subnet name when 'vpc_id' is not specified."
-  type        = string
-  default     = "default_subnet"
-}
-
 variable "availability_zones" {
   description = "List of available zones to launch resources."
   type        = list(string)

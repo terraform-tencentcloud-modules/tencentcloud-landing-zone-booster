@@ -1,9 +1,10 @@
 variable "network_acls" {
   description = "List of network acl to be created."
   type = list(object({
-    acl_name = string                 # Name of the network acl to be queried, must be unique.
-    vpc_id   = optional(string, null) # VPC ID to be used on Network ACL
-    vpc_name = optional(string, null) # VPC Name to be used on Network ACL
+    acl_name   = string                 # Name of the network acl to be queried, must be unique.
+    vpc_id     = optional(string, null) # VPC ID to be used on Network ACL
+    vpc_name   = optional(string, null) # VPC Name to be used on Network ACL
+    subnet_ids = optional(list(string), []) # Subnet IDs to be used on Network ACL
     ingress_rules = optional(list(object({ # Ingress rules. A rule must match the following format: [action]#[cidr_ip]#[port]#[protocol]#[description].
       action   = string # The available value of `action` is `ACCEPT` and `DROP`.
       cidr     = string # The `cidr` must be an IP address network or segment. 

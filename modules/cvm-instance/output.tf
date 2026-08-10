@@ -1,24 +1,35 @@
 output "instance_id" {
   description = "id of instance."
-  value       = local.create_instance ? tencentcloud_instance.instance[0].id : ""
+  value       = tencentcloud_instance.instance.id
+}
+
+output "instance_uuid" {
+  description = "id of instance."
+  value       = tencentcloud_instance.instance.uuid
 }
 
 output "instance_status" {
   description = "The state of instance."
-  value       = local.create_instance ? tencentcloud_instance.instance[0].instance_status : ""
+  value       = tencentcloud_instance.instance.instance_status
 }
 
 output "public_ip" {
   description = "The public ip of instance."
-  value       = local.create_instance ? tencentcloud_instance.instance[0].public_ip : ""
+  value       = tencentcloud_instance.instance.public_ip
 }
 
 output "private_ip" {
   description = "The private ip of instance."
-  value       = local.create_instance ? tencentcloud_instance.instance[0].private_ip : ""
+  value       = tencentcloud_instance.instance.private_ip
 }
 
 output "placement_group_id" {
   description = "The Placement Group Id to start the instance in."
-  value       = local.create_placement_group ? tencentcloud_placement_group.this[0].id : var.placement_group_id
+  value       = local.placement_group_id
+}
+
+output "password" {
+  description = "The password of instance."
+  value       = local.password
+  sensitive   = true
 }
