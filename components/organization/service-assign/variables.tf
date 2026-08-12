@@ -9,16 +9,17 @@ variable "service_assign_list" {
   type = list(object({
     member_uin   = optional(number, null) # Member UIN
     member_name  = optional(string, null) # Member Name
-    # ICP (ID: 22): The group management account or delegated administrator can manage the filing resources in ICP filing in a unified way.
-    # Web Application Firewall (ID: 24): The organization management account or service delegated administrator can manage WAF resources for all organization members in WAF.
-    # Cloud Security Center (ID: 15): The organization management account or service delegated administrator can manage the CSC resources for all organization members in Cloud Security Center.
-    # Cloud Virtual Machine (ID: 23): Manage account or delegated admin account can view all member CVM instance purchase quota and request batch quota increases on their behalf.
-    # Key Management Service (ID: 25): The group management account or the delegated administrator configured for the KMS service can manage account groups in the Key Management System (KMS). They can enable KMS services for group members, as well as view and manage key resources of other members.
-    # Control Center (ID: 17): Support unified management and configuration of the enterprise's multi-account environment, as well as the management of account usage norms.
-    # CloudAudit (ID: 12): The operation audit administrator can use the tracking set to deliver the tracking of all members' audit logs in the operation audit.
-    # tandon (ID: 20): The organization management account or service delegated administrator can view and manage the Andon resources of all organization members in Andon.
-    # Billing Center (ID: 13): Allow financial administrators to view members' bills, balances, and consolidated statements, etc.
-    # Config (ID: 18): The organization management account or service delegated administrator can view and manage the Config resources of all organization members in Config.
+    # Service ID | Service Name                   | Description 
+    # 28         | WAF (Web Application Firewall) | The organization management account or service delegated administrator can manage WAF resources for all organization members in WAF.
+    # 23         | CSIP (Cloud Security Center)   | The cloud security integrated platform can centrally manage the security risks of multiple accounts within an enterprise, helping users achieve proact
+    # 29         | KMS (Key Management Service)   | The group management account or the delegated administrator configured for the KMS service can manage account groups in the Key Management System (KMS). They can enable KMS services for group members, as well as view and manage key resources of other members.
+    # 24         | Control Center                 | Support unified management and setup of enterprise multi-account environment. Manage account usage specification.
+    # 12         | CloudAudit                     | Cloud audit administrators can use tracking set delivery to track the audit logs of all members in cloud audit.
+    # 13         | Billing Center                 | Facilitate financial administrators in accessing members' billing statements, account balances, and bill consolidation.
+    # 18         | Config                         | Configuration auditing (Config) helps you centrally audit and manage cloud resources. It continuously records and evaluates the configuration inform
+    # 27         | Quota Center                   | The quota center centrally manages cloud service quotas.
+    # 30         | Firewall Manager (FWM)         | Support unified policy management, control, and analysis across multiple products and accounts, as well as resource sharing across different account specifications.
+    # 25         | Identity Center Management     | The Identity Center provides unified identity and permission management for multi-account based on the Group Account Organizational Structure. By using the Identity Center feature of organization account management, you can manage Tencent Cloud's users in a corporate environment uniformly, configure the enterprise identity management system and Tencent Cloud's SSO in one-time configuration, and configure user access permission to multi-account in a unified way.
     service_name = string
   }))
 }

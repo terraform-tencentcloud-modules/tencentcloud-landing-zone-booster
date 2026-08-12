@@ -18,7 +18,7 @@ locals {
   org_manage_policies = [
     for item in var.org_service_policies : {
       name        = item.name
-      content     = file(item.path)
+      content     = item.content
       type        = local.policy_type
       description = item.description
     }

@@ -1,4 +1,112 @@
-## March 30, 2026
+## August 12, 2026
+
+### Summary
+
+This update improves the portability of preventive organization policies by accepting policy content directly instead of reading it from a local file. It also refreshes the delegated service assignment reference with the latest service IDs and supported services.
+
+### Changed
+
+#### Preventive compliance policies
+
+- Updated `components/compliance/preventive` to accept inline policy content through `org_service_policies[*].content`.
+- Replaced the local file lookup:
+
+  ```hcl
+  content = file(item.path)
+  ```
+
+  with direct content assignment:
+
+  ```hcl
+  content = item.content
+  ```
+
+- Renamed the `org_service_policies` object field from `path` to `content`.
+- Removed the module's dependency on policy files being available on the local filesystem.
+- Policy content can now be passed from variables, templates, remote configuration, or another Terraform module.
+
+#### Organization service assignments
+
+- Updated the delegated service reference in `components/organization/service-assign/variables.tf`.
+- Refreshed service names and IDs:
+
+  | Service | Previous ID | Current ID |
+  |---|---:|---:|
+  | WAF | 24 | 28 |
+  | Cloud Security Center / CSIP | 15 | 23 |
+  | Key Management Service | 25 | 29 |
+  | Control Center | 17 | 24 |
+  | CloudAudit | 12 | 12 |
+  | Billing Center | 13 | 13 |
+  | Config | 18 | 18 |
+
+- Added references for newly supported services:
+  - Quota Center (`27`)
+  - Firewall Manager (`30`)
+  - Identity Center Management (`25`)
+- Removed obsolete references for:
+  - ICP (`22`)
+  - Cloud Virtual Machine (`23`)
+  - Andon (`20`)
+
+### Breaking Changes
+
+> The preventive policy input schema has changed and requires updates in all calling configurations.
+
+The following configuration is no longer supported:
+
+```hcl
+org_service_policies = [
+  {
+    name = "prevent-public-access"
+    path = "${path.module}/policies/prevent-public-access.json"
+    targets = []
+  }
+]
+```
+
+Pass the policy document through `content` instead:
+
+```hcl
+org_service_policies = [
+  {
+    name    = "prevent-public-access"
+    content = file("${path.module}/policies/prevent-public-access.json")
+    targets = []
+  }
+]
+```
+
+This moves file loading responsibility from the component to its caller. Existing callers using `path` will fail Terraform type validation until migrated.
+
+### Migration Notes
+
+1. Locate every `org_service_policies` declaration that uses `path`.
+2. Rename `path` to `content`.
+3. If the policy is still stored in a file, wrap the path with `file(...)` in the calling module.
+4. Update any variable definitions, Terragrunt inputs, examples, and documentation that expose the old `path` field.
+5. Review `service_assign_list` values and replace obsolete delegated service IDs with the current IDs.
+6. Pay particular attention to ID `23`, which now refers to CSIP rather than CVM in the updated reference.
+7. Run `terraform validate` and `terraform plan` before applying the changes.
+
+### Validation Checklist
+
+- [ ] All preventive policy callers use `content` instead of `path`
+- [ ] JSON policy documents are valid before being passed to the component
+- [ ] No Terragrunt or CI/CD inputs still depend on the old `path` field
+- [ ] Delegated service IDs match the updated Tencent Cloud organization service catalog
+- [ ] Removed service IDs are no longer used by `service_assign_list`
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unexpected policy replacement or service assignment changes
+
+### Suggested Release Title
+
+```text
+feat(compliance): support inline policy content and refresh delegated service IDs
+```
+
+## August 10, 2026
 
 ### Summary
 

@@ -20,7 +20,7 @@ module "service_assign" {
   org_service_policies = [
     {
       name        = "tag-policy-1"
-      path        = "./policies/full_access_policy.json"
+      content     = file("./policies/full_access_policy.json")
       description = "tag-policy-1"
       targets     = [
         {
