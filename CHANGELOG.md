@@ -1,3 +1,88 @@
+## August 13, 2026
+
+### Summary
+
+Added configurable server-side encryption support to the COS bucket Terraform module. Consumers can now use COS-managed encryption or a Tencent Cloud KMS key without changing the module's default behavior.
+
+### Added
+
+#### COS bucket server-side encryption
+
+- Added the `encryption_algorithm` input variable.
+  - Supported values: `AES256`, `KMS`, and `SM4`.
+  - Defaults to `null`, preserving the existing behavior when encryption is not configured.
+- Added the `kms_id` input variable.
+  - Specifies the KMS master key ID when `encryption_algorithm` is set to `KMS`.
+  - Defaults to `null`, allowing COS to use the default KMS key when no key ID is provided.
+- Passed both encryption settings to the `tencentcloud_cos_bucket` resource.
+
+### Usage
+
+#### Enable AES256 encryption
+
+```hcl
+module "cos_bucket" {
+  source = "..."
+
+  bucket_name         = "example-bucket"
+  encryption_algorithm = "AES256"
+}
+```
+
+#### Enable KMS encryption with a specified key
+
+```hcl
+module "cos_bucket" {
+  source = "..."
+
+  bucket_name          = "example-bucket"
+  encryption_algorithm = "KMS"
+  kms_id               = "your-kms-key-id"
+}
+```
+
+#### Enable KMS encryption with the default key
+
+```hcl
+module "cos_bucket" {
+  source = "..."
+
+  bucket_name          = "example-bucket"
+  encryption_algorithm = "KMS"
+}
+```
+
+### Compatibility
+
+This change is backward compatible. Both new variables default to `null`, so existing module consumers do not need to update their configurations.
+
+When specifying `kms_id`, `encryption_algorithm` must be set to `KMS`.
+
+### Validation Checklist
+
+- [ ] `terraform fmt -check` passes
+- [ ] `terraform validate` passes
+- [ ] Existing configurations without encryption produce no unexpected changes
+- [ ] `AES256` and `SM4` encryption plans contain the expected COS settings
+- [ ] KMS encryption works with both the default key and a specified `kms_id`
+- [ ] The Terraform plan contains no unintended bucket replacement
+
+### Suggested Release Title
+
+```text
+feat(cos): add server-side encryption support for COS buckets
+```
+
+### Suggested Commit Message
+
+```text
+feat(cos): add configurable server-side bucket encryption
+
+- support AES256, KMS, and SM4 encryption algorithms
+- allow specifying a KMS master key ID
+- preserve existing behavior with optional encryption settings
+```
+
 ## August 12, 2026
 
 ### Summary

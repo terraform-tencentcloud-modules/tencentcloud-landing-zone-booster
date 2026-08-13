@@ -34,6 +34,18 @@ variable "versioning_enable" {
   default     = false
 }
 
+variable "encryption_algorithm" {
+  description = "The server-side encryption algorithm to use. Valid values are `AES256`, `KMS` and `SM4`."
+  type        = string
+  default     = null
+}
+
+variable "kms_id" {
+  description = "The KMS Master Key ID. This value is valid only when `encryption_algorithm` is set to KMS. Set kms id to the specified value. If not specified, the default kms id is used."
+  type        = string
+  default     = null
+}
+
 variable "lifecycle_rules" {
   description = "List of lifecycle rules configuration"
   type = list(object({

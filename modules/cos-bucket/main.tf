@@ -5,12 +5,14 @@ locals {
 }
 
 resource "tencentcloud_cos_bucket" "bucket" {
-  bucket            = "${var.bucket_name}-${local.app_id}"
-  acl               = var.bucket_acl
-  multi_az          = var.multi_az
-  versioning_enable = var.versioning_enable
-  force_clean       = var.force_clean
-  tags              = var.tags
+  bucket               = "${var.bucket_name}-${local.app_id}"
+  acl                  = var.bucket_acl
+  multi_az             = var.multi_az
+  versioning_enable    = var.versioning_enable
+  encryption_algorithm = var.encryption_algorithm
+  kms_id               = var.kms_id
+  force_clean          = var.force_clean
+  tags                 = var.tags
   dynamic "lifecycle_rules" {
     for_each = var.lifecycle_rules
     content {
