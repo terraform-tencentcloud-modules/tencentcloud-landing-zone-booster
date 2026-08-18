@@ -157,7 +157,7 @@ resource "tencentcloud_batch_apply_account_baselines" "baselines" {
   member_uin_list = local.member_uin_list
 
   dynamic "baseline_config_items" {
-    for_each = [ for item in local.baseline_items : { identifier = item.identifier } ]
+    for_each = [ for item in local.baseline_items : { identifier = item.identifier, configuration = item.configuration} ]
     content {
       identifier    = baseline_config_items.value.identifier
       configuration = baseline_config_items.value.configuration

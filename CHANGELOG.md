@@ -1,3 +1,69 @@
+## August 18, 2026
+
+### Summary
+
+Fixed account baseline batch application to preserve and pass each baseline item's configuration to the Tencent Cloud provider resource.
+
+### Fixed
+
+#### Account baseline configuration
+
+- Updated the `baseline_config_items` dynamic block in `components/account-factory/baseline/account-baselines/main.tf`.
+- Included both `identifier` and `configuration` when constructing the collection used by `for_each`.
+- Ensured `baseline_config_items.value.configuration` is available when rendering each baseline configuration item.
+- Prevented baseline configuration values from being dropped before they are passed to `tencentcloud_batch_apply_account_baselines`.
+
+### Before
+
+```hcl
+for_each = [
+  for item in local.baseline_items : {
+    identifier = item.identifier
+  }
+]
+```
+
+### After
+
+```hcl
+for_each = [
+  for item in local.baseline_items : {
+    identifier    = item.identifier
+    configuration = item.configuration
+  }
+]
+```
+
+### Impact
+
+This fix allows account baselines that require configuration data to be applied correctly. No input variable or module interface changes are introduced.
+
+### Validation Checklist
+
+- [ ] `terraform fmt -check` passes
+- [ ] `terraform validate` passes
+- [ ] Every baseline item contains the expected `identifier` and `configuration`
+- [ ] `terraform plan` includes the intended baseline configuration values
+- [ ] Batch baseline application completes without a missing `configuration` attribute error
+- [ ] Existing baseline assignments without custom configuration remain unaffected
+
+### Suggested Release Title
+
+```text
+fix(account-baselines): preserve baseline item configuration
+```
+
+### Suggested Commit Message
+
+```text
+fix(account-baselines): pass baseline item configuration
+
+- include configuration in the baseline_config_items iteration value
+- preserve configuration when applying account baselines in batch
+- prevent missing configuration attribute errors
+```
+
+
 ## August 13, 2026
 
 ### Summary
