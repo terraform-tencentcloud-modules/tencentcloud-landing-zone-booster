@@ -5,13 +5,13 @@ variable "ccn_name" {
   default     = "ccn-example"
 }
 
-variable "bandwidth_limit_type" {
+variable "ccn_bandwidth_limit_type" {
   description = "The speed limit type of CCN. Valid values: `INTER_REGION_LIMIT`, `OUTER_REGION_LIMIT`."
   type        = string
   default     = "OUTER_REGION_LIMIT"
 }
 
-variable "charge_type" {
+variable "ccn_charge_type" {
   description = "Billing mode of CCN. Valid values: `PREPAID`, `POSTPAID`."
   type        = string
   default     = "POSTPAID"
@@ -45,6 +45,7 @@ variable "set_bandwith_limit" {
 variable "src_region" {
   description = "Limitation of region."
   type        = string
+  default     = null
 }
 
 variable "dst_region" {

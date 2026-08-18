@@ -2,9 +2,8 @@
 # Subnet
 ################################################################################
 resource "tencentcloud_subnet" "subnet" {
-  name = var.subnet_name
-
   vpc_id            = var.vpc_id
+  name              = var.subnet_name
   cidr_block        = var.subnet_cidr
   is_multicast      = var.subnet_is_multicast
   availability_zone = var.availability_zone

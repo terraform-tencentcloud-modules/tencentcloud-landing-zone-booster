@@ -69,6 +69,22 @@ variable "account_contact" {
   }
 }
 
+# Message
+variable "account_message" {
+  description = "Account message"
+  type = object({
+    enabled  = bool
+    messages = optional(list(object({
+      msg_type = string
+      channel  = string
+      names    = list(string)
+    })), [])
+  })
+  default = {
+    enabled = false
+  }
+}
+
 # preset tags
 variable "tag_info" {
   description = "Tag values"
@@ -125,6 +141,21 @@ variable "vpc_info" {
       cidr_block  = string
       zone        = string
     })))
+  })
+  default = {
+    enabled = false
+  }
+}
+
+variable "share_image" {
+  description = "Share image baseline info"
+  type = object({
+    enabled = bool
+    images  = optional(list(object({
+      region     = string
+      image_id   = string
+      image_name = string
+    })), [])
   })
   default = {
     enabled = false

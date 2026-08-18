@@ -2,6 +2,265 @@
 
 ### Summary
 
+This release expands Account Factory baseline capabilities, improves organization AssumeRole identity assignments, standardizes CCN module inputs, and simplifies the VPC module to focus exclusively on VPC and subnet provisioning.
+
+The VPC module refactoring and CCN variable renaming introduce breaking changes that require updates in consuming configurations.
+
+### Added
+
+#### Account notification baseline
+
+- Added support for the `TCC-AF_ACCOUNT_NOTIFICATION` account baseline.
+- Added the optional `account_message` input with the following subscription attributes:
+  - `msg_type`
+  - `channel`
+  - `names`
+- Encoded account notification subscriptions into the baseline `configuration` payload.
+- Account notification configuration is included when both `account_contact.enabled` and `account_message.enabled` are enabled.
+
+Example:
+
+```hcl
+account_message = {
+  enabled = true
+  messages = [
+    {
+      msg_type = "..."
+      channel  = "..."
+      names    = ["..."]
+    }
+  ]
+}
+```
+
+#### Shared image baseline
+
+- Added support for the `TCC-AF_SHARE_IMAGE` account baseline.
+- Added the optional `share_image` input with the following image attributes:
+  - `region`
+  - `image_id`
+  - `image_name`
+- Encoded shared image definitions into the baseline `configuration` payload.
+
+Example:
+
+```hcl
+share_image = {
+  enabled = true
+  images = [
+    {
+      region     = "ap-singapore"
+      image_id   = "img-xxxxxxxx"
+      image_name = "shared-base-image"
+    }
+  ]
+}
+```
+
+### Changed
+
+#### Organization AssumeRole identity assignments
+
+- Removed the hard-coded administrator identity ID (`1`) from member identity attachments.
+- Member attachments now contain only the identity created for the corresponding AssumeRole policy.
+- Changed the `for_each` key from `member_uin` to a composite key containing the AssumeRole name and member UIN:
+
+  ```text
+  <assume_role_name>-<member_uin>
+  ```
+
+- Allows the same organization member to receive identities from multiple AssumeRole policies without duplicate map key collisions.
+- Separates identity assignments by policy instead of implicitly including the administrator identity in every attachment.
+
+#### CCN attachment
+
+- Reordered `ccn_uin` alongside `ccn_id` in the CCN attachment resource definition for consistency.
+- No functional or interface change is expected from this formatting adjustment.
+
+#### CCN instance
+
+- Renamed CCN input variables for clearer module-level namespacing:
+
+  | Previous variable | New variable |
+  |---|---|
+  | `bandwidth_limit_type` | `ccn_bandwidth_limit_type` |
+  | `charge_type` | `ccn_charge_type` |
+
+- Added `null` as the default value for `src_region`, making the source region optional when a bandwidth limit is not configured.
+
+#### VPC subnet
+
+- Reordered the subnet resource arguments for consistency.
+- No functional or interface change is expected.
+
+#### VPN Gateway
+
+- Adjusted resource formatting for readability.
+- No functional or interface change is expected.
+
+### Refactored
+
+#### VPC module scope reduction
+
+The VPC module has been simplified to manage only:
+
+- One Tencent Cloud VPC
+- Zero or more subnets within the newly created VPC
+
+The module now always creates `tencentcloud_vpc.vpc` and directly associates its subnets with that VPC.
+
+Additional behavior changes include:
+
+- Removed conditional VPC creation.
+- Removed support for deploying subnets into an existing VPC.
+- Removed automatic availability zone discovery.
+- Subnet `availability_zone` values must now be explicitly supplied.
+- Removed custom and default route table selection logic.
+- Removed route table association from subnet resources.
+- Simplified `vpc_id` output to reference the directly managed VPC resource.
+
+### Removed
+
+#### VPC module resources and capabilities
+
+The following capabilities have been removed from `modules/vpc`:
+
+- Existing VPC lookup and reuse
+- Conditional VPC creation
+- Availability zone discovery
+- Custom route table creation
+- Route table entry creation
+- VPN Gateway creation
+- Network ACL creation and subnet attachment
+- NAT Gateway and EIP creation
+- VPC attachment to CCN
+
+These capabilities should be managed through dedicated Terraform modules.
+
+#### VPC module inputs
+
+Removed inputs include, but are not limited to:
+
+- `vpc_region`
+- `create_vpc`
+- `vpc_id`
+- `default_subnet_name`
+- `availability_zones`
+- Route table and route entry inputs
+- VPN Gateway inputs
+- Network ACL inputs
+- NAT Gateway and EIP inputs
+- CCN attachment inputs
+
+#### VPC module outputs
+
+Removed outputs include:
+
+- `route_table_id`
+- `route_entry_id`
+- `availability_zones`
+- `tags`
+- `vpn_gateway_id`
+- `vpn_gateway_public_ip_address`
+- `network_acl_id`
+- `nat_gateway_id`
+- `nat_public_ips`
+
+The remaining outputs are:
+
+- `vpc_id`
+- `subnet_ids`
+
+### Breaking Changes
+
+#### VPC module
+
+> The VPC module refactoring is a major interface and behavior change.
+
+- The module can no longer manage or reuse an existing VPC through `vpc_id`.
+- `create_vpc = false` is no longer supported.
+- Removed resources must be migrated to dedicated modules before upgrading.
+- Consumers referencing removed outputs will fail during Terraform validation.
+- Each subnet must explicitly define `availability_zone`; automatic zone selection has been removed.
+- Existing Terraform state addresses may no longer match the refactored resource addresses.
+- Removing the old resources without migrating state or configuration may cause Terraform to propose resource destruction.
+
+#### CCN instance module
+
+Consumers must rename the following arguments:
+
+```hcl
+bandwidth_limit_type = "OUTER_REGION_LIMIT"
+charge_type          = "POSTPAID"
+```
+
+to:
+
+```hcl
+ccn_bandwidth_limit_type = "OUTER_REGION_LIMIT"
+ccn_charge_type          = "POSTPAID"
+```
+
+#### AssumeRole identity attachments
+
+Removing the hard-coded administrator identity may update existing organization member identity attachments. Review the Terraform plan to confirm that required administrative access is not unintentionally removed.
+
+### Migration Notes
+
+1. Update all CCN module calls to use `ccn_bandwidth_limit_type` and `ccn_charge_type`.
+2. Identify every removed `modules/vpc` input and output used by calling configurations.
+3. Move route tables, routes, VPN Gateways, network ACLs, NAT Gateways, EIPs, and CCN attachments to dedicated modules.
+4. If an existing VPC must be reused, use dedicated subnet and network component modules instead of the refactored VPC module.
+5. Add an explicit `availability_zone` to every item in `subnet_cidrs`.
+6. Update references to removed VPC outputs with outputs from the corresponding dedicated modules.
+7. Use Terraform `moved` blocks, `terraform state mv`, or resource imports where resources are transferred to dedicated modules.
+8. Review AssumeRole attachment changes and explicitly manage any administrator identity that is still required.
+9. Enable and configure the new account notification and shared image baselines only where required.
+10. Run `terraform validate` and carefully review `terraform plan` before applying the upgrade.
+
+### Validation Checklist
+
+- [ ] Account notification payloads contain valid message types, channels, and recipient names
+- [ ] Account notification behavior with the `account_contact.enabled` dependency is confirmed
+- [ ] Shared image IDs exist in the specified regions and can be shared with target accounts
+- [ ] The same organization member can be assigned to multiple AssumeRole policies
+- [ ] Required administrator identities remain attached after the AssumeRole change
+- [ ] All CCN instance calls use the renamed input variables
+- [ ] Every subnet specifies an explicit availability zone
+- [ ] Removed VPC capabilities are managed by dedicated modules
+- [ ] No calling configuration references removed VPC inputs or outputs
+- [ ] Terraform state has been migrated before removing legacy VPC-managed resources
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unintended resource destruction or replacement
+
+### Suggested Release Title
+
+```text
+feat(account-factory)!: add new baselines and simplify network modules
+```
+
+### Suggested Commit Message
+
+```text
+feat(account-factory)!: add notification and shared image baselines
+
+- add account notification and shared image baseline configurations
+- support multiple AssumeRole policies for the same organization member
+- remove implicit administrator identity attachments
+- namespace CCN instance input variables
+- simplify the VPC module to manage only VPCs and subnets
+- remove route, VPN, ACL, NAT, and CCN attachment management from the VPC module
+
+BREAKING CHANGE: the VPC module no longer supports existing VPCs or auxiliary
+network resources, and CCN input variables have been renamed.
+```
+
+
+## August 18, 2026
+
+### Summary
+
 Fixed account baseline batch application to preserve and pass each baseline item's configuration to the Tencent Cloud provider resource.
 
 ### Fixed

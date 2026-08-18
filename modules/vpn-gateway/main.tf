@@ -3,7 +3,8 @@ data "tencentcloud_vpc_instances" "vpc" {
 }
 
 resource "tencentcloud_vpn_gateway" "gateway" {
-  count              = var.create_vpn_gateway ? 1 : 0
+  count = var.create_vpn_gateway ? 1 : 0
+
   name               = var.vpn_gateway_name
   bandwidth          = var.bandwidth
   zone               = try(var.zone, null)

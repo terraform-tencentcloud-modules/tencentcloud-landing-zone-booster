@@ -25,9 +25,11 @@ locals {
   baseline_identifier_password       = "TCC-AF_CAM_USER_PASSWORD_POLICY"
   baseline_identifier_security       = "TCC-AF_CAM_USER_SECURITY"
   baseline_identifier_contact        = "TCC-AF_ACCOUNT_CONTACT"
+  baseline_identifier_message        = "TCC-AF_ACCOUNT_NOTIFICATION"
   baseline_identifier_preset_tag     = "TCC-AF_PRESET_TAG"
   baseline_identifier_security_group = "TCC-AF_SECURITY_GROUP"
   baseline_identifier_vpc_subnet     = "TCC-AF_VPC_SUBNET"
+  baseline_identifier_shared_image   = "TCC-AF_SHARE_IMAGE"
 
   org_members = {
     for m in data.tencentcloud_organization_members.members.items : m.name => m.member_uin
@@ -82,6 +84,18 @@ locals {
         ]
       })
     }] : [],
+    var.account_contact.enabled && var.account_message.enabled ? [{
+      identifier    = local.baseline_identifier_message
+      configuration = jsonencode({
+        "Subscriptions": [
+          for item in var.account_message.messages : {
+            "MsgType": item.msg_type,
+            "Channel": item.channel,
+            "Name":    item.names,
+          }
+        ]
+      })
+    }] : [],
     var.tag_info.enabled ? [{
       identifier    = local.baseline_identifier_preset_tag
       configuration = jsonencode({
@@ -128,6 +142,18 @@ locals {
             "SubnetName": item.subnet_name,
             "CidrBlock":  item.cidr_block,
             "Zone":       item.zone
+          }
+        ]
+      })
+    }] : [],
+    var.share_image.enabled ? [{
+      identifier    = local.baseline_identifier_shared_image
+      configuration = jsonencode({
+        "Images": [
+          for item in var.share_image.images : {
+            "Region":    item.region,
+            "ImageId":   item.image_id,
+            "ImageName": item.image_name,
           }
         ]
       })

@@ -3,8 +3,8 @@
 ################################################################################
 resource "tencentcloud_ccn" "ccn" {
   name                 = var.ccn_name
-  bandwidth_limit_type = var.bandwidth_limit_type
-  charge_type          = var.charge_type
+  bandwidth_limit_type = var.ccn_bandwidth_limit_type
+  charge_type          = var.ccn_charge_type
   description          = var.ccn_description
   qos                  = var.ccn_qos
   tags                 = var.ccn_tags

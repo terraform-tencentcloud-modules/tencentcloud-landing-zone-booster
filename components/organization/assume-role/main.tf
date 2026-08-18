@@ -2,18 +2,16 @@
 data "tencentcloud_organization_members" "members" {}
 
 locals {
-  admin_identity_id = 1
-
   org_members = {
     for m in data.tencentcloud_organization_members.members.items : m.name => m.member_uin
   }
 
-  identity_member_ids =   flatten([
+  identity_member_ids = flatten([
     for item in var.assume_role_policies : [
       for member in item.members : {
+        key          = "${item.assume_role_name}-${member.member_uin != null ? member.member_uin : local.org_members[member.member_name]}"
         member_uin   = member.member_uin != null ? member.member_uin : local.org_members[member.member_name],
         identity_ids = [
-          local.admin_identity_id,
           tencentcloud_organization_org_identity.this[item.assume_role_name].id
         ]
       }
@@ -43,7 +41,7 @@ resource "tencentcloud_organization_org_identity" "this" {
 }
 
 resource "tencentcloud_organization_org_member_auth_identity_attachment" "this" {
-  for_each = { for item in local.identity_member_ids: item.member_uin => item}
+  for_each = { for item in local.identity_member_ids: item.key => item}
   
   member_uin   = each.value.member_uin
   identity_ids = each.value.identity_ids
