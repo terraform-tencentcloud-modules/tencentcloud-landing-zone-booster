@@ -2,6 +2,34 @@
 
 ### Summary
 
+Added a new Terraform component for managing CIC roles within the Tencent Cloud organization structure.
+
+### Added
+
+#### CIC role component
+
+- Added the new `components/organization/cic-role/` component.
+- Provides a dedicated organization-level component for CIC role configuration and lifecycle management.
+- Separates CIC role management from other organization and identity components.
+
+### Validation Checklist
+
+- [ ] The component includes the required Terraform resource definitions
+- [ ] Input variables are documented and use appropriate types and defaults
+- [ ] Required outputs are exposed for downstream components
+- [ ] Tencent Cloud provider version constraints are defined
+- [ ] Example usage or README documentation is included
+- [ ] `terraform fmt -check` passes
+- [ ] `terraform init -backend=false` succeeds
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains only the intended CIC role resources
+
+
+
+## August 19, 2026
+
+### Summary
+
 This release restructures the Terraform networking stack by replacing legacy CCN components with a consolidated CCN component, extracting NAT Gateway and EIP management into dedicated modules, and introducing a standalone CCN route-switch module.
 
 - Added 4 new component or module directories
