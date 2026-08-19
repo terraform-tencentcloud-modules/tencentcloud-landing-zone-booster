@@ -3,17 +3,12 @@ output "vpc_id" {
   value       = tencentcloud_vpc.vpc.id
 }
 
-output "subnet_ids" {
+output "vpc_subnets" {
   description = "The id of subnet."
-  value       = tencentcloud_subnet.subnets.*.id
+  value       = local.vpc_subnets
 }
 
-output "subnet_names" {
-  description = "The id of subnet."
-  value       = { for subnet in tencentcloud_subnet.subnets : subnet.name => subnet.id }
-}
-
-output "route_table_id" {
+output "default_route_table_id" {
   description = "The id of route table."
   value       = tencentcloud_vpc.vpc.default_route_table_id
 }

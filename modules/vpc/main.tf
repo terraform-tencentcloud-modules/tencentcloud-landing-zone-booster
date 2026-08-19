@@ -1,3 +1,12 @@
+locals {
+  vpc_subnets = [for s in tencentcloud_subnet.subnet : {
+    subnet_id   = s.id
+    subnet_name = s.name
+    subnet_az   = s.availability_zone
+    subnet_cidr = s.cidr_block
+  }]
+}
+
 ################################################################################
 # VPC
 ################################################################################

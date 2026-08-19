@@ -1,3 +1,143 @@
+## August 19, 2026
+
+### Summary
+
+This release restructures the Terraform networking stack by replacing legacy CCN components with a consolidated CCN component, extracting NAT Gateway and EIP management into dedicated modules, and introducing a standalone CCN route-switch module.
+
+- Added 4 new component or module directories
+- Updated 12 existing Terraform files
+- Removed 9 files from legacy CCN implementations
+- Refactored CCN, VPC, NAT Gateway, EIP, and CLS-related module interfaces
+
+### Added
+
+#### Consolidated CCN component
+
+- Added `components/network/ccn/` as the consolidated component for CCN provisioning and orchestration.
+- Replaces the legacy `components/network/ccn-instance/` component.
+
+#### NAT Gateway component
+
+- Added `components/network/nat-gateway/` to provide component-level orchestration for NAT Gateway resources.
+- Separates NAT Gateway deployment from the core VPC module.
+
+#### CCN route-switch module
+
+- Added `modules/ccn-route-switch/` for independently managing CCN route switching behavior.
+- Replaces the legacy `modules/ccn-routes/` implementation.
+
+#### EIP module
+
+- Added `modules/eip/` for standalone Elastic IP provisioning and management.
+- Enables EIP resources to be managed independently from NAT Gateway and VPC resources.
+
+### Changed
+
+#### CCN-VPC component
+
+Updated the CCN-VPC component resource definitions, variables, and outputs:
+
+- `components/network/ccn-vpc/main.tf`
+- `components/network/ccn-vpc/variables.tf`
+- `components/network/ccn-vpc/outputs.tf`
+
+The component has been aligned with the refactored CCN module structure and standalone network modules.
+
+#### CCN instance module
+
+Updated the CCN instance module resource definitions and input interface:
+
+- `modules/ccn-instance/main.tf`
+- `modules/ccn-instance/variables.tf`
+
+Consumers should review module arguments for compatibility with the consolidated CCN component.
+
+#### NAT Gateway module
+
+Updated the NAT Gateway module implementation, variables, and outputs:
+
+- `modules/nat-gateway/main.tf`
+- `modules/nat-gateway/variables.tf`
+- `modules/nat-gateway/output.tf`
+
+The module is now intended to work with the dedicated NAT Gateway component and standalone EIP module.
+
+#### VPC module
+
+Updated the VPC module implementation, variables, and outputs:
+
+- `modules/vpc/main.tf`
+- `modules/vpc/variables.tf`
+- `modules/vpc/output.tf`
+
+The VPC module continues to be decoupled from auxiliary network resources, which are now managed through dedicated modules and components.
+
+#### CLS Create module
+
+- Updated `modules/cls-create/variables.tf`.
+- Consumers should review the changed variable definitions before upgrading.
+
+### Removed
+
+#### Legacy CCN instance component
+
+Removed `components/network/ccn-instance/`, including:
+
+- `README.md`
+- `main.tf`
+- `outputs.tf`
+- `variables.tf`
+- `versions.tf`
+
+Use `components/network/ccn/` instead.
+
+#### Legacy CCN routes module
+
+Removed `modules/ccn-routes/`, including:
+
+- `main.tf`
+- `outputs.tf`
+- `variables.tf`
+- `version.tf`
+
+Use `modules/ccn-route-switch/` for CCN route switching behavior.
+
+### Breaking Changes
+
+> This network module refactoring may require updates to module sources, variables, outputs, and Terraform state addresses.
+
+- `components/network/ccn-instance` has been removed and replaced by `components/network/ccn`.
+- `modules/ccn-routes` has been removed and replaced by `modules/ccn-route-switch`.
+- Existing references to removed CCN component outputs will fail until updated.
+- NAT Gateway and EIP responsibilities are now separated into dedicated modules and components.
+- VPC, NAT Gateway, CCN-VPC, CCN instance, and CLS variable or output contracts may have changed.
+- Moving existing resources to new module paths without state migration may cause Terraform to propose resource recreation or destruction.
+
+### Migration Notes
+
+1. Replace references to `components/network/ccn-instance` with `components/network/ccn`.
+2. Replace references to `modules/ccn-routes` with `modules/ccn-route-switch`.
+3. Compare the old and new CCN variables and outputs, then update all consumer references.
+4. Move NAT Gateway orchestration to `components/network/nat-gateway` where appropriate.
+5. Manage Elastic IP resources through `modules/eip` instead of embedding them in VPC or NAT Gateway configurations.
+6. Review changes to `components/network/ccn-vpc` and update dependency outputs.
+7. Review the updated `modules/cls-create` variable contract.
+8. Use Terraform `moved` blocks, `terraform state mv`, or resource imports to preserve resources transferred to new module addresses.
+9. Run `terraform init -upgrade`, `terraform validate`, and `terraform plan` before applying the upgrade.
+
+### Validation Checklist
+
+- [ ] All references to the removed CCN component and route module have been updated
+- [ ] CCN-VPC dependencies use the new CCN outputs
+- [ ] NAT Gateway and EIP resources are managed by the intended dedicated modules
+- [ ] No obsolete VPC, NAT Gateway, or CCN inputs and outputs remain in calling configurations
+- [ ] CLS Create consumers match the updated variable definitions
+- [ ] Terraform state has been migrated for resources moved to new module paths
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unintended resource destruction or replacement
+
+
 ## August 18, 2026
 
 ### Summary

@@ -11,19 +11,19 @@ variable "tags" {
 # vars: VPC
 ################################################################################
 variable "vpc_name" {
-  description = "The vpc name used to launch a new vpc when 'vpc_id' is not specified."
+  description = "The name of the VPC."
   type        = string
   default     = null
 }
 
 variable "vpc_cidr" {
-  description = "The cidr block used to launch a new vpc when 'vpc_id' is not specified."
+  description = "A network address block which should be a subnet of the three internal network segments (10.0.0.0/16, 172.16.0.0/12 and 192.168.0.0/16)."
   type        = string
   default     = null
 }
 
 variable "vpc_is_multicast" {
-  description = "Specify the vpc is multicast when 'vpc_id' is not specified."
+  description = "Indicates whether VPC multicast is enabled. The default value is false. Multicast are whitelist-restricted. We recommend disabling these features if they are not applicable to your environment."
   type        = bool
   default     = true
 }
@@ -35,7 +35,7 @@ variable "vpc_dns_servers" {
 }
 
 variable "vpc_tags" {
-  description = "Additional tags for the vpc."
+  description = "Tags of the VPC."
   type        = map(string)
   default     = {}
 }
@@ -55,7 +55,7 @@ variable "subnet_cidrs" {
 }
 
 variable "subnet_tags" {
-  description = "Additional tags for the subnet."
+  description = "Tags for the subnet."
   type        = map(string)
   default     = {}
 }

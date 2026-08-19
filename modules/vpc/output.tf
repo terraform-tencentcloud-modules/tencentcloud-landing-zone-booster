@@ -3,7 +3,7 @@ output "vpc_id" {
   value       = tencentcloud_vpc.vpc.id
 }
 
-output "subnet_ids" {
+output "vpc_subnets" {
   description = "The id of subnet."
-  value       = tencentcloud_subnet.subnet.*.id
+  value       = local.vpc_subnets
 }
