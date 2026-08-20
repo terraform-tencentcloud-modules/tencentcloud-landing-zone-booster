@@ -14,7 +14,7 @@ provider "tencentcloud" {
 }
 
 module "security_group" {
-  source = "../../../../components/network/sg"
+  source = "../../../../components/network/security-group"
 
   security_groups = [
     {

@@ -1,50 +1,11 @@
 resource "tencentcloud_kubernetes_native_node_pool" "this" {
-  for_each = { for node_pool in var.native_node_pool : node_pool.name => node_pool}
+  for_each = { for node_pool in var.native_node_pools : node_pool.name => node_pool}
 
   cluster_id          = var.cluster_id
   name                = each.value.name
   type                = "Native"
   deletion_protection = each.value.deletion_protection
   unschedulable       = each.value.unschedulable
-
-  dynamic "taints" {
-    for_each = each.value.taints
-    content {
-      key    = taints.value.key
-      value  = taints.value.value
-      effect = taints.value.effect
-    }
-  }
-
-  dynamic annotations {
-    for_each = each.value.annotations
-    content {
-      name  = annotations.value.name
-      value = annotations.value.value
-    }
-  }
-
-  dynamic "labels" {
-    for_each = each.value.labels
-    content {
-      name  = labels.value.name
-      value = labels.value.value
-    }
-  }
-
-  dynamic "tags" {
-    for_each = each.value.tags
-    content {
-      resource_type = tags.value.resource_type
-      dynamic "tags" {
-        for_each = tags.value.tags
-        content {
-          key   = tags.value.key
-          value = tags.value.value
-        }
-      }
-    }
-  }
 
   native {
     subnet_ids               = each.value.subnet_ids
@@ -124,6 +85,45 @@ resource "tencentcloud_kubernetes_native_node_pool" "this" {
       content {
         pre_init  = lifecycle.value.pre_init
         post_init = lifecycle.value.post_init
+      }
+    }
+  }
+
+  dynamic "taints" {
+    for_each = each.value.taints
+    content {
+      key    = taints.value.key
+      value  = taints.value.value
+      effect = taints.value.effect
+    }
+  }
+
+  dynamic annotations {
+    for_each = each.value.annotations
+    content {
+      name  = annotations.value.name
+      value = annotations.value.value
+    }
+  }
+
+  dynamic "labels" {
+    for_each = each.value.labels
+    content {
+      name  = labels.value.name
+      value = labels.value.value
+    }
+  }
+
+  dynamic "tags" {
+    for_each = each.value.tags
+    content {
+      resource_type = tags.value.resource_type
+      dynamic "tags" {
+        for_each = tags.value.tags
+        content {
+          key   = tags.value.key
+          value = tags.value.value
+        }
       }
     }
   }

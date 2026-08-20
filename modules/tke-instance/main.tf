@@ -1,6 +1,6 @@
 locals {
-  cluster_id      = var.create_cluster ? tencentcloud_kubernetes_cluster.cluster[0].id : var.cluster_id
-  kube_config_raw = concat(tencentcloud_kubernetes_cluster.cluster.*.kube_config, [""])[0]
+  cluster_id      = var.cluster_id != null ?  var.cluster_id : tencentcloud_kubernetes_cluster.cluster.id
+  kube_config_raw = try(tencentcloud_kubernetes_cluster.cluster.kube_config, "")
   kube_config     = try(yamldecode(local.kube_config_raw), "")
 }
 
@@ -13,8 +13,6 @@ resource "random_password" "worker_pwd" {
 }
 
 resource "tencentcloud_kubernetes_cluster" "cluster" {
-  count = var.create_cluster ? 1 : 0
-
   cluster_name                    = var.cluster_name
   cluster_version                 = var.cluster_version
   cluster_cidr                    = var.network_type == "VPC-CNI" ? "" : var.cluster_cidr
@@ -88,6 +86,8 @@ resource "tencentcloud_kubernetes_cluster" "cluster" {
       cluster_internet_security_group
     ]
   }
+
+  depends_on = [ tencentcloud_cam_role.TKE_QCSRole ]
 }
 
 resource "tencentcloud_kubernetes_auth_attachment" "auth_attach" {
@@ -104,71 +104,6 @@ resource "tencentcloud_kubernetes_auth_attachment" "auth_attach" {
   depends_on = [
     tencentcloud_kubernetes_cluster.cluster
   ]
-}
-
-resource "tencentcloud_kubernetes_log_config" "kubernetes_log_configs" {
-  count = var.enable_log_agent ? 1 : 0
-
-  cluster_id      = local.cluster_id
-  cluster_type    = var.cluster_type
-  log_config_name = var.log_config_name
-  logset_id       = var.logset_id
-  log_config      = jsonencode({
-    "apiVersion" : "cls.cloud.tencent.com/v1",
-    "kind" : "LogConfig",
-    "metadata" : {
-      "name" : var.log_config_name
-    },
-    "spec" : {
-      "clsDetail" : {
-        "extractRule" : {
-          "backtracking" : "0",
-          "isGBK" : "false",
-          "jsonStandard" : "false",
-          "unMatchUpload" : "false"
-        },
-        "indexs" : [
-          {
-            "indexName" : "namespace"
-          },
-          {
-            "indexName" : "pod_name"
-          },
-          {
-            "indexName" : "container_name"
-          }
-        ],
-        "logFormat" : "default",
-        "logType" : "minimalist_log",
-        "maxSplitPartitions" : 0,
-        "region" : "ap-shanghai",
-        "storageType" : "",
-      },
-      "inputDetail" : {
-        "containerStdout" : {
-          "metadataContainer" : [
-            "namespace",
-            "pod_name",
-            "pod_ip",
-            "pod_uid",
-            "container_id",
-            "container_name",
-            "image_name",
-            "cluster_id"
-          ],
-          "nsLabelSelector" : "",
-          "workloads" : [
-            {
-              "kind" : "deployment",
-              "name" : "testlog1",
-              "namespace" : "default"
-            }
-          ]
-        },
-        "type" : "container_stdout"
-      }
-    }
-  })
 }
 
 resource "tencentcloud_kubernetes_health_check_policy" "kubernetes_health_check_policy" {

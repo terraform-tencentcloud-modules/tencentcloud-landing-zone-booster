@@ -6,7 +6,7 @@ output "cluster_id" {
 }
 
 output "cluster_domain" {
-  value       = tencentcloud_kubernetes_cluster.cluster[0].domain
+  value       = tencentcloud_kubernetes_cluster.cluster.domain
   description = "Cluster domain."
 }
 
@@ -17,13 +17,13 @@ output "kube_config_raw" {
 }
 
 output "intranet_kube_config" {
-  value       = tencentcloud_kubernetes_cluster.cluster[0].kube_config_intranet
+  value       = tencentcloud_kubernetes_cluster.cluster.kube_config_intranet
   sensitive   = true
   description = "Cluster's kube config of private access."
 }
 
 output "cluster_ca_certificate" {
-  value       = tencentcloud_kubernetes_cluster.cluster[0].certification_authority
+  value       = tencentcloud_kubernetes_cluster.cluster.certification_authority
   description = "Cluster's certification authority."
 }
 

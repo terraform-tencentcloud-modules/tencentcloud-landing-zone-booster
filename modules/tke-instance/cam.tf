@@ -1,11 +1,27 @@
-resource "tencentcloud_cam_role" "TKE_QSCRole" {
+locals {
+  tke_qcsrole_policies  = [
+    "150531903", # QcloudAccessForTKERoleInGroupsForUser
+    "220150018", # QcloudAccessFortkeRoleInMetricsbyLog
+    "164010336", # QcloudAccessForTKERoleInKMSKeyInfo
+    "157585386", # QcloudAccessForTKERoleInCOSObject
+    "92631421",  # QcloudAccessForTKERoleInCost
+    "62665329",  # QcloudAccessForTKERoleInECVM
+    "34488263",  # QcloudAccessForTKERoleInOpsManagement
+    "29548861",  # QcloudAccessForTKERoleInCreatingCFSStorageclass
+    "142089923", # QcloudAccessForTKERoleInOIDCConfig
+    "9087631",   # QcloudAccessForTKERole
+    "450012"     # QcloudCVMFinanceAccess
+  ]
+}
+
+resource "tencentcloud_cam_role" "TKE_QCSRole" {
   count       = var.create_cam_strategy ? 1 : 0
   name        = "TKE_QSCRole"
   document    = <<EOF
 {
   "statement": [
     {
-      "action":"name/sts:AssumeRole",
+      "action":"sts:AssumeRole",
       "effect":"allow",
       "principal":{
         "service":"ccs.qcloud.com"
@@ -18,143 +34,39 @@ EOF
   description = "The current role is the TKE service role, which will access your other service resources within the scope of the permissions of the associated policy."
 }
 
-resource "tencentcloud_cam_policy" "OpsMgr" {
+resource "tencentcloud_cam_role_policy_attachment" "role_policies" {
+  count = var.create_cam_strategy ? length(local.tke_qcsrole_policies) : 0
 
-  count = var.create_cam_strategy ? 1 : 0
+  role_id   = lookup(tencentcloud_cam_role.TKE_QCSRole.0, "id")
+  policy_id = local.tke_qcsrole_policies[count.index]
 
-  name = "TF_QcloudAccessForTKERoleInOpsManagement"
+  depends_on = [ tencentcloud_cam_role.TKE_QCSRole ]
+}
+
+# IPAMDofTKE_QCSRole
+resource "tencentcloud_cam_role" "ipamd_role" {
+  count       = var.create_cam_strategy_ipamd ? 1 : 0
+
+  name          = "IPAMDofTKE_QCSRole"
+  console_login = false
+  description   = "TKE IPAMD permissions (including but not limited to): CVM (query CVM info); VPC (add/delete/query VPC ENI); Tag (create tags for ENIs and query ENI info via tags)."
   document = jsonencode({
-    "version" : "2.0",
-    "statement" : [
-      {
-        "action" : [
-          "cls:listTopic",
-          "cls:getTopic",
-          "cls:createTopic",
-          "cls:modifyTopic",
-          "cls:deleteTopic",
-          "cls:listLogset",
-          "cls:getLogset",
-          "cls:createLogset",
-          "cls:modifyLogset",
-          "cls:deleteLogset",
-          "cls:listMachineGroup",
-          "cls:getMachineGroup",
-          "cls:createMachineGroup",
-          "cls:modifyMachineGroup",
-          "cls:deleteMachineGroup",
-          "cls:getMachineStatus",
-          "cls:pushLog",
-          "cls:searchLog",
-          "cls:downloadLog",
-          "cls:getCursor",
-          "cls:getIndex",
-          "cls:modifyIndex",
-          "cls:agentHeartBeat",
-          "cls:CreateChart",
-          "cls:ModifyChart",
-          "cls:DeleteChart",
-          "cls:CreateDashboard",
-          "cls:ModifyDashboard",
-          "cls:DeleteDashboard",
-          "cls:GetChart",
-          "cls:ListChart",
-          "cls:ListDashboard",
-          "cls:GetDashboard",
-          "cls:getConfig",
-          "cls:CreateConfig",
-          "cls:DeleteConfig",
-          "cls:ModifyConfig",
-          "cls:DescribeConfigs",
-          "cls:DescribeMachineGroupConfigs",
-          "cls:DeleteConfigFromMachineGroup",
-          "cls:ApplyConfigToMachineGroup",
-          "cls:DescribeConfigMachineGroups",
-          "cls:ModifyTopic",
-          "cls:DeleteTopic",
-          "cls:CreateTopic",
-          "cls:DescribeTopics",
-          "cls:CreateLogset",
-          "cls:DeleteLogset",
-          "cls:DescribeLogsets",
-          "cls:CreateIndex",
-          "cls:ModifyIndex",
-          "cls:CreateMachineGroup",
-          "cls:DeleteMachineGroup",
-          "cls:DescribeMachineGroups",
-          "cls:ModifyMachineGroup"
-        ],
-        "resource" : ["*"],
-        "effect" : "allow"
-      }
-    ]
+    version = "2.0"
+    statement = [{
+      action    = "sts:AssumeRole"
+      effect    = "allow"
+      principal = { service = ["ccs.qcloud.com"] }
+    }]
   })
 }
 
-resource "tencentcloud_cam_policy" "QCA" {
-  count = var.create_cam_strategy ? 1 : 0
-
-  name = "TF_QcloudAccessForTKERole"
-  document = jsonencode({
-    "version" : "2.0",
-    "statement" : [
-      {
-        "action" : [
-          "cvm:DescribeInstances",
-          "tag:*",
-          "clb:*",
-          "tke:*", // Modify ccr:Describe* to tke
-          "cvm:*Cbs*",
-          "cls:pushLog",
-          "cls:searchLog",
-          "cls:listLogset",
-          "cls:getLogset",
-          "cls:listTopic",
-          "cls:getTopic",
-          "cls:agentHeartBeat",
-          "cls:getConfig",
-          "vpc:DescribeSubnet",
-          "vpc:DescribeSubnetEx",
-          "vpc:DescribeCcnAttachedInstances",
-          "cvm:AllocateAddresses",
-          "cvm:DescribeAddresses",
-          "vpc:DescribeNetworkInterfaces",
-          "cvm:AssociateAddress",
-          "cvm:DisassociateAddress",
-          "cvm:ReleaseAddresses",
-          "ssl:DescribeCertificateDetail",
-          "ssl:UploadCertificate",
-          "cvm:DescribeSnapshots",
-          "cvm:CreateSnapshot",
-          "cvm:DeleteSnapshot",
-          "cvm:BindAutoSnapshotPolicy",
-          "cvm:CreateSecurityGroupPolicy",
-          "cvm:DeleteSecurityGroupPolicy",
-          "cvm:DescribeSecurityGroupPolicys",
-          "vpc:DetachNetworkInterface",
-          "vpc:DeleteNetworkInterface",
-          "monitor:DescribeStatisticData",
-          "vpc:DescribeBandwidthPackages",
-          "cam:ListMaskedSubAccounts",
-          "cam:GetUserBasicInfo"
-        ],
-        "resource" : ["*"],
-        "effect" : "allow"
-      }
-    ]
-  })
+data "tencentcloud_cam_policies" "tke_ipamd_role" {
+  name = "QcloudAccessForIPAMDofTKERole"
 }
 
-resource "tencentcloud_cam_role_policy_attachment" "QCS_OpsMgr" {
-  count = var.create_cam_strategy ? 1 : 0
+resource "tencentcloud_cam_role_policy_attachment" "ipamd_tke" {
+  count = var.create_cam_strategy_ipamd ? 1 : 0
 
-  role_id   = lookup(tencentcloud_cam_role.TKE_QSCRole.0, "id")
-  policy_id = lookup(tencentcloud_cam_policy.OpsMgr.0, "id")
-}
-
-resource "tencentcloud_cam_role_policy_attachment" "QCS_QCA" {
-  count = var.create_cam_strategy ? 1 : 0
-
-  role_id   = lookup(tencentcloud_cam_role.TKE_QSCRole.0, "id")
-  policy_id = lookup(tencentcloud_cam_policy.QCA.0, "id")
+  role_id   = lookup(tencentcloud_cam_role.ipamd_role.0, "id")
+  policy_id = lookup(data.tencentcloud_cam_policies.tke_ipamd_role.policy_list.0, "policy_id")
 }

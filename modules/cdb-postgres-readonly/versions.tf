@@ -1,9 +1,10 @@
 terraform {
-  required_version = "~> 1.6"
+  required_version = ">= 0.12"
+
   required_providers {
     tencentcloud = {
       source  = "tencentcloudstack/tencentcloud"
-      version = ">=1.81.136"
+      version = ">= 1.60.18"
     }
   }
 }

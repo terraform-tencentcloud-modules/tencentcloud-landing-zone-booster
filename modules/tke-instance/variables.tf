@@ -1,19 +1,19 @@
 ################################################################################
 # resource: tencentcloud_kubernetes_cluster
 ################################################################################
-variable "create_cluster" {
-  type        = bool
-  default     = true
-  description = "create cluster or not. If not, must specify a cluster id"
-}
-
 variable "cluster_id" {
   type        = string
-  default     = ""
+  default     = null
   description = "existing cluster id, used when create_cluster is false"
 }
 
 variable "create_cam_strategy" {
+  type        = bool
+  default     = false
+  description = "Specify whether to create CAM role and relative TKE essential policy. Set to false if you've enable by using TencentCloud Console."
+}
+
+variable "create_cam_strategy_ipamd" {
   type        = bool
   default     = false
   description = "Specify whether to create CAM role and relative TKE essential policy. Set to false if you've enable by using TencentCloud Console."
@@ -311,24 +311,6 @@ variable "kubelet_root_dir" {
   type        = string
   default     = ""
   description = "Kubelet root directory as the literal."
-}
-
-variable "cluster_type" {
-  description = "The current cluster type supports tke and eks, default is tke."
-  type        = string
-  default     = "tke"
-}
-
-variable "log_config_name" {
-  description = "Log config name."
-  type        = string
-  default     = null
-}
-
-variable "logset_id" {
-  description = "CLS log set ID."
-  type        = string
-  default     = null
 }
 
 ################################################################################

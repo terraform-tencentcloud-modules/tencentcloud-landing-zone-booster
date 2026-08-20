@@ -3,7 +3,7 @@ variable "cluster_id" {
   description = "existing cluster id, used when create_cluster is false"
 }
 
-variable "native_node_pool" {
+variable "native_node_pools" {
   description = "Map of native node pool definitions to create. see `tencentcloud_kubernetes_native_node_pool`"
   type = list(object({
     name                = string # Node pool name.
@@ -170,7 +170,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool : alltrue([
+      for pool in var.native_node_pools : alltrue([
         for taint in pool.taints :taint.effect == null || contains([
           "NoSchedule",
           "PreferNoSchedule",
@@ -191,7 +191,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool : contains(["PREPAID", "POSTPAID_BY_HOUR"], pool.instance_charge_type)
+      for pool in var.native_node_pools : contains(["PREPAID", "POSTPAID_BY_HOUR"], pool.instance_charge_type)
     ])
     error_message = <<-EOT
       Invalid value for native.instance_charge_type. Valid values are:
@@ -205,7 +205,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool : contains([
+      for pool in var.native_node_pools : contains([
         "CLOUD_PREMIUM",
         "CLOUD_SSD",
         "CLOUD_BSSD",
@@ -226,7 +226,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool :
+      for pool in var.native_node_pools :
         pool.scaling == null ||
         pool.scaling.create_policy == null ||
         contains(["ZoneEquality", "ZonePriority"], pool.scaling.create_policy)
@@ -243,7 +243,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool :
+      for pool in var.native_node_pools :
         pool.instance_charge_prepaid == null ||
         contains([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 24, 36, 48, 60], pool.instance_charge_prepaid.period)
     ])
@@ -258,7 +258,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool :
+      for pool in var.native_node_pools :
       pool.instance_charge_prepaid == null ||
       pool.instance_charge_prepaid.renew_flag == null ||
       contains([
@@ -280,7 +280,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool :
+      for pool in var.native_node_pools :
       pool.internet_accessible == null ||
       contains([
         "TRAFFIC_POSTPAID_BY_HOUR",
@@ -301,7 +301,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool :
+      for pool in var.native_node_pools :
       pool.internet_accessible == null ||
       pool.internet_accessible.max_bandwidth_out >= 1
     ])
@@ -313,7 +313,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool :
+      for pool in var.native_node_pools :
       alltrue([
         for disk in pool.data_disks :
         contains([
@@ -342,7 +342,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool :
+      for pool in var.native_node_pools :
       pool.instance_charge_type != "PREPAID" ||
       pool.instance_charge_prepaid != null
     ])
@@ -354,7 +354,7 @@ variable "native_node_pool" {
   # -------------------------
   validation {
     condition = alltrue([
-      for pool in var.native_node_pool :
+      for pool in var.native_node_pools :
       pool.internet_accessible == null ||
       pool.internet_accessible.charge_type != "BANDWIDTH_PACKAGE" ||
       pool.internet_accessible.bandwidth_package_id != null

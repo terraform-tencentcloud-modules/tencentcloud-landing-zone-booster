@@ -1,3 +1,165 @@
+## August 20, 2026
+
+### Summary
+
+This release reorganizes security group and PostgreSQL modules, adds standalone SSH key and TCR modules, and expands the modular TKE stack with authorization and log configuration capabilities.
+
+- Added 8 new component, example, or module directories
+- Updated 13 existing Terraform files
+- Removed 10 legacy component, example, and module files
+- Affected CAM, networking, PostgreSQL, SSH key, TCR, and TKE capabilities
+
+### Added
+
+#### Security group component
+
+- Added `components/network/security-group/` as the dedicated security group component.
+- Added the corresponding example under `examples/components/network/security-group/`.
+- Replaces the abbreviated legacy `components/network/sg/` component path.
+
+#### PostgreSQL modules
+
+- Added `modules/cdb-postgres/` for primary TencentDB for PostgreSQL instance management.
+- Added `modules/cdb-postgres-readonly/` for PostgreSQL read-only instance management.
+- Separates primary and read-only database responsibilities into dedicated modules.
+
+#### SSH key module
+
+- Added `modules/ssh-key/` for standalone SSH key management.
+- Enables compute and TKE modules to consume SSH keys through a reusable module interface.
+
+#### TCR module
+
+- Added `modules/tcr/` for Tencent Container Registry resource management.
+- Provides a reusable module for container registry capabilities used by TKE workloads.
+
+#### TKE authorization module
+
+- Added `modules/tke-authz/` for standalone TKE authorization configuration.
+- Separates cluster authorization responsibilities from node instance management.
+
+#### TKE log configuration module
+
+- Added `modules/tke-log-config/` for standalone TKE log collection and delivery configuration.
+- Separates logging configuration from the core TKE cluster and node modules.
+
+### Changed
+
+#### CAM role module
+
+Updated the CAM role module implementation and interface:
+
+- `modules/cam-role/main.tf`
+- `modules/cam-role/variables.tf`
+- `modules/cam-role/outputs.tf`
+- `modules/cam-role/versions.tf`
+
+Consumers should review input variables, outputs, and provider constraints before upgrading.
+
+#### TKE cluster endpoint module
+
+Updated TKE cluster endpoint resource definitions and input variables:
+
+- `modules/tke-cluster-endpoint/main.tf`
+- `modules/tke-cluster-endpoint/variables.tf`
+
+Consumers should review endpoint access, network, and security-related arguments for compatibility.
+
+#### TKE instance module
+
+Updated TKE node instance and CAM integration:
+
+- `modules/tke-instance/cam.tf`
+- `modules/tke-instance/main.tf`
+- `modules/tke-instance/variables.tf`
+- `modules/tke-instance/outputs.tf`
+
+The changes align instance provisioning with the expanded TKE module structure, including standalone authorization and SSH key capabilities.
+
+#### TKE native node pool module
+
+Updated native node pool resource definitions, variables, and outputs:
+
+- `modules/tke-native-node-pool/main.tf`
+- `modules/tke-native-node-pool/variables.tf`
+- `modules/tke-native-node-pool/outputs.tf`
+
+Consumers should review node pool arguments and downstream output references before upgrading.
+
+### Removed
+
+#### Legacy security group component
+
+Removed `components/network/sg/`, including:
+
+- `README.md`
+- `main.tf`
+- `outputs.tf`
+- `variables.tf`
+- `versions.tf`
+
+Also removed the legacy example:
+
+- `examples/components/network/sg/main.tf`
+
+Use the new `components/network/security-group/` path and example instead.
+
+#### Legacy PostgreSQL instance module
+
+Removed `modules/cdb-postgres-instance/`, including:
+
+- `main.tf`
+- `variables.tf`
+- `outputs.tf`
+- `version.tf`
+
+Use the following modules instead:
+
+- `modules/cdb-postgres/` for primary PostgreSQL instances
+- `modules/cdb-postgres-readonly/` for read-only PostgreSQL instances
+
+### Breaking Changes
+
+> This refactoring changes component and module source paths and may also change variables, outputs, provider constraints, and Terraform resource addresses.
+
+- `components/network/sg` has been removed and replaced by `components/network/security-group`.
+- `modules/cdb-postgres-instance` has been removed and replaced by separate primary and read-only PostgreSQL modules.
+- Existing references to removed module outputs will fail until updated.
+- CAM role and TKE module interfaces may have changed.
+- TKE authorization and logging responsibilities may now require explicit standalone module declarations.
+- Moving existing resources to new module paths without Terraform state migration may cause unexpected resource destruction or recreation.
+
+### Migration Notes
+
+1. Replace references to `components/network/sg` with `components/network/security-group`.
+2. Update security group examples and documentation to use the new component path.
+3. Replace `modules/cdb-postgres-instance` with `modules/cdb-postgres` for primary instances.
+4. Use `modules/cdb-postgres-readonly` for read-only database instances.
+5. Compare old and new PostgreSQL variables and outputs before changing module sources.
+6. Review changes to `modules/cam-role`, including provider constraints and output names.
+7. Review TKE cluster endpoint, instance, and native node pool input and output changes.
+8. Add `modules/tke-authz` and `modules/tke-log-config` explicitly where authorization and logging are required.
+9. Adopt `modules/ssh-key` and `modules/tcr` where shared SSH key or container registry resources should be managed independently.
+10. Use Terraform `moved` blocks, `terraform state mv`, or resource imports when transferring existing resources to new module addresses.
+11. Run `terraform init -upgrade`, `terraform validate`, and `terraform plan` before applying the upgrade.
+
+### Validation Checklist
+
+- [ ] All security group component references use `components/network/security-group`
+- [ ] Security group examples use the new component path
+- [ ] PostgreSQL callers use the appropriate primary or read-only module
+- [ ] Existing PostgreSQL resources have been mapped to their new Terraform state addresses
+- [ ] CAM role consumers match the updated variables and outputs
+- [ ] TKE endpoint access settings remain correct
+- [ ] TKE instance and native node pool plans contain no unintended replacement
+- [ ] TKE authorization is configured through the intended module
+- [ ] TKE log collection and delivery are configured through the intended module
+- [ ] SSH keys and TCR resources are created only where required
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unintended resource destruction or recreation
+
+
 ## August 19, 2026
 
 ### Summary

@@ -1,37 +1,28 @@
-variable "name" {
-  description = "Name of CAM role"
-  type = string
+variable "cam_role" {
+  description = "Configuration for CAM role"
+  type = object({
+    name             = string                 # Name of the CAM role, must be unique
+    description      = optional(string)       # Description of the CAM role
+    document         = optional(string)       # Document of the CAM role
+    session_duration = optional(number, 7200) # Maximum validity period of the temporary key in seconds, default is 7200 (2 hours)
+    console_login    = optional(bool, false)  # Whether the role can be used to log in to the console, default is false
+    tags             = optional(map(string))  # Tags for resource classification and management
+  })
+  default = null
 }
 
-variable "description" {
-  description = "Description of CAM role"
-  type = string
-  default = ""
+variable "cam_policies" {
+  description = "Configuration for CAM policy"
+  type = list(object({
+    name        = string           # Name of the CAM policy, must be unique
+    description = optional(string) # Description of the CAM policy
+    document    = optional(string) # Document of the CAM policy
+  }))
+  default = null
 }
 
-variable "statement" {
-	description = "Statement of CAM role"
-	type = list(any)
-}
-
-variable "session_duration" {
-	description = "The maximum validity period of the temporary key for creating a role"
-	type = number
-	default = 7200
-}
-
-variable "tag" {
-	description = "A list of tags used to associate different resources"
-	type = map(string)
-	default = {}
-}
-
-variable "role_name" {
-  description = "Name of the attached CAM role"
-  type = string
-}
-
-variable "policy_name" {
-  description = "Name of the policy"
-  type = string
+variable "bind_policy_names" {
+  description = "Policy names of the attached CAM role"
+  type        = list(string)
+  default     = []
 }

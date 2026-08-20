@@ -16,6 +16,12 @@ variable "cluster_internet_domain" {
   description = "Domain name for cluster Kube-apiserver internet access. Be careful if you modify value of this parameter, the cluster_external_endpoint value may be changed automatically too"
 }
 
+variable "extensive_parameters" {
+  type        = string
+  default     = null
+  description = "Domain name for cluster Kube-apiserver internet access. Be careful if you modify value of this parameter, the cluster_external_endpoint value may be changed automatically too"
+}
+
 variable "cluster_security_group_id" {
   type        = string
   default     = null
