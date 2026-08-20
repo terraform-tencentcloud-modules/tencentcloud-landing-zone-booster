@@ -25,8 +25,8 @@ resource "tencentcloud_kubernetes_native_node_pool" "this" {
     system_disk {
       disk_type  = each.value.system_disk.disk_type
       disk_size  = each.value.system_disk.disk_size
-      #encrypt    = each.value.native.system_disk.encrypt
-      #kms_key_id = each.value.native.system_disk.kms_key_id
+      #encrypt    = each.value.system_disk.encrypt
+      #kms_key_id = each.value.system_disk.kms_key_id
     }
 
     dynamic data_disks {

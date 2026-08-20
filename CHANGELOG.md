@@ -2,6 +2,112 @@
 
 ### Summary
 
+This release enhances CloudAudit components with dedicated CAM permission configuration, updates container and TKE-related access policies, and adds standalone MongoDB and Redis Terraform modules.
+
+- Added 5 new files or module directories
+- Updated 9 existing Terraform files
+- Affected CloudAudit, CAM, TCR, TKE, MongoDB, and Redis capabilities
+
+### Added
+
+#### CloudAudit CAM configuration
+
+- Added `components/audit-log/cloud-audit/cam.tf` for component-level CloudAudit permission management.
+- Added `modules/cloudaudit-events-track/cam.tf` for CAM permissions required by CloudAudit event tracking.
+- Added `modules/cloudaudit-track/cam.tf` for CAM permissions required by CloudAudit tracking and log delivery.
+- Separates IAM authorization from the core CloudAudit resource definitions.
+
+#### MongoDB module
+
+- Added `modules/mongodb/` for standalone TencentDB for MongoDB provisioning and management.
+- Provides a reusable database module for application and Landing Zone deployments.
+
+#### Redis module
+
+- Added `modules/redis/` for standalone TencentDB for Redis provisioning and management.
+- Provides a reusable cache module for application and Landing Zone deployments.
+
+### Changed
+
+#### CloudAudit component
+
+Updated the CloudAudit component implementation and input interface:
+
+- `components/audit-log/cloud-audit/main.tf`
+- `components/audit-log/cloud-audit/variables.tf`
+
+The component is now aligned with the dedicated CAM configuration introduced in `cam.tf`.
+
+#### CloudAudit event tracking module
+
+Updated CloudAudit event tracking resources and variables:
+
+- `modules/cloudaudit-events-track/main.tf`
+- `modules/cloudaudit-events-track/variables.tf`
+
+The module now includes standalone CAM permission configuration.
+
+#### CloudAudit tracking module
+
+Updated CloudAudit tracking resources and variables:
+
+- `modules/cloudaudit-track/main.tf`
+- `modules/cloudaudit-track/variables.tf`
+
+The module now includes standalone CAM permission configuration for audit tracking and delivery workflows.
+
+#### TCR module
+
+- Updated `modules/tcr/cam.tf`.
+- Refined CAM policies or role assignments used by Tencent Container Registry resources.
+
+#### TKE instance module
+
+- Updated `modules/tke-instance/cam.tf`.
+- Refined CAM permissions used during TKE worker node provisioning and operation.
+
+#### TKE native node pool module
+
+- Updated `modules/tke-native-node-pool/main.tf`.
+- Aligned native node pool provisioning with the updated TKE and CAM module structure.
+
+### Compatibility Notes
+
+- CloudAudit consumers should review newly introduced CAM resources and permissions before applying the changes.
+- Existing manually managed CloudAudit roles or policies may overlap with the new Terraform-managed CAM resources.
+- TCR and TKE permission changes may update existing policies or attachments.
+- New MongoDB and Redis modules are additive and do not affect existing deployments unless explicitly referenced.
+
+### Migration Notes
+
+1. Review the new CloudAudit CAM resources and identify any equivalent permissions currently managed outside Terraform.
+2. Import existing CAM roles, policies, or attachments when necessary to avoid duplicate resources.
+3. Compare updated CloudAudit variables with existing component and module calls.
+4. Review TCR and TKE CAM policy changes for least-privilege compliance.
+5. Verify that TKE native node pool identities retain all permissions required for provisioning and operation.
+6. Adopt `modules/mongodb` and `modules/redis` only where the corresponding managed database services are required.
+7. Run `terraform init -upgrade`, `terraform validate`, and `terraform plan` before applying the changes.
+
+### Validation Checklist
+
+- [ ] CloudAudit tracking resources can assume or use the required CAM identities
+- [ ] CloudAudit logs and events are delivered to the intended destinations
+- [ ] No duplicate CAM roles, policies, or attachments are proposed
+- [ ] TCR operations retain the required permissions
+- [ ] TKE worker nodes retain the required CAM permissions
+- [ ] TKE native node pool changes do not trigger unintended replacement
+- [ ] MongoDB module inputs, outputs, encryption, networking, and access controls are validated
+- [ ] Redis module inputs, outputs, encryption, networking, and access controls are validated
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unintended resource destruction or privilege expansion
+
+
+
+## August 20, 2026
+
+### Summary
+
 This release reorganizes security group and PostgreSQL modules, adds standalone SSH key and TCR modules, and expands the modular TKE stack with authorization and log configuration capabilities.
 
 - Added 8 new component, example, or module directories

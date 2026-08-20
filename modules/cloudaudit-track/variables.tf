@@ -1,6 +1,12 @@
 ###############
 # Cloud Audit
 ###############
+variable "create_cam_strategy" {
+  type        = bool
+  default     = false
+  description = "Specify whether to create CAM role and relative essential policy. Set to false if you've enable by using TencentCloud Console."
+}
+
 variable "track_name" {
   type        = string
   default     = ""

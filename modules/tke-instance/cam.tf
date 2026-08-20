@@ -16,7 +16,7 @@ locals {
 
 resource "tencentcloud_cam_role" "TKE_QCSRole" {
   count       = var.create_cam_strategy ? 1 : 0
-  name        = "TKE_QSCRole"
+  name        = "TKE_QCSRole"
   document    = <<EOF
 {
   "statement": [
@@ -48,7 +48,6 @@ resource "tencentcloud_cam_role" "ipamd_role" {
   count       = var.create_cam_strategy_ipamd ? 1 : 0
 
   name          = "IPAMDofTKE_QCSRole"
-  console_login = false
   description   = "TKE IPAMD permissions (including but not limited to): CVM (query CVM info); VPC (add/delete/query VPC ENI); Tag (create tags for ENIs and query ENI info via tags)."
   document = jsonencode({
     version = "2.0"

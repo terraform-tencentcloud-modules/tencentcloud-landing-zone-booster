@@ -1,13 +1,7 @@
-# Get members information
-#data "tencentcloud_organization_members" "members" {}
-
 # Get user information
 data "tencentcloud_user_info" "info" {}
 
 locals {
-  policies  = [
-    "102693096", "18150187", "12031968", "1242979", "596170", "244869", "243334", "219851", "186457"]
-
   # user info
   app_id     = var.app_id != null ? var.app_id : data.tencentcloud_user_info.info.app_id
   account_id = var.account_id != null ? var.account_id : data.tencentcloud_user_info.info.uin
@@ -16,38 +10,6 @@ locals {
 
   # audit track storage policy
   region = var.cloudaudit_storage_region
-}
-
-resource "tencentcloud_cam_role" "role" {
-  name          = "CloudAudit_QCSRole"
-  document      = <<EOF
-  {
-    "version": "2.0",
-    "statement": [
-      {
-        "action": ["name/sts:AssumeRole"],
-        "effect": "allow",
-        "principal": {
-          "service": "cloudaudit.cloud.tencent.com"
-        }
-      }
-    ]
-  }
-  EOF
-  description   = "Cloud Audit permissions (including but not limited to): CAM(QcloudCamReadOnlyAccess );CVM(QcloudCVMReadOnlyAccess);VPC(QcloudVPCReadOnlyAccess);MySQL(QcloudCDBInnerReadOnlyAccess);CLB(QcloudCLBReadOnlyAccess);AS(QcloudASReadOnlyAccess);COS(QcloudCOSReadOnlyAccess,put bucket);CMQ(add/query queue); KMS(add/query key)."
-  console_login = true
-  tags          = var.tags
-}
-
-resource "tencentcloud_cam_role_policy_attachment" "role_policies" {
-  count = length(local.policies)
-
-  role_id   = tencentcloud_cam_role.role.id
-  policy_id = local.policies[count.index]
-
-  depends_on = [
-    tencentcloud_cam_role.role,
-  ]
 }
 
 resource "tencentcloud_audit_track" "track" {

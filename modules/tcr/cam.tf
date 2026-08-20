@@ -2,7 +2,6 @@ resource "tencentcloud_cam_role" "tcr_qcs_role" {
   count = var.create_cam_strategy ? 1 : 0
 
   name          = "TCR_QCSRole"
-  console_login = false
   description   = "TCR permissions (including but not limited to): COS (create bucket, read/write/delete/copy object, initiate multiple upload); VPC (query VPC and subnet)."
   document = jsonencode({
     version = "2.0"
