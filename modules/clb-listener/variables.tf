@@ -1,4 +1,23 @@
 ####################################################################
+# CHECK: Listener Certificate Configuration
+####################################################################
+locals {
+  has_certificate = var.certificate != null
+  has_multi_cert  = try(length(var.multi_cert_info), 0) > 0
+}
+
+check "listener_cert_required" {
+  assert {
+    condition = !(
+      (var.protocol == "TCP_SSL" || (var.protocol == "HTTPS" && !coalesce(var.certificate.sni_switch, false)))
+      && !local.has_certificate
+      && !local.has_multi_cert
+    )
+    error_message = "A TCP_SSL/HTTPS (SNI disabled) listener must specify either certificate or multi_cert_info."
+  }
+}
+
+####################################################################
 # CLB (Cloud Load Balancer) Listener Configuration
 ####################################################################
 variable "clb_id" {
@@ -61,6 +80,18 @@ variable "session_expire_time" {
   }
 }
 
+variable "keepalive_enable" {
+  description = "Whether to enable persistent connection (long connection). Only applicable to `HTTP`/`HTTPS` listeners. Valid values: `0` (disable, default), `1` (enable). This feature is currently in beta."
+  type        = number
+  default     = null
+}
+
+variable "snat_enable" {
+  description = "Whether to enable SNAT (source IP replacement). `true`: enable, `false`: disable (default). Note: when SNAT is enabled, the client source IP is replaced and the pass-through client source IP option is disabled, and vice versa."
+  type        = bool
+  default     = false
+}
+
 variable "certificate" {
   description = "SSL/TLS certificate configuration (required for HTTPS listeners)"
   type = object({
@@ -70,6 +101,25 @@ variable "certificate" {
     sni_switch = optional(bool)   # Indicates whether SNI is enabled, and only supported with protocol `HTTPS`. If enabled, you can set a certificate for each rule in `tencentcloud_clb_listener_rule`, otherwise all rules have a certificate.
   })
   default = null  # No certificate by default (only needed for HTTPS)
+  # ssl_mode
+  validation {
+    condition     = var.certificate == null || contains(["UNIDIRECTIONAL", "MUTUAL"], coalesce(var.certificate.ssl_mode, "UNIDIRECTIONAL"))
+    error_message = "certificate.ssl_mode only UNIDIRECTIONAL or MUTUAL。"
+  }
+  # MUTUAL(mTLS) must have cert_ca_id
+  validation {
+    condition     = var.certificate == null || var.certificate.ssl_mode != "MUTUAL" || var.certificate.cert_ca_id != null
+    error_message = "ssl_mode is MUTUAL，certificate.cert_ca_id must be specified"
+  }
+}
+
+variable "multi_cert_info" {
+  description = "Certificate information, supporting multiple server certificates with different algorithm types at the same time. Only applicable to `TCP_SSL` listeners and `HTTPS` listeners with SNI disabled. When creating a `TCP_SSL` listener or an `HTTPS` listener with SNI disabled, at least one of `certificate`/`multi_cert_info` must be specified, but they cannot be specified at the same time."
+  type = list(object({
+    ssl_mode     = optional(string, "UNIDIRECTIONAL") # Authentication type. Values: UNIDIRECTIONAL (one-way authentication), MUTUAL (two-way authentication).
+    cert_id_list = list(string) # List of server certificate ID.
+  }))
+  default = null
 }
 
 variable "health_check" {
@@ -119,9 +169,10 @@ variable "listener_rules" {
     url                 = string           # URL path pattern (default: root path)
     session_expire_time = optional(number) # Session persistence duration in seconds
     http2_switch        = optional(bool)   # Indicate to apply HTTP2.0 protocol or not.
-    scheduler           = optional(string, "WRR")         # Rule-specific traffic distribution
+    scheduler           = optional(string, "WRR")  # Rule-specific traffic distribution
     target_type         = optional(string, "NODE") # Backend reference method
-    forward_type        = optional(string, "HTTP")        # Forwarding protocol
+    forward_type        = optional(string, "HTTP") # Forwarding protocol
+    quic                = optional(bool, false)    # Whether to enable QUIC. Note: QUIC can be enabled only for HTTPS domain names.
 
     certificate = optional(object({
       ssl_mode   = optional(string) # Encryption mode: UNIDIRECTIONAL (server auth only) or MUTUAL (mTLS)

@@ -36,8 +36,8 @@ resource "tencentcloud_clb_instance" "instance" {
   delete_protect = var.delete_protect
   tags           = var.tags
   # vip
-  dynamic_vip = var.dynamic_vip
-  vip         = var.dynamic_vip == null ? var.vip : var.dynamic_vip ? null : var.vip
+  dynamic_vip = var.network_type == "OPEN" ? var.dynamic_vip : false
+  vip         = var.network_type == "OPEN" && try(var.dynamic_vip, false) ? null : var.vip
   # internet
   internet_charge_type       = var.network_type == "OPEN" ? var.internet_charge_type : null
   internet_bandwidth_max_out = var.network_type == "OPEN" ? var.internet_bandwidth_max_out : null
@@ -46,10 +46,13 @@ resource "tencentcloud_clb_instance" "instance" {
   # log
   log_set_id   = local.log_set_id
   log_topic_id = local.log_topic_id
+
   # sla
   sla_type        = var.sla_type
+
   # security groups
   security_groups = var.security_groups
+
   # snat
   snat_pro = var.snat_pro
   dynamic "snat_ips" {
@@ -59,6 +62,7 @@ resource "tencentcloud_clb_instance" "instance" {
       ip        = snat_ips.value.ip
     }
   }
+  
   # target config
   load_balancer_pass_to_target = var.enable_pass_to_target
   target_region_info_region    = var.target_region_info_region

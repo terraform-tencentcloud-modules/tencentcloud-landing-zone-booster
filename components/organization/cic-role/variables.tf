@@ -36,7 +36,7 @@ variable "role_assignments" {
     role_name            = string           # Role configuration name (must match role_config.role_name)
     principal_id         = string           # CIC user ID (u-******) or group ID (g-******)
     principal_type       = string           # Principal type: User or Group
-    target_account_name  = optional(string) # Target account name (will lookup UIN from organization members)
+    target_name          = optional(string) # Target account name (will lookup UIN from organization members)
     target_uin           = optional(number) # Target account UIN (required if target_account_name not provided)
     target_type          = string           # Target type: ManagerUin or MemberUin
     deprovision_strategy = optional(string) # DeprovisionForLastRoleAssignmentOnAccount or None (default)

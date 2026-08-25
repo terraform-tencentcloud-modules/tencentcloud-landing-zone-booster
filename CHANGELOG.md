@@ -1,3 +1,165 @@
+## August 25, 2026
+
+## Summary
+
+This release updates the CCN VPN, CIC Role, PostgreSQL, CLB, CVM, security, and authorization modules, refreshes Terraform/provider compatibility metadata across multiple modules, and introduces a standalone TDMQ Pulsar module.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Except for the previously reviewed CIC Role changes, exact input, output, resource behavior, and version constraint changes should be verified against the complete `git diff` before release.
+
+## Added
+
+### TDMQ Pulsar
+
+- Added a standalone `modules/tdmq-pulsar` module.
+- Introduced a dedicated module boundary for provisioning and managing Tencent Distributed Message Queue for Pulsar resources.
+- Enabled TDMQ Pulsar to be composed independently in Landing Zone and application infrastructure deployments.
+
+## Changed
+
+### CCN VPN Component
+
+- Updated the `components/network/ccn-vpn` resource implementation.
+- Revised the component input variables and exported outputs.
+- Aligned the CCN VPN component interface with the current modular network architecture.
+
+### CIC Role Component
+
+- Changed preset policy attachment instance keys from policy IDs to policy names:
+
+  ```text
+  <role_name>-<policy_id>
+  ```
+
+  becomes:
+
+  ```text
+  <role_name>-<policy_name>
+  ```
+
+- Renamed the role-assignment input field:
+
+  ```text
+  target_account_name -> target_name
+  ```
+
+- Updated organization member lookup and role assignment logic to use `target_name`.
+- Added the `cic_roles` output, exposing a map of CIC role configuration names to role configuration IDs.
+- Reformatted preset and custom policy attachment outputs for readability.
+
+### PostgreSQL Module
+
+- Updated the `modules/cdb-postgres` resource implementation and input interface.
+- Refreshed module version and provider compatibility metadata.
+- Prepared the module for updated PostgreSQL provisioning requirements.
+
+### CLB Modules
+
+- Updated CLB instance resource configuration and variables.
+- Updated CLB listener resource configuration and variables.
+- Updated CLB redirection behavior.
+- Aligned the CLB module interfaces with the current load-balancing resource model.
+
+### CVM Module
+
+- Updated the `modules/cvm-instance` input variable definitions.
+
+### Module Compatibility Metadata
+
+Updated Terraform/provider version constraints or compatibility metadata for:
+
+- CAM Role
+- TCR
+- TKE Authorization
+- Cloud Firewall address templates
+- Cloud Firewall edge firewall switches and policies
+- Cloud Firewall NAT instances, switches, and policies
+- Cloud Firewall VPC instances, switches, and policies
+- Cloud Firewall asset and route synchronization
+- WAF attack allowlist rules
+- WAF CC protection
+- WAF CLB domains and instances
+- WAF custom rules
+- WAF attack-log delivery configuration
+- WAF CKafka and CLS log-delivery flows
+- WAF SaaS domains, instances, and IP access control
+
+## Breaking Changes
+
+### CIC Role Assignment Input Rename
+
+The `role_assignments` object no longer uses `target_account_name`. Callers must rename it to `target_name`.
+
+Before:
+
+```hcl
+role_assignments = [
+  {
+    role_name           = "Administrator"
+    principal_id        = "u-example"
+    principal_type      = "User"
+    target_account_name = "production"
+    target_type         = "MemberUin"
+  }
+]
+```
+
+After:
+
+```hcl
+role_assignments = [
+  {
+    role_name      = "Administrator"
+    principal_id   = "u-example"
+    principal_type = "User"
+    target_name    = "production"
+    target_type    = "MemberUin"
+  }
+]
+```
+
+### CIC Preset Policy Attachment Keys
+
+Changing the Terraform `for_each` key from the preset policy ID to the policy name changes affected resource addresses. Without state migration, Terraform may plan to destroy and recreate existing policy attachment resources.
+
+Review the plan and migrate state where required:
+
+```bash
+terraform state mv \
+  'tencentcloud_identity_center_role_configuration_permission_policy_attachment.attachment["<role-name>-<policy-id>"]' \
+  'tencentcloud_identity_center_role_configuration_permission_policy_attachment.attachment["<role-name>-<policy-name>"]'
+```
+
+### Other Module Interfaces
+
+The CCN VPN, PostgreSQL, CLB, and CVM variable files have changed. Confirm whether any inputs were added, removed, renamed, or had their types/defaults changed before upgrading consumers.
+
+## Migration Notes
+
+1. Replace every CIC Role assignment field named `target_account_name` with `target_name`.
+2. Run `terraform plan` for CIC Role deployments and identify preset policy attachments whose resource addresses changed.
+3. Use `terraform state mv` for existing CIC policy attachments when the underlying attachment must be preserved.
+4. Review CCN VPN input/output references in all component callers.
+5. Review PostgreSQL, CLB, and CVM module calls against their updated variable definitions.
+6. Run `terraform init -upgrade` where module version constraints or provider requirements changed.
+7. Validate the new TDMQ Pulsar module in a non-production environment before adoption.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform init -upgrade` for affected stacks.
+- [ ] Run `terraform validate` for every changed module and component.
+- [ ] Confirm CIC Role callers use `target_name`.
+- [ ] Review CIC preset policy attachment state addresses.
+- [ ] Confirm the new `cic_roles` output is consumed correctly.
+- [ ] Verify CCN VPN inputs and outputs against existing Terragrunt dependencies.
+- [ ] Verify PostgreSQL provisioning and upgrade plans.
+- [ ] Verify CLB instance, listener, and redirection plans.
+- [ ] Verify provider version compatibility across CAM, CFW, TCR, TKE, and WAF modules.
+- [ ] Validate TDMQ Pulsar creation, outputs, and lifecycle behavior.
+- [ ] Review the final plan for unexpected replacement or deletion operations.
+
+
 ## August 20, 2026
 
 ### Summary

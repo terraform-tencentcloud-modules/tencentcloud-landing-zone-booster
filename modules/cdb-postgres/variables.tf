@@ -31,12 +31,14 @@ variable "postgres_instance" {
     project_id      = optional(number, 0)      # Project ID
 
     # backup plan
-    backup_plan = optional(list(object({
-      min_backup_start_time        = optional(string)       # Specify earliest backup start time, format hh:mm:ss
-      max_backup_start_time        = optional(string)       # Specify latest backup start time, format hh:mm:ss
-      base_backup_retention_period = optional(number)       # Specify days of the retention.
-      backup_period                = optional(list(string)) # List of backup period per week, available values: monday, tuesday, wednesday, thursday, friday, saturday, sunday. NOTE: At least specify two days.
-    })))
+    backup_plan = optional(object({
+      backup_period                = optional(set(string)) # Backup cycle, which means on which days each week the instance will be backed up. The parameter value should be the lowercase names of the days of the week.
+      backup_method                = optional(string) # Backup method. Valid values: physical (physical backup), logical (logical backup), snapshot (snapshot backup).
+      min_backup_start_time        = optional(string) # The earliest time to start a backup, format hh:mm:ss
+      max_backup_start_time        = optional(string) # The latest time to start a backup, format hh:mm:ss
+      base_backup_retention_period = optional(number) # Data backup retention period in days. Value range: [0, 30000).
+      log_backup_retention_period  = optional(number) # Log backup retention period in days. Value range: 7-1830.
+    }))
 
     need_support_tde = optional(number, 0)   # Whether to enable TDE. Default is 0.
     kms_key_id       = optional(string)      # KMS key ID.
@@ -44,22 +46,6 @@ variable "postgres_instance" {
     ssl_enable       = optional(bool, false) # Whether to enable SSL. Default is false.
     password_length  = optional(number, 32)  # Password length. Default is 64.
   })
-
-  validation {
-    condition = var.postgres_instance.backup_plan == null || alltrue([
-      for bp in var.postgres_instance.backup_plan : bp.backup_period == null || alltrue([
-        for day in bp.backup_period : contains(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"], day)
-      ])
-    ])
-    error_message = "backup_period must only contain valid values: monday, tuesday, wednesday, thursday, friday, saturday, sunday."
-  }
-
-  validation {
-    condition = var.postgres_instance.backup_plan == null || alltrue([
-      for bp in var.postgres_instance.backup_plan : bp.backup_period == null || length(bp.backup_period) >= 2
-    ])
-    error_message = "backup_period must contain at least 2 days."
-  }
 }
 
 variable "root_user" {
@@ -124,17 +110,14 @@ variable "random_password_min_numeric" {
   default     = 1
 }
 
-# variable "postgresql_parameters" {
-#   description = "PostgreSQL parameters"
-#   type = list(object({
-#     name  = string
-#     value = string
-#   }))
-#   default = {
-#     name  = "timezone"
-#     value = "UTC"
-#   }
-# }
+variable "postgresql_parameters" {
+  description = "PostgreSQL parameters"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = null
+}
 
 variable "users" {
   description = "Whether create custom user for database"

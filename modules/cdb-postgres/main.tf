@@ -36,16 +36,6 @@ resource "tencentcloud_postgresql_instance" "master" {
     zone = var.postgres_instance.standby_availability_zone
   }
 
-  dynamic "backup_plan" {
-    for_each = var.postgres_instance.backup_plan != null ? var.postgres_instance.backup_plan : []
-    content {
-      min_backup_start_time        = backup_plan.value.min_backup_start_time
-      max_backup_start_time        = backup_plan.value.max_backup_start_time
-      base_backup_retention_period = backup_plan.value.base_backup_retention_period
-      backup_period                = backup_plan.value.backup_period
-    }
-  }
-
   tags = var.tags
 }
 
@@ -120,17 +110,18 @@ resource "tencentcloud_ssm_secret_version" "v1" {
   })
 }
 
-# resource "tencentcloud_postgresql_parameters" "postgresql_parameters" {
-#   db_instance_id = tencentcloud_postgresql_instance.master.id
+resource "tencentcloud_postgresql_parameters" "postgresql_parameters" {
+  count = var.postgresql_parameters != null ? 1 : 0
 
-#   dynamic "param_list" {
-#     for_each = var.postgresql_parameters != null ? var.postgresql_parameters : []
-#     content {
-#       name           = param_list.value.name
-#       expected_value = param_list.value.value
-#     }
-#   }
-# }
+  db_instance_id = tencentcloud_postgresql_instance.master.id
+  dynamic "param_list" {
+    for_each = var.postgresql_parameters
+    content {
+      name           = param_list.value.name
+      expected_value = param_list.value.value
+    }
+  }
+}
 
 resource "tencentcloud_postgresql_account" "users" {
   for_each = { for idx, name in try(keys(var.users), []) :
@@ -144,4 +135,30 @@ resource "tencentcloud_postgresql_account" "users" {
   user_name      = each.key
   password       = try(length(each.value.password), 0) > 0 ? each.value.password : random_password.users[each.key].result
   type           = try(length(each.value.type), 0) > 0 ? each.value.type : "normal"
+}
+
+# resource "tencentcloud_postgresql_backup_plan" "plan" {
+#   for_each = var.postgres_instance.backup_plan != null ? var.postgres_instance.backup_plan : {}
+
+#   db_instance_id               = tencentcloud_postgresql_instance.master.id
+#   plan_name                    = each.value.plan_name
+#   backup_period_type           = each.value.period_type
+#   backup_period                = each.value.period
+#   min_backup_start_time        = each.value.min_backup_start_time
+#   max_backup_start_time        = each.value.max_backup_start_time
+#   base_backup_retention_period = each.value.base_backup_retention_period
+#   log_backup_retention_period  = each.value.log_backup_retention_period
+#   backup_method                = each.value.backup_method
+# }
+
+resource "tencentcloud_postgresql_backup_plan_config" "plan_config" {
+  count = var.postgres_instance.backup_plan != null ? 1 : 0
+
+  db_instance_id               = tencentcloud_postgresql_instance.master.id
+  backup_period                = var.postgres_instance.backup_plan.backup_period
+  backup_method                = var.postgres_instance.backup_plan.backup_method
+  min_backup_start_time        = var.postgres_instance.backup_plan.min_backup_start_time
+  max_backup_start_time        = var.postgres_instance.backup_plan.max_backup_start_time
+  base_backup_retention_period = var.postgres_instance.backup_plan.base_backup_retention_period
+  log_backup_retention_period  = var.postgres_instance.backup_plan.log_backup_retention_period
 }

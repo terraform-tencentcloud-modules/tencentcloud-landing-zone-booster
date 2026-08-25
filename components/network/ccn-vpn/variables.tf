@@ -70,229 +70,80 @@ variable "cdc_id" {
 ################################################################################
 # Customer Gateway Variables
 ################################################################################
-variable "customer_gateway_name" {
-  description = "(Required, String) Name of the customer gateway. The length of character is limited to 1-60."
-  type        = string
-}
-
-variable "customer_gateway_public_ip_address" {
-  description = "(Required, String, ForceNew) Public IP of the customer gateway."
-  type        = string
-}
-
-variable "customer_gateway_bgp_asn" {
-  description = "(Optional, Int) BGP ASN. Value range: 1 - 4294967295. Using BGP requires configuring ASN. 139341, 45090, and 58835 are not available."
-  type        = number
-  default     = null
-}
-
-variable "customer_gateway_tags" {
-  description = "(Optional, Map) A list of tags used to associate different resources."
-  type        = map(string)
-  default     = {}
+variable "customer_gateways" {
+  description = "(Optional, Map) Customer gateway configuration."
+  type = map(object({
+    name              = string                # (Required, String) Name of the customer gateway. The length of character is limited to 1-60.
+    public_ip_address = string                # (Required, String, ForceNew) Public IP of the customer gateway.
+    bgp_asn           = optional(number)      # (Optional, Int) BGP ASN. Value range: 1 - 4294967295. Using BGP requires configuring ASN. 139341, 45090, and 58835 are not available.
+    tags              = optional(map(string)) # (Optional, Map) A list of tags used to associate different resources.
+  }))
+  default = {}
 }
 
 ################################################################################
 # VPN Connection Variables
 ################################################################################
-variable "vpn_connection_name" {
-  description = "(Required, String) Name of the VPN connection. The length of character is limited to 1-60."
-  type        = string
-}
+variable "vpn_connections" {
+  description = "(Optional, Map) VPN connection configuration."
+  type = map(object({
+    # ── Required ──
+    name                  = string # (Required, String) Name of the VPN connection. The length of character is limited to 1-60.
+    pre_share_key         = string # (Required, String) Pre-shared key of the VPN connection.
+    customer_gateway_name = string # (Required, String) Name of the customer gateway.
 
-variable "vpn_connection_pre_share_key" {
-  description = "(Required, String) Pre-shared key of the VPN connection."
-  type        = string
-}
+    # ── Optional (Flat) ──
+    route_type                 = optional(string) # (Optional, String, ForceNew) Route type of the VPN connection. Valid value: STATIC, StaticRoute, Policy, Bgp.
+    negotiation_type           = optional(string) # (Optional, String) The default negotiation type is active. Optional values: active (active negotiation), passive (passive negotiation), flowTrigger (traffic negotiation).
+    dpd_enable                 = optional(number) # (Optional, Int) Specifies whether to enable DPD. Valid values: 0 (disable) and 1 (enable).
+    dpd_action                 = optional(string) # (Optional, String) The action after DPD timeout. Valid values: clear (disconnect) and restart (try again). It is valid when DpdEnable is 1.
+    dpd_timeout                = optional(number) # (Optional, Int) DPD timeout period.Valid value ranges: [30~60], Default: 30; unit: second. If the request is not responded within this period, the peer end is considered not exists. This parameter is valid when the value of DpdEnable is 1.
+    ike_proto_encry_algorithm  = optional(string) # (Optional, String) Proto encrypt algorithm of the IKE operation specification. Valid values: 3DES-CBC, AES-CBC-128, AES-CBC-192, AES-CBC-256, DES-CBC, SM4, AES128GCM128, AES192GCM128, AES256GCM128,AES128GCM128, AES192GCM128, AES256GCM128. Default value is 3DES-CBC.
+    ike_proto_authen_algorithm = optional(string) # (Optional, String) Proto authenticate algorithm of the IKE operation specification. Valid values: MD5, SHA, SHA-256. Default Value is MD5.
+    ike_local_identity         = optional(string) # (Optional, String) Local identity way of IKE operation specification. Valid values: ADDRESS, FQDN. Default value is ADDRESS.
+    ike_exchange_mode          = optional(string) # (Optional, String) Exchange mode of the IKE operation specification. Valid values: AGGRESSIVE, MAIN. Default value is MAIN.
+    ike_local_address          = optional(string) # (Optional, String) Local address of IKE operation specification, valid when ike_local_identity is ADDRESS, generally the value is public_ip_address of the related VPN gateway.
+    ike_remote_identity        = optional(string) # (Optional, String) Remote identity way of IKE operation specification. Valid values: ADDRESS, FQDN. Default value is ADDRESS.
+    ike_remote_address         = optional(string) # (Optional, String) Remote address of IKE operation specification, valid when ike_remote_identity is ADDRESS, generally the value is public_ip_address of the related customer gateway.
+    ike_dh_group_name          = optional(string) # (Optional, String) DH group name of the IKE operation specification. Valid values: GROUP1, GROUP2, GROUP5, GROUP14, GROUP24. Default value is GROUP1.
+    ike_sa_lifetime_seconds    = optional(number) # (Optional, Int) SA lifetime of the IKE operation specification, unit is second. The value ranges from 60 to 604800. Default value is 86400 seconds.
+    ike_local_fqdn_name        = optional(string) # (Optional, String) Local FQDN name of the IKE operation specification.
+    ike_remote_fqdn_name       = optional(string) # (Optional, String) Remote FQDN name of the IKE operation specification.
+    ike_version                = optional(string) # (Optional, String) Version of the IKE operation specification, values: IKEV1, IKEV2. Default value is IKEV1.
+    ipsec_encrypt_algorithm    = optional(string) # (Optional, String) Encrypt algorithm of the IPSEC operation specification. Valid values: 3DES-CBC, AES-CBC-128, AES-CBC-192, AES-CBC-256, DES-CBC, SM4, NULL, AES128GCM128, AES192GCM128, AES256GCM128. Default value is 3DES-CBC.
+    ipsec_integrity_algorithm  = optional(string) # (Optional, String) Integrity algorithm of the IPSEC operation specification. Valid values: SHA1, MD5, SHA-256. Default value is MD5.
+    ipsec_sa_lifetime_seconds  = optional(number) # (Optional, Int) SA lifetime of the IPSEC operation specification, unit is second. Valid value ranges: [180~604800]. Default value is 3600 seconds.
+    ipsec_pfs_dh_group         = optional(string) # (Optional, String) PFS DH group. Valid value: DH-GROUP1, DH-GROUP2, DH-GROUP5, DH-GROUP14, DH-GROUP24, NULL. Default value is NULL.
+    ipsec_sa_lifetime_traffic  = optional(number) # (Optional, Int) SA lifetime of the IPSEC operation specification, unit is KB. The value should not be less then 2560. Default value is 1843200.
+    enable_health_check        = optional(bool, false) # (Optional, Bool) Whether intra-tunnel health checks are supported.
+    health_check_local_ip      = optional(string) # (Optional, String) Health check the address of this terminal.
+    health_check_remote_ip     = optional(string) # (Optional, String) Health check peer address.
+    tags                       = optional(map(string), {}) # (Optional, Map) A list of tags used to associate different resources.
 
-variable "vpn_connection_route_type" {
-  description = "(Optional, String, ForceNew) Route type of the VPN connection. Valid value: STATIC, StaticRoute, Policy, Bgp."
-  type        = string
-  default     = null
-}
+    # (Optional, List, ForceNew) BGP config.
+    bgp_config = optional(list(object({
+      local_bgp_ip  = string
+      remote_bgp_ip = string
+      tunnel_cidr   = string
+    })), [])
 
-variable "vpn_connection_negotiation_type" {
-  description = "(Optional, String) The default negotiation type is active. Optional values: active (active negotiation), passive (passive negotiation), flowTrigger (traffic negotiation)."
-  type        = string
-  default     = null
-}
+    # (Optional, List) VPN channel health check configuration."
+    health_check_config = optional(object({
+      probe_interval  = optional(number)
+      probe_threshold = optional(number)
+      probe_timeout   = optional(number)
+      probe_type      = optional(string)
+    }))
 
-variable "vpn_connection_bgp_config" {
-  description = "(Optional, List, ForceNew) BGP config."
-  type = list(object({
-    local_bgp_ip  = string
-    remote_bgp_ip = string
-    tunnel_cidr   = string
+    # (Optional, Set) SPD policy group, 
+    # for example: {'10.0.0.5/24':['172.123.10.5/16']}, 10.0.0.5/24 is the vpc intranet segment, and 172.123.10.5/16 is the IDC network segment. 
+    # Users specify which network segments in the VPC can communicate with which network segments in your IDC.
+    security_group_policy = optional(set(object({
+      local_cidr_block  = string
+      remote_cidr_block = set(string)
+    })), [])
   }))
-  default = []
-}
-
-# DPD Settings
-variable "vpn_connection_dpd_enable" {
-  description = "(Optional, Int) Specifies whether to enable DPD. Valid values: 0 (disable) and 1 (enable)."
-  type        = number
-  default     = null
-}
-
-variable "vpn_connection_dpd_action" {
-  description = "(Optional, String) The action after DPD timeout. Valid values: clear (disconnect) and restart (try again). It is valid when DpdEnable is 1."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_dpd_timeout" {
-  description = "(Optional, Int) DPD timeout period.Valid value ranges: [30~60], Default: 30; unit: second. If the request is not responded within this period, the peer end is considered not exists. This parameter is valid when the value of DpdEnable is 1."
-  type        = number
-  default     = null
-}
-
-# IKE settings
-variable "vpn_connection_ike_proto_encry_algorithm" {
-  description = "(Optional, String) Proto encrypt algorithm of the IKE operation specification. Valid values: 3DES-CBC, AES-CBC-128, AES-CBC-192, AES-CBC-256, DES-CBC, SM4, AES128GCM128, AES192GCM128, AES256GCM128,AES128GCM128, AES192GCM128, AES256GCM128. Default value is 3DES-CBC."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_proto_authen_algorithm" {
-  description = "(Optional, String) Proto authenticate algorithm of the IKE operation specification. Valid values: MD5, SHA, SHA-256. Default Value is MD5."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_local_identity" {
-  description = "(Optional, String) Local identity way of IKE operation specification. Valid values: ADDRESS, FQDN. Default value is ADDRESS."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_exchange_mode" {
-  description = "(Optional, String) Exchange mode of the IKE operation specification. Valid values: AGGRESSIVE, MAIN. Default value is MAIN."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_local_address" {
-  description = "(Optional, String) Local address of IKE operation specification, valid when ike_local_identity is ADDRESS, generally the value is public_ip_address of the related VPN gateway."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_remote_identity" {
-  description = "(Optional, String) Remote identity way of IKE operation specification. Valid values: ADDRESS, FQDN. Default value is ADDRESS."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_remote_address" {
-  description = "(Optional, String) Remote address of IKE operation specification, valid when ike_remote_identity is ADDRESS, generally the value is public_ip_address of the related customer gateway."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_dh_group_name" {
-  description = "(Optional, String) DH group name of the IKE operation specification. Valid values: GROUP1, GROUP2, GROUP5, GROUP14, GROUP24. Default value is GROUP1."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_sa_lifetime_seconds" {
-  description = "(Optional, Int) SA lifetime of the IKE operation specification, unit is second. The value ranges from 60 to 604800. Default value is 86400 seconds."
-  type        = number
-  default     = null
-}
-
-variable "vpn_connection_ike_local_fqdn_name" {
-  description = "(Optional, String) Local FQDN name of the IKE operation specification."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_remote_fqdn_name" {
-  description = "(Optional, String) Remote FQDN name of the IKE operation specification."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ike_version" {
-  description = "(Optional, String) Version of the IKE operation specification, values: IKEV1, IKEV2. Default value is IKEV1."
-  type        = string
-  default     = null
-}
-
-# IPSEC setting
-variable "vpn_connection_ipsec_encrypt_algorithm" {
-  description = "(Optional, String) Encrypt algorithm of the IPSEC operation specification. Valid values: 3DES-CBC, AES-CBC-128, AES-CBC-192, AES-CBC-256, DES-CBC, SM4, NULL, AES128GCM128, AES192GCM128, AES256GCM128. Default value is 3DES-CBC."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ipsec_integrity_algorithm" {
-  description = "(Optional, String) Integrity algorithm of the IPSEC operation specification. Valid values: SHA1, MD5, SHA-256. Default value is MD5."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ipsec_sa_lifetime_seconds" {
-  description = "(Optional, Int) SA lifetime of the IPSEC operation specification, unit is second. Valid value ranges: [180~604800]. Default value is 3600 seconds."
-  type        = number
-  default     = null
-}
-
-variable "vpn_connection_ipsec_pfs_dh_group" {
-  description = "(Optional, String) PFS DH group. Valid value: DH-GROUP1, DH-GROUP2, DH-GROUP5, DH-GROUP14, DH-GROUP24, NULL. Default value is NULL."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_ipsec_sa_lifetime_traffic" {
-  description = "(Optional, Int) SA lifetime of the IPSEC operation specification, unit is KB. The value should not be less then 2560. Default value is 1843200."
-  type        = number
-  default     = null
-}
-
-# Health Check Setting
-variable "vpn_connection_enable_health_check" {
-  description = "(Optional, Bool) Whether intra-tunnel health checks are supported."
-  type        = bool
-  default     = false
-}
-
-variable "vpn_connection_health_check_local_ip" {
-  description = "(Optional, String) Health check the address of this terminal."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_health_check_remote_ip" {
-  description = "(Optional, String) Health check peer address."
-  type        = string
-  default     = null
-}
-
-variable "vpn_connection_health_check_config" {
-  description = "(Optional, List) VPN channel health check configuration."
-  type = object({
-    probe_interval  = optional(number)
-    probe_threshold = optional(number)
-    probe_timeout   = optional(number)
-    probe_type      = optional(string)
-  })
-  default = null
-}
-
-variable "vpn_connection_security_group_policy" {
-  description = "(Optional, Set) SPD policy group, for example: {'10.0.0.5/24':['172.123.10.5/16']}, 10.0.0.5/24 is the vpc intranet segment, and 172.123.10.5/16 is the IDC network segment. Users specify which network segments in the VPC can communicate with which network segments in your IDC."
-  type = set(object({
-    local_cidr_block  = string
-    remote_cidr_block = set(string)
-  }))
-  default = []
-}
-
-variable "vpn_connection_tags" {
-  description = "(Optional, Map) A list of tags used to associate different resources."
-  type        = map(string)
-  default     = {}
+  default = {}
 }
 
 ################################################################################

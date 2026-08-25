@@ -105,8 +105,8 @@ variable "system_disk_resize_online" {
 variable "data_disks" {
   description = "Settings for data disks."
   type = list(object({
-    data_disk_type               = string
-    data_disk_size               = number
+    data_disk_type               = optional(string)
+    data_disk_size               = optional(number)
     data_disk_name               = optional(string, null)
     data_disk_snapshot_id        = optional(string, null)
     data_disk_id                 = optional(string, null)

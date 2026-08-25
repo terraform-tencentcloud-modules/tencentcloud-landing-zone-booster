@@ -21,10 +21,12 @@ resource "tencentcloud_vpn_gateway" "vpn_gateway" {
 # Customer Gateway
 ################################################################################
 resource "tencentcloud_vpn_customer_gateway" "vpn_customer_gateway" {
-  name              = var.customer_gateway_name
-  public_ip_address = var.customer_gateway_public_ip_address
-  bgp_asn           = var.customer_gateway_bgp_asn
-  tags              = var.customer_gateway_tags
+  for_each = var.customer_gateways
+
+  name              = each.value.name
+  public_ip_address = each.value.public_ip_address
+  bgp_asn           = each.value.bgp_asn
+  tags              = each.value.tags
 
   lifecycle {
     ignore_changes = [
@@ -37,16 +39,18 @@ resource "tencentcloud_vpn_customer_gateway" "vpn_customer_gateway" {
 # VPN Connection
 ################################################################################
 resource "tencentcloud_vpn_connection" "vpn_connection" {
-  name                = var.vpn_connection_name
+  for_each = var.vpn_connections
+
   vpn_gateway_id      = tencentcloud_vpn_gateway.vpn_gateway.id
-  customer_gateway_id = tencentcloud_vpn_customer_gateway.vpn_customer_gateway.id
-  pre_share_key       = var.vpn_connection_pre_share_key
-  route_type          = var.vpn_connection_route_type
-  negotiation_type    = var.vpn_connection_negotiation_type
+  customer_gateway_id = tencentcloud_vpn_customer_gateway.vpn_customer_gateway[each.value.customer_gateway_name].id
+  name                = each.value.name
+  pre_share_key       = each.value.pre_share_key
+  route_type          = each.value.route_type
+  negotiation_type    = each.value.negotiation_type
 
   # BGP Configuration - Enabled when the route type is BGP
   dynamic "bgp_config" {
-    for_each = var.vpn_connection_route_type != null && var.vpn_connection_route_type == "Bgp" ? var.vpn_connection_bgp_config : []
+    for_each = each.value.route_type != null && each.value.route_type == "Bgp" ? each.value.bgp_config : []
     content {
       local_bgp_ip  = bgp_config.value.local_bgp_ip
       remote_bgp_ip = bgp_config.value.remote_bgp_ip
@@ -55,37 +59,37 @@ resource "tencentcloud_vpn_connection" "vpn_connection" {
   }
 
   # DPD Setting
-  dpd_enable  = var.vpn_connection_dpd_enable
-  dpd_action  = var.vpn_connection_dpd_action
-  dpd_timeout = var.vpn_connection_dpd_timeout
+  dpd_enable  = each.value.dpd_enable
+  dpd_action  = each.value.dpd_action
+  dpd_timeout = each.value.dpd_timeout
 
   # IKE setting
-  ike_proto_encry_algorithm  = var.vpn_connection_ike_proto_encry_algorithm
-  ike_proto_authen_algorithm = var.vpn_connection_ike_proto_authen_algorithm
-  ike_local_identity         = var.vpn_connection_ike_local_identity
-  ike_exchange_mode          = var.vpn_connection_ike_exchange_mode
-  ike_remote_identity        = var.vpn_connection_ike_remote_identity
-  ike_remote_address         = var.vpn_connection_ike_remote_address
-  ike_dh_group_name          = var.vpn_connection_ike_dh_group_name
-  ike_sa_lifetime_seconds    = var.vpn_connection_ike_sa_lifetime_seconds
-  ike_local_address          = var.vpn_connection_ike_local_identity != null && var.vpn_connection_ike_local_identity == "ADDRESS" ? tencentcloud_vpn_gateway.vpn_gateway.public_ip_address : null
-  ike_local_fqdn_name        = var.vpn_connection_ike_local_fqdn_name
-  ike_remote_fqdn_name       = var.vpn_connection_ike_remote_fqdn_name
-  ike_version                = var.vpn_connection_ike_version
+  ike_proto_encry_algorithm  = each.value.ike_proto_encry_algorithm
+  ike_proto_authen_algorithm = each.value.ike_proto_authen_algorithm
+  ike_local_identity         = each.value.ike_local_identity
+  ike_exchange_mode          = each.value.ike_exchange_mode
+  ike_remote_identity        = each.value.ike_remote_identity
+  ike_remote_address         = each.value.ike_remote_address
+  ike_dh_group_name          = each.value.ike_dh_group_name
+  ike_sa_lifetime_seconds    = each.value.ike_sa_lifetime_seconds
+  ike_local_address          = each.value.ike_local_identity != null && each.value.ike_local_identity == "ADDRESS" ? tencentcloud_vpn_gateway.vpn_gateway.public_ip_address : null
+  ike_local_fqdn_name        = each.value.ike_local_fqdn_name
+  ike_remote_fqdn_name       = each.value.ike_remote_fqdn_name
+  ike_version                = each.value.ike_version
 
   # IPSEC setting
-  ipsec_encrypt_algorithm   = var.vpn_connection_ipsec_encrypt_algorithm
-  ipsec_integrity_algorithm = var.vpn_connection_ipsec_integrity_algorithm
-  ipsec_sa_lifetime_seconds = var.vpn_connection_ipsec_sa_lifetime_seconds
-  ipsec_pfs_dh_group        = var.vpn_connection_ipsec_pfs_dh_group
-  ipsec_sa_lifetime_traffic = var.vpn_connection_ipsec_sa_lifetime_traffic
+  ipsec_encrypt_algorithm   = each.value.ipsec_encrypt_algorithm
+  ipsec_integrity_algorithm = each.value.ipsec_integrity_algorithm
+  ipsec_sa_lifetime_seconds = each.value.ipsec_sa_lifetime_seconds
+  ipsec_pfs_dh_group        = each.value.ipsec_pfs_dh_group
+  ipsec_sa_lifetime_traffic = each.value.ipsec_sa_lifetime_traffic
 
   # health check setting
-  enable_health_check    = var.vpn_connection_enable_health_check
-  health_check_local_ip  = var.vpn_connection_health_check_local_ip
-  health_check_remote_ip = var.vpn_connection_health_check_remote_ip
+  enable_health_check    = each.value.enable_health_check
+  health_check_local_ip  = each.value.health_check_local_ip
+  health_check_remote_ip = each.value.health_check_remote_ip
   dynamic "health_check_config" {
-    for_each = var.vpn_connection_health_check_config != null ? [var.vpn_connection_health_check_config] : []
+    for_each = each.value.health_check_config != null ? [each.value.health_check_config] : []
     content {
       probe_interval  = health_check_config.value.probe_interval
       probe_threshold = health_check_config.value.probe_threshold
@@ -96,20 +100,20 @@ resource "tencentcloud_vpn_connection" "vpn_connection" {
 
   # security_group_policy
   dynamic "security_group_policy" {
-    for_each = var.vpn_connection_security_group_policy
+    for_each = each.value.security_group_policy
     content {
       local_cidr_block  = security_group_policy.value.local_cidr_block
       remote_cidr_block = security_group_policy.value.remote_cidr_block
     }
   }
-  tags = var.vpn_connection_tags
+  tags = each.value.tags
 }
 
 ################################################################################
 # CCN Attachment
 ################################################################################
 resource "tencentcloud_ccn_attachment_v2" "ccn_vpn_attachment" {
-  ccn_uin         = var.ccn_uin != null ? var.ccn_uin : null
+  ccn_uin         = var.ccn_uin
   ccn_id          = var.attached_ccn_id
   instance_id     = tencentcloud_vpn_gateway.vpn_gateway.id
   instance_type   = "VPNGW"

@@ -154,8 +154,8 @@ variable "dynamic_vip" {
 
 variable "vip" {
   description = "Specifies the VIP for the application of a CLB instance. This parameter is optional. If you do not specify this parameter, the system automatically assigns a value for the parameter. IPv4 and IPv6 CLB instances support this parameter, but IPv6 NAT64 CLB instances do not."
-  default     = null
   type        = string
+  default     = null
 }
 
 variable "associate_endpoint" {

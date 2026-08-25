@@ -45,7 +45,7 @@ resource "tencentcloud_identity_center_role_configuration_permission_policy_atta
     for item in flatten([
       for role in var.role_config : [
         for policy_name in coalesce(role.preset_policy_names, []) : {
-          key         = "${role.role_name}-${local.preset_policies_by_name[policy_name]}"
+          key         = "${role.role_name}-${policy_name}"
           role_name   = role.role_name
           policy_id   = local.preset_policies_by_name[policy_name]
           policy_name = policy_name
@@ -88,13 +88,13 @@ resource "tencentcloud_identity_center_role_configuration_permission_custom_poli
 resource "tencentcloud_identity_center_role_assignment" "role_assignment" {
   for_each = {
     for item in var.role_assignments :
-    "${item.role_name}-${item.principal_id}-${coalesce(item.target_uin, local.org_members_map[item.target_account_name])}" => item
+    "${item.role_name}-${item.principal_id}-${coalesce(item.target_uin, local.org_members_map[item.target_name])}" => item
   }
 
   zone_id               = var.zone_id
   principal_id          = each.value.principal_id
   principal_type        = each.value.principal_type
-  target_uin            = coalesce(each.value.target_uin, local.org_members_map[each.value.target_account_name])
+  target_uin            = coalesce(each.value.target_uin, local.org_members_map[each.value.target_name])
   target_type           = each.value.target_type
   role_configuration_id = tencentcloud_identity_center_role_configuration.roles[each.value.role_name].role_configuration_id
   deprovision_strategy  = each.value.deprovision_strategy
