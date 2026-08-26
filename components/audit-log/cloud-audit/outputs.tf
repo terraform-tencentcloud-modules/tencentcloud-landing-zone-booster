@@ -16,7 +16,7 @@ output "logset_id" {
 }
 
 output "topic_id" {
-  value = var.cloudaudit_storage_type == "cls" ? tencentcloud_cls_topic.topic.id : null
+  value = var.cloudaudit_storage_type == "cls" ? tencentcloud_cls_topic.topic[0].id : null
 }
 
 output "index_id" {

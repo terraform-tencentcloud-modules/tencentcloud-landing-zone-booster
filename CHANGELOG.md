@@ -1,3 +1,155 @@
+## August 26, 2026
+
+## Summary
+
+This change refactors the CloudAudit component storage configuration, renames the audit account input to use Tencent Cloud UIN terminology, and updates CLS topic references for count-based resource addressing. It also removes the inline COS and CLS storage resource definitions from `main.tf`.
+
+> [!WARNING]
+> The supplied diff removes the COS bucket, COS bucket policy, CLS logset, CLS topic, and CLS index resources, but the CloudAudit track and outputs still reference several of those resources. Unless the resources were moved to other Terraform files that are not included in this diff, the component will fail validation with undeclared-resource errors.
+
+## Changed
+
+### CloudAudit account identifier
+
+- Renamed the component input variable:
+
+  ```text
+  account_id -> account_uin
+  ```
+
+- Updated `tencentcloud_audit_track.track.storage.storage_account_id` to use `var.account_uin` directly.
+- Removed the automatic fallback that previously resolved the current account UIN through `data.tencentcloud_user_info.info.uin`.
+- Retained automatic App ID resolution through `data.tencentcloud_user_info.info.app_id` when `app_id` is not provided.
+
+### CLS topic references
+
+- Updated the CloudAudit track storage reference from:
+
+  ```hcl
+  tencentcloud_cls_topic.topic.id
+  ```
+
+  to:
+
+  ```hcl
+  tencentcloud_cls_topic.topic[0].id
+  ```
+
+- Updated the `topic_id` output to use the same count-indexed CLS topic reference.
+
+### Resource dependencies
+
+- Removed `tencentcloud_cam_role_policy_attachment.role_policies` from the explicit CloudAudit track dependency list.
+- Retained dependencies on the CAM role and storage resources.
+
+### CAM role formatting
+
+- Reformatted the conditional CAM role `count` declaration without changing its behavior.
+
+## Removed
+
+The following inline storage resources were removed from `components/audit-log/cloud-audit/main.tf`:
+
+- `tencentcloud_cos_bucket.bucket`
+- `tencentcloud_cos_bucket_policy.cos_bucket_policy`
+- `tencentcloud_cls_logset.logset`
+- `tencentcloud_cls_topic.topic`
+- `tencentcloud_cls_index.index`
+
+The removed implementation previously managed:
+
+- COS bucket creation and lifecycle rules
+- CloudAudit COS bucket access policy
+- CLS logset and topic provisioning
+- CLS topic retention, partitioning, encryption, and tagging
+- CLS index rules for full-text, key-value, and tag fields
+
+## Breaking Changes
+
+### Input variable rename
+
+All callers must replace `account_id` with `account_uin`.
+
+Before:
+
+```hcl
+module "cloud_audit" {
+  source = "..."
+
+  account_id = "100000000001"
+}
+```
+
+After:
+
+```hcl
+module "cloud_audit" {
+  source = "..."
+
+  account_uin = "100000000001"
+}
+```
+
+### Account UIN is no longer resolved automatically
+
+The previous implementation used the current Tencent Cloud account UIN when `account_id` was not provided. The updated implementation passes `var.account_uin` directly to `storage_account_id`.
+
+Callers must now explicitly provide a valid account UIN unless the provider resource accepts a null value for the selected storage configuration.
+
+### Storage resource ownership
+
+The component no longer defines its COS and CLS storage resources in `main.tf`. If this removal is intentional, storage resources must be provisioned elsewhere and the component interface must accept their identifiers instead of referencing local resources.
+
+Existing Terraform state for removed resources may otherwise be planned for destruction. Review the plan before applying and migrate state if resource ownership is moving to dedicated modules.
+
+## Release Blocker
+
+Based only on the supplied diff, the following references remain after their resource declarations were removed:
+
+```hcl
+tencentcloud_cos_bucket.bucket
+tencentcloud_cls_logset.logset
+tencentcloud_cls_topic.topic
+tencentcloud_cls_index.index
+```
+
+Affected locations include:
+
+- CloudAudit track `storage_name`
+- CloudAudit track `depends_on`
+- `topic_id` output
+- Potentially the existing `bucket_id`, `logset_id`, and `index_id` outputs
+
+Before merging, confirm one of the following:
+
+1. These resources were moved to other `.tf` files in the same component; or
+2. The remaining references and outputs will be replaced with module inputs or dedicated storage module outputs.
+
+## Migration Notes
+
+1. Rename `account_id` to `account_uin` in all Terraform and Terragrunt callers.
+2. Explicitly provide the Tencent Cloud account UIN used by CloudAudit storage.
+3. Confirm whether COS and CLS resources were moved to separate files or dedicated modules.
+4. If storage ownership is moving, add the required bucket, logset, topic, and index IDs as component inputs.
+5. Use `terraform state mv` to transfer existing resources to their new module addresses when applicable.
+6. Run `terraform plan` and verify that no COS bucket, bucket policy, CLS logset, topic, or index is unintentionally destroyed.
+7. Confirm that count-indexed references such as `topic[0].id` match the final CLS resource declaration.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform validate` for the CloudAudit component.
+- [ ] Confirm no undeclared resource references remain.
+- [ ] Confirm all callers use `account_uin` instead of `account_id`.
+- [ ] Verify that `account_uin` is supplied for COS and CLS storage scenarios.
+- [ ] Verify CLS topic count/index behavior.
+- [ ] Verify CloudAudit delivery to COS.
+- [ ] Verify CloudAudit delivery to CLS.
+- [ ] Review output expressions for bucket, logset, topic, and index IDs.
+- [ ] Review the Terraform plan for unintended storage resource destruction.
+- [ ] Migrate Terraform state before applying if storage resources were moved.
+
+
 ## August 25, 2026
 
 ## Summary

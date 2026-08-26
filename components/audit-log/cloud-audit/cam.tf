@@ -13,7 +13,8 @@ locals {
 }
 
 resource "tencentcloud_cam_role" "role" {
-  count    = var.create_cam_strategy ? 1 : 0
+  count = var.create_cam_strategy ? 1 : 0
+  
   name     = "CloudAudit_QCSRole"
   document = <<EOF
   {
