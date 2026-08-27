@@ -13,9 +13,17 @@ locals {
   }
 }
 
-resource "tencentcloud_config_recorder_config" "config" {
-  status = var.config_enabled
-}
+# resource "tencentcloud_config_recorder_config" "config" {
+#   status = var.config_enabled
+#   resource_types = [
+#     "QCS::CAM::Group",
+#     "QCS::CAM::Role",
+#     "QCS::CAM::Policy",
+#     "QCS::CAM::User",
+#     "QCS::CVM::Instance",
+#     "QCS::COS::Bucket",
+#   ]
+# }
 
 resource "tencentcloud_config_deliver_config" "this" {
   status               = var.deliver_enabled ? 1 : 0
