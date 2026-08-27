@@ -21,11 +21,10 @@ module "cam_role" {
   principal = {
     type         = 1
     account_uin  = "10000000234"
-    #account_name = "member_test"
     #service_name = "scf.qcloud.com"
   }
   cam_policy = {
-    pre_policies    = ["ReadOnlyAccess"]
+    preset_policies = ["ReadOnlyAccess"]
     custom_policies = [
       {
         name     = "test_user_assume_policy"

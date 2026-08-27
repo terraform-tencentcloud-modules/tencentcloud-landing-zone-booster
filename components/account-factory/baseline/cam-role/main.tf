@@ -1,26 +1,12 @@
 # read all pre policies
 data "tencentcloud_cam_policies" "all" {}
-# read current user info
-data "tencentcloud_user_info" "info" {}
-# Get members information
-data "tencentcloud_organization_members" "members" {}
-# Get user by name
-data "tencentcloud_cam_users" "user" {
-  count = var.principal.account_name != null && var.principal.account_name != "" ? 1 : 0
-
-  name = var.principal.account_name
-}
 
 locals {
   policy_map = { for policy in data.tencentcloud_cam_policies.all.policy_list : policy.name => policy.policy_id }
-  # members map
-  org_members = {
-    for m in data.tencentcloud_organization_members.members.items : m.name => m.member_uin
-  }
 
   user_policies = concat(
     [
-      for policy_name in try(var.cam_policy.pre_policies, []) : {
+      for policy_name in try(var.cam_policy.preset_policies, []) : {
         policy_name = policy_name
         policy_id   = lookup(local.policy_map, policy_name, 0)
       }
@@ -32,10 +18,6 @@ locals {
       }
     ],
   )
-
-  user_uin   = try(local.org_members[var.principal.account_name], null) != null ? local.org_members[var.principal.account_name] : try(data.tencentcloud_cam_users.user[0].user_list[0].uin, null)
-  accunt_uin = local.user_uin == null ? data.tencentcloud_user_info.info.owner_uin : local.user_uin
-  uin = (var.principal.account_uin != null && var.principal.account_uin != "") ? var.principal.account_uin : local.accunt_uin
 }
 
 resource "tencentcloud_cam_role" "role" {
@@ -52,7 +34,7 @@ resource "tencentcloud_cam_role" "role" {
           effect = "allow"
           principal = {
             var.principal.type == 1 ? "qcs" : "service" = [
-              var.principal.type == 1 ? "qcs::cam::uin/${local.uin}:root" : var.principal.service_name
+              var.principal.type == 1 ? "qcs::cam::uin/${var.principal.account_uin}:root" : var.principal.service_name
             ]
           }
         },

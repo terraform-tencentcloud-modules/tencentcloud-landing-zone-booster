@@ -27,7 +27,6 @@ variable "principal" {
 	type = object({
     type         = number # Role principal type, 1 - Account, 2 - Service
     account_uin  = optional(string) # Account UIN
-    account_name = optional(string) # Account Name
     service_name = optional(string) # Service name
   })
 }
@@ -43,9 +42,9 @@ variable "cam_policy" {
   description = "CAM policy configurations"
   type = object({
     # predefined policies
-    pre_policies = optional(list(string), [])
+    preset_policies = optional(list(string), [])
     
-    # 多个策略配置
+    # custom policies
     custom_policies = optional(list(object({
       name        = string
       document    = string
