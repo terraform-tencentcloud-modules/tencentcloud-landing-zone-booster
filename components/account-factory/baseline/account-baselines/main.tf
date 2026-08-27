@@ -40,6 +40,11 @@ locals {
       item.member_uin != null ? item.member_uin : local.org_members[item.member_name]
   ]
 
+  member_uin_chunks = [
+    for i in range(0, length(local.member_uin_list), 10) :
+    slice(local.member_uin_list, i, min(i + 10, length(local.member_uin_list)))
+  ]
+
   # get all region
   region_list = {
     for region in data.tencentcloud_regions.regions.region_list : region.region => region.region_id_m_c
@@ -178,9 +183,12 @@ resource "tencentcloud_controlcenter_account_factory_baseline_config" "this" {
 }
 
 resource "tencentcloud_batch_apply_account_baselines" "baselines" {
-  count = length(local.member_uin_list) > 0 ? 1 : 0
+  #count = length(local.member_uin_list) > 0 ? 1 : 0
+  #member_uin_list = local.member_uin_list
 
-  member_uin_list = local.member_uin_list
+  for_each = { for i, chunk in local.member_uin_chunks : i => chunk }
+
+  member_uin_list = each.value
 
   dynamic "baseline_config_items" {
     for_each = [ for item in local.baseline_items : { identifier = item.identifier, configuration = item.configuration} ]
