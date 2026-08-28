@@ -1,3 +1,9 @@
+variable "create_cam_strategy" {
+  type        = bool
+  default     = false
+  description = "Specify whether to create CAM role and relative TKE essential policy. Set to false if you've enable by using TencentCloud Console."
+}
+
 variable "baseline_name" {
   description = "(Required, String) Baseline name, which must be unique. Supports only English letters, numbers, Chinese characters, and symbols @, &, _, [], -. Combination of 1-25 Chinese or English characters."
   type        = string

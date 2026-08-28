@@ -353,4 +353,16 @@ variable "cls_rules" {
     })), [])
   }))
   default = []
+
+  validation {
+    condition     = length(var.cls_rules) <= 1
+    error_message = "Only 1 rule is allowed."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.cls_rules : (length(rule.full_text) <= 1) && (length(rule.key_value) <= 1) && (length(rule.tag) <= 1) && (length(rule.dynamic_index) <= 1)
+    ])
+    error_message = "Only 1 rule.* is allowed."
+  }
 }

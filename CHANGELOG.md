@@ -1,3 +1,149 @@
+## August 28, 2026
+
+## Summary
+
+This release refactors Control Center service-linked role handling for account baselines and improves CLS index-rule configuration for CloudAudit and Config components. CLS rule sections are now optional, dynamic indexing is supported, and validation prevents unsupported duplicate rule blocks.
+
+> [!WARNING]
+> In the supplied diff, `modules/controlcenter-account-baseline-config/main.tf` removes the declaration of `tencentcloud_cam_service_linked_role.cc_role` but retains it in `depends_on`. Confirm that the resource was moved to another `.tf` file in the module. Otherwise, `terraform validate` will fail with an undeclared-resource error.
+
+## Added
+
+### Account baseline CAM strategy control
+
+Added the following variable to both the Account Baselines component and the Control Center account baseline module:
+
+```hcl
+variable "create_cam_strategy" {
+  type        = bool
+  default     = false
+  description = "Specify whether to create CAM role and relative TKE essential policy. Set to false if you've enable by using TencentCloud Console."
+}
+```
+
+This input is intended to control whether the required CAM role or strategy is created automatically instead of assuming that the component always owns the service-linked role.
+
+### CLS dynamic indexing
+
+Added `dynamic_index` support to the CloudAudit CLS index-rule schema:
+
+```hcl
+dynamic_index = optional(list(object({
+  status = bool
+})), [])
+```
+
+This allows callers to configure the CLS automatic key-value indexing switch.
+
+### CLS rule validation
+
+Added validation to the CloudAudit and Config components to enforce Tencent Cloud CLS rule cardinality constraints:
+
+- A maximum of one top-level `cls_rules` entry.
+- A maximum of one `full_text` block per rule.
+- A maximum of one `key_value` block per rule.
+- A maximum of one `tag` block per rule.
+- A maximum of one `dynamic_index` block per rule.
+
+Invalid configurations now fail during Terraform input validation instead of failing later during provider execution.
+
+## Changed
+
+### Account Baselines component
+
+- Removed the inline lookup of `ControlCenter_QCSLinkedRoleInAccountsEntMng` from `components/account-factory/baseline/account-baselines/main.tf`.
+- Removed inline creation of the Control Center service-linked role from the component's main resource file.
+- Added `create_cam_strategy` with a default value of `false`.
+- Prepared CAM role ownership to be controlled explicitly or implemented separately from the baseline resource logic.
+
+### Control Center account baseline module
+
+- Removed the CAM role lookup and service-linked role declaration from `modules/controlcenter-account-baseline-config/main.tf`.
+- Removed the local `role_list` used to conditionally create the role.
+- Added the `create_cam_strategy` input with a default value of `false`.
+- Simplified the baseline resource dependency formatting.
+
+### CloudAudit CLS index rules
+
+Refactored `cls_rules` so that each index section is optional and defaults to an empty list:
+
+- `full_text`
+- `key_value`
+- `tag`
+- Nested `key_values`
+- Nested field `value` definitions
+
+The following nested field attributes are now optional:
+
+- `tokenizer`
+- `sql_flag`
+- `contain_z_h`
+
+Descriptions and inline comments were expanded to document supported field types, delimiters, SQL analysis, Chinese character handling, and CLS metadata behavior.
+
+### Config CLS index rules
+
+Added the same top-level and nested rule-count validation used by the CloudAudit component, keeping CLS index behavior consistent across both audit components.
+
+## Compatibility
+
+### CLS configuration
+
+The CLS schema change is backward compatible for valid existing configurations because previously required blocks remain accepted. Callers can now omit unused index sections and optional nested properties.
+
+Configurations containing multiple top-level rules or repeated index sections will now fail variable validation. These configurations should be consolidated into one supported CLS rule definition.
+
+### CAM role behavior
+
+The new `create_cam_strategy` variable defaults to `false`, which may change deployment behavior if service-linked role creation is moved behind this flag. Deployments that rely on Terraform to create the Control Center role should explicitly enable the option after confirming its implementation.
+
+## Potential Release Blockers
+
+### Remaining undeclared CAM role dependency
+
+The supplied module diff retains:
+
+```hcl
+depends_on = [tencentcloud_cam_service_linked_role.cc_role]
+```
+
+while removing that resource from `main.tf`. Before release, confirm that `cc_role` exists in another Terraform file. If it does not, either restore/create the resource or remove the stale dependency.
+
+### Unused `create_cam_strategy` input
+
+The supplied diff adds `create_cam_strategy`, but no usage of the variable is visible. Confirm that another file uses it to conditionally create the required CAM resource. Otherwise, the input has no effect and should not be advertised as functional.
+
+### Variable description mismatch
+
+The `create_cam_strategy` description refers to a “TKE essential policy,” while the affected resources relate to the Control Center account baseline service-linked role. Update the description if this wording was copied from a TKE module.
+
+## Migration Notes
+
+1. Determine whether the Control Center service-linked role is managed by Terraform or enabled through the Tencent Cloud Console.
+2. If Terraform should manage it, set `create_cam_strategy = true` after confirming that the variable controls an actual CAM resource.
+3. If the role is externally managed, leave `create_cam_strategy = false` and verify that `ControlCenter_QCSLinkedRoleInAccountsEntMng` already exists.
+4. Consolidate CLS configurations so `cls_rules` contains no more than one rule object.
+5. Ensure each rule contains no more than one `full_text`, `key_value`, `tag`, and `dynamic_index` block.
+6. Remove empty CLS sections where appropriate; they can now be omitted.
+7. Review `terraform plan` for unexpected CAM role deletion or baseline dependency changes.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform validate` for both account baseline layers.
+- [ ] Confirm `tencentcloud_cam_service_linked_role.cc_role` is declared in the module.
+- [ ] Confirm `create_cam_strategy` is used by a resource or module call.
+- [ ] Correct the TKE-specific wording in the CAM strategy variable description.
+- [ ] Verify baseline creation when the Control Center service-linked role already exists.
+- [ ] Verify baseline creation when Terraform must create the required role.
+- [ ] Validate CloudAudit with only a full-text index.
+- [ ] Validate CloudAudit with key-value and tag indexes.
+- [ ] Validate CloudAudit dynamic indexing.
+- [ ] Confirm multiple rule blocks are rejected with clear validation errors.
+- [ ] Validate the Config component with the updated CLS constraints.
+- [ ] Review the final plan for unintended role or baseline replacement.
+
+
 ## August 26, 2026
 
 ## Summary

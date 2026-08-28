@@ -264,38 +264,58 @@ variable "cls_metadata_flag" {
   default     = 0
 }
 
+# index rules
 variable "cls_rules" {
   description = "Index rule."
   type = set(object({
-    full_text = list(object({
-      case_sensitive = bool
-      tokenizer = string
-      contain_z_h = bool
-    }))
-    key_value = list(object({
-      case_sensitive=bool
-      key_values=list(object({
-        key = string
-        value=list(object({
-          type = string
-          tokenizer=string
-          sql_flag=bool
-          contain_z_h=bool
-        }))
-      }))
-    }))
-    tag = list(object({
-      case_sensitive=bool
-      key_values=list(object({
-        key = string
-        value=list(object({
-          type = string
-          tokenizer=string
-          sql_flag=bool
-          contain_z_h=bool
-        }))
-      }))
-    }))
+    # Full-Text index configuration.
+    full_text = optional(list(object({
+      case_sensitive = bool   # Case sensitive.
+      tokenizer      = string # Full-Text index delimiter. Each character in the string represents a delimiter.
+      contain_z_h    = bool   # Whether Chinese characters are contained.
+    })), [])
+    # Key-Value index configuration.
+    key_value = optional(list(object({
+      case_sensitive = bool # Case sensitivity.
+      key_values     = optional(list(object({
+        key   = string                 # When a key value or metafield index needs to be configured for a field, the metafield Key does not need to be prefixed with __TAG__. and is consistent with the one when logs are uploaded. __TAG__. will be prefixed automatically for display in the console.
+        value = optional(list(object({ # Field index description information.
+          type        = string           # Field type. Valid values: long, text, double.
+          tokenizer   = optional(string) # Field delimiter, which is meaningful only if the field type is text. Each character in the entered string represents a delimiter.
+          sql_flag    = optional(bool)   # Whether the analysis feature is enabled for the field.
+          contain_z_h = optional(bool)   # Whether Chinese characters are contained.
+        })), [])
+      })), [])
+    })), [])
+    # Tag index configuration.
+    tag = optional(list(object({
+      case_sensitive = bool                   # Case sensitivity.
+      key_values     = optional(list(object({ # Key-Value pair information of the index to be created. Up to 100 key-value pairs can be configured.
+        key   = string        # When a key value or metafield index needs to be configured for a field, the metafield Key does not need to be prefixed with __TAG__. and is consistent with the one when logs are uploaded. __TAG__. will be prefixed automatically for display in the console.
+        value = optional(list(object({ # Field index description information.
+          type        = string           # Field type. Valid values: long, text, double.
+          tokenizer   = optional(string) # Field delimiter, which is meaningful only if the field type is text. Each character in the entered string represents a delimiter.
+          sql_flag    = optional(bool)   # Whether the analysis feature is enabled for the field.
+          contain_z_h = optional(bool)   # Whether Chinese characters are contained.
+        })), [])
+      })), [])
+    })), [])
+    # The key value index is automatically configured. If it is empty, it means that the function is not enabled.
+    dynamic_index = optional(list(object({
+      status = bool # index automatic configuration switch.
+    })), [])
   }))
   default = []
+
+  validation {
+    condition     = length(var.cls_rules) <= 1
+    error_message = "Only 1 rule is allowed."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.cls_rules : (length(rule.full_text) <= 1) && (length(rule.key_value) <= 1) && (length(rule.tag) <= 1) && (length(rule.dynamic_index) <= 1)
+    ])
+    error_message = "Only 1 rule.* is allowed."
+  }
 }

@@ -6,22 +6,7 @@ data "tencentcloud_regions" "regions" {
   product = "vpc"
 }
 
-data "tencentcloud_cam_roles" "ccrole" {
-  name = "ControlCenter_QCSLinkedRoleInAccountsEntMng"
-}
-
-resource "tencentcloud_cam_service_linked_role" "cc_role" {
-  count = length(local.role_list) == 0 ? 1 : 0
-
-  qcs_service_name = ["accountsentmng.controlcenter.cloud.tencent.com"]
-  description      = "The current role is the ControlCenter service linked role, which will access your other service resources within the scope of the permissions of the associated policy."
-  tags             = {CreatedBy = "Terraform"}
-}
-
 locals {
-  # get all roles
-  role_list = data.tencentcloud_cam_roles.ccrole.role_list
-
   baseline_identifier_password       = "TCC-AF_CAM_USER_PASSWORD_POLICY"
   baseline_identifier_security       = "TCC-AF_CAM_USER_SECURITY"
   baseline_identifier_contact        = "TCC-AF_ACCOUNT_CONTACT"

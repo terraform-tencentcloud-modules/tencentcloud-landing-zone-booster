@@ -1,3 +1,9 @@
+variable "create_cam_strategy" {
+  type        = bool
+  default     = false
+  description = "Specify whether to create CAM role and relative TKE essential policy. Set to false if you've enable by using TencentCloud Console."
+}
+
 variable "baseline_name" {
   description = "Baseline name"
   type        = string
