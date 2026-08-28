@@ -38,6 +38,8 @@ resource "tencentcloud_subnet" "subnet" {
 # CCN attachment
 ################################################################################
 resource "tencentcloud_ccn_attachment_v2" "attachment" {
+  count = var.ccn_id != null ? 1 : 0
+
   ccn_uin         = var.ccn_uin
   ccn_id          = var.ccn_id
   instance_id     = tencentcloud_vpc.vpc.id
