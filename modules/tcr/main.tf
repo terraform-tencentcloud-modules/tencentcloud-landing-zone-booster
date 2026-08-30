@@ -21,6 +21,12 @@ resource "tencentcloud_tcr_instance" "registry" {
   }
 
   tags = var.tags
+
+  depends_on = [
+    tencentcloud_cam_role.tcr_qcs_role,
+    tencentcloud_cam_role_policy_attachment.attachment_tcr,
+    tencentcloud_cam_role_policy_attachment.attachment_tcr_in_ssl
+  ]
 }
 
 resource "tencentcloud_tcr_vpc_attachment" "vpc_attachmen" {
