@@ -1,3 +1,97 @@
+## September 01, 2026
+
+## Summary
+
+This release updates the TencentDB for MySQL primary instance module and introduces a dedicated read-only instance module. The change separates primary and read-only database provisioning responsibilities, enabling read-only capacity to be managed and scaled independently.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resource behavior, input variables, outputs, defaults, and provider constraints should be verified against the complete `git diff` before release.
+
+## Added
+
+### TencentDB for MySQL read-only module
+
+- Added a standalone `modules/cdb-mysql-readonly` module.
+- Introduced a dedicated module boundary for provisioning and managing TencentDB for MySQL read-only instances.
+- Enabled read-only capacity to be configured independently from the primary database instance.
+- Prepared the database module structure for read scaling and primary/read-only topology management.
+
+## Changed
+
+### TencentDB for MySQL primary instance module
+
+Updated `modules/cdb-mysql-instance` across the following files:
+
+- `main.tf` — resource implementation and provisioning behavior.
+- `variables.tf` — module input interface.
+- `output.tf` — exported resource attributes.
+- `version.tf` — Terraform or Tencent Cloud provider compatibility constraints.
+
+The primary instance module is being aligned with the new separation of responsibilities between primary and read-only database resources.
+
+## Architecture
+
+The MySQL module structure is now divided by database role:
+
+```text
+modules/
+├── cdb-mysql-instance/   # Primary TencentDB for MySQL instance
+└── cdb-mysql-readonly/   # Read-only TencentDB for MySQL instance
+```
+
+This design allows callers to:
+
+- Provision a primary instance independently.
+- Add or remove read-only instances without changing ownership of the primary instance.
+- Scale read capacity separately from write capacity.
+- Manage primary and read-only lifecycle settings through dedicated Terraform modules.
+
+## Compatibility
+
+The addition of `cdb-mysql-readonly` is backward compatible by itself. However, changes to the existing `cdb-mysql-instance` resource, variables, outputs, or version constraints may affect current callers.
+
+Before upgrading, verify whether the primary module includes any:
+
+- Renamed, added, or removed input variables.
+- Changed variable types or default values.
+- Renamed or removed outputs.
+- Resource address changes.
+- Changes to instance lifecycle or replacement behavior.
+- Updated Terraform or Tencent Cloud provider requirements.
+
+## Migration Notes
+
+1. Review the full diff for `modules/cdb-mysql-instance` and update existing module calls for any interface changes.
+2. Continue managing the primary database through `cdb-mysql-instance`.
+3. Use `cdb-mysql-readonly` for new read-only database instances.
+4. Pass the required primary instance identifier and networking configuration to the read-only module.
+5. If existing read-only resources are being moved from the primary module, migrate their Terraform state before applying:
+
+   ```bash
+   terraform state mv \
+     '<old-resource-address>' \
+     'module.<readonly-module-name>.<new-resource-address>'
+   ```
+
+6. Run `terraform init -upgrade` if module provider constraints changed.
+7. Review `terraform plan` for unintended primary instance replacement, read-only instance recreation, or output changes.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform init -upgrade` for affected stacks.
+- [ ] Run `terraform validate` for both MySQL modules.
+- [ ] Verify primary instance creation and update behavior.
+- [ ] Verify read-only instance creation against an existing primary instance.
+- [ ] Confirm VPC, subnet, security group, and availability-zone compatibility.
+- [ ] Confirm database engine and version compatibility between primary and read-only instances.
+- [ ] Verify the read-only instance outputs required by downstream modules.
+- [ ] Check whether primary module outputs were renamed or removed.
+- [ ] Review the plan for unexpected database replacement or deletion.
+- [ ] Test application read connectivity and read/write endpoint usage.
+- [ ] Validate deletion protection, backup, and lifecycle settings where applicable.
+
+
 ## August 28, 2026
 
 ## Summary

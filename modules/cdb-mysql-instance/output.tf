@@ -3,7 +3,7 @@
 #################
 output "db_instance_id" {
   description = "The instance id of mysql."
-  value       = var.instance_id == "" ? tencentcloud_mysql_instance.this.0.id : var.instance_id
+  value       = local.instance_id
 }
 
 output "gtid" {
@@ -78,12 +78,4 @@ output "account_passwords" {
 output "mysql_privilege_ids" {
   description = "The id list of created resource tencentcloud_mysql_privilege."
   value       = { for k, p in tencentcloud_mysql_privilege.this: k => p.id }
-}
-
-#################
-# MySQL readonly instance
-#################
-output "mysql_readonly_instance_ids" {
-  description = "The id list of created resource tencentcloud_mysql_readonly_instance"
-  value       = try(tencentcloud_mysql_readonly_instance.this.*.id, [])
 }

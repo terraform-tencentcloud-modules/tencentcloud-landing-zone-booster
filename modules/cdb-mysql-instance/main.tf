@@ -1,5 +1,5 @@
 locals {
-  instance_id = var.instance_id == "" ? tencentcloud_mysql_instance.this.0.id : var.instance_id
+  instance_id = var.instance_id == null ? tencentcloud_mysql_instance.this.0.id : var.instance_id
   root_password = var.root_password == null || var.root_password == "" ? random_password.root.result : var.root_password
   databases = { for db in var.databases: db.db_name => db }
   accounts = {for account in var.mysql_accounts: account.name => account }
@@ -27,69 +27,84 @@ resource "random_password" "accounts" {
 }
 
 resource "tencentcloud_mysql_instance" "this" {
-  count = var.instance_id == "" ? 1 : 0
+  count = var.instance_id == null ? 1 : 0
 
-  # basic config
-  instance_name     = var.instance_name
-  cpu               = var.cpu_count
-  mem_size          = var.mem_size
-  volume_size       = var.volume_size
-  tags              = var.tags
-  availability_zone = var.availability_zone
-  engine_version    = var.engine_version
-  project_id        = var.project_id
-  root_password     = local.root_password
-  security_groups   = var.security_groups
-  parameters        = var.parameters
-  device_type       = var.device_type
+  # ---------------- Required ----------------
+  instance_name = var.instance_name
+  cpu           = var.cpu_cores
+  mem_size      = var.mem_size
+  volume_size   = var.volume_size
 
-  # payment configuration
-  charge_type     = var.charge_type
+  # ---------------- Billing ----------------
+  charge_type     = var.charge_type      # ForceNew
   prepaid_period  = var.prepaid_period
   auto_renew_flag = var.auto_renew_flag
-  force_delete    = var.force_delete
 
-  # network configuration
-  internet_service = var.internet_service
+  # ---------------- Engine ----------------
+  engine_version     = var.engine_version
+  engine_type        = var.engine_type
+  parameters         = var.parameters
+  upgrade_subversion = var.upgrade_subversion
+  max_deay_time      = var.max_deay_time
+
+  # ---------------- Network ----------------
   intranet_port    = var.intranet_port
-  subnet_id        = var.subnet_id
+  internet_service = var.internet_service
   vpc_id           = var.vpc_id
+  subnet_id        = var.subnet_id
+  security_groups  = var.security_groups
 
-  # slave configuration
+  # ---------------- Spec ----------------
+  param_template_id = var.param_template_id
+  fast_upgrade     = var.fast_upgrade
+  device_type      = var.device_type
+  disk_type        = var.disk_type # ForceNew
+
+  # ---------------- HA / Zone ----------------
+  availability_zone = var.availability_zone
+  slave_deploy_mode = var.slave_deploy_mode
   first_slave_zone  = var.first_slave_zone
   second_slave_zone = var.second_slave_zone
-  slave_deploy_mode = var.slave_deploy_mode
   slave_sync_mode   = var.slave_sync_mode
+
+  # ---------------- Credentials ----------------
+  # sensitive: Read-only/disaster recovery instances must not be set
+  root_password = local.root_password       
+
+  # ---------------- Behavior ----------------
+  tags            = var.tags
+  force_delete    = var.force_delete
+  wait_switch     = var.wait_switch
+  destroy_protect = var.destroy_protect
+  project_id      = var.project_id
+
+  # ---------------- Cluster Edition topology ----------------
+  dynamic "cluster_topology" {
+    for_each = var.cluster_topology
+    content {
+      dynamic "read_write_node" {
+        for_each = cluster_topology.value.read_write_node != null ? [cluster_topology.value.read_write_node] : []
+        content {
+          zone    = read_write_node.value.zone
+          node_id = read_write_node.value.node_id
+        }
+      }
+      dynamic "read_only_nodes" {
+        for_each = cluster_topology.value.read_only_nodes != null ? cluster_topology.value.read_only_nodes : []
+        content {
+          is_random_zone = read_only_nodes.value.is_random_zone
+          zone           = read_only_nodes.value.zone
+          node_id        = read_only_nodes.value.node_id
+        }
+      }
+    }
+  }
 
   lifecycle {
     ignore_changes = [
       root_password
     ]
   }
-}
-
-resource "tencentcloud_mysql_readonly_instance" "this" {
-  count = length(var.readonly_instances)
-
-  master_instance_id = local.instance_id
-  master_region      = var.readonly_instances[count.index].master_region
-  instance_name      = format("%s_readonly", var.readonly_instances[count.index].instance_name)
-  cpu                = lookup(var.readonly_instances[count.index], "cpu_count", var.cpu_count)
-  mem_size           = lookup(var.readonly_instances[count.index], "mem_size", var.mem_size)
-  volume_size        = lookup(var.readonly_instances[count.index], "volume_size", var.volume_size)
-  device_type        = lookup(var.readonly_instances[count.index], "device_type", var.device_type)
-  charge_type        = lookup(var.readonly_instances[count.index], "charge_type", var.charge_type)
-  intranet_port      = lookup(var.readonly_instances[count.index], "intranet_port", var.intranet_port)
-  prepaid_period     = lookup(var.readonly_instances[count.index], "prepaid_period", var.prepaid_period)
-  slave_deploy_mode  = lookup(var.readonly_instances[count.index], "slave_deploy_mode", var.slave_deploy_mode)
-  security_groups    = lookup(var.readonly_instances[count.index], "security_groups", var.security_groups)
-  zone               = lookup(var.readonly_instances[count.index], "zone", var.availability_zone)
-  subnet_id          = lookup(var.readonly_instances[count.index], "subnet_id", var.subnet_id)
-  vpc_id             = lookup(var.readonly_instances[count.index], "vpc_id", var.vpc_id)
-  ro_group_id        = lookup(var.readonly_instances[count.index], "ro_group_id", null)
-  auto_renew_flag    = lookup(var.readonly_instances[count.index], "auto_renew_flag", var.auto_renew_flag)
-  force_delete       = lookup(var.readonly_instances[count.index], "force_delete", var.force_delete)
-  tags               = lookup(var.readonly_instances[count.index], "tags", var.tags)
 }
 
 resource "tencentcloud_mysql_backup_policy" "this" {

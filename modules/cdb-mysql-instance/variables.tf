@@ -1,70 +1,144 @@
-##################################################
-# resource: tencentcloud_mysql_instance
-##################################################
+# ============================================================
+# TencentDB for MySQL instance variables
+# Source: tencentcloud_mysql_instance provider schema
+# Deprecated excluded: pay_type, period  -> use charge_type / prepaid_period
+# ============================================================
 variable "instance_id" {
   description = "The id of a mysql instance."
   type        = string
-  default     = ""
+  default     = null
 }
 
+variable "project_id" {
+  description = "Project ID. Default 0."
+  type        = number
+  default     = 0
+}
+
+# ---------------- Required ----------------
 variable "instance_name" {
-  description = "The name of a mysql instance."
+  description = "The name of a MySQL instance."
   type        = string
-  default     = ""
+  validation {
+    condition     = length(var.instance_name) >= 1 && length(var.instance_name) <= 100
+    error_message = "instance_name must be 1-100 characters."
+  }
+}
+
+variable "cpu_cores" {
+  description = "CPU cores. Computed if omitted."
+  type        = number
+  default     = null
 }
 
 variable "mem_size" {
   description = "Memory size (in MB)."
   type        = number
-  default     = 1000
 }
 
 variable "volume_size" {
   description = "Disk size (in GB)."
   type        = number
-  default     = 200
 }
 
-variable "cpu_count" {
-  description = "Cpu cores."
+# ---------------- Billing ----------------
+variable "charge_type" {
+  description = "Pay type. Valid values: PREPAID, POSTPAID. ForceNew."
+  type        = string
+  default     = "POSTPAID"
+  validation {
+    condition     = contains(["PREPAID", "POSTPAID"], var.charge_type)
+    error_message = "charge_type must be PREPAID or POSTPAID."
+  }
+}
+
+variable "prepaid_period" {
+  description = "Period (months). Only for PREPAID. Default 1."
   type        = number
-  default     = 2
+  default     = 1
+  validation {
+    condition     = contains([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 24, 36], var.prepaid_period)
+    error_message = "prepaid_period must be in 1-12, 24, 36."
+  }
 }
 
-variable "device_type" {
-  description = "Device type."
+variable "auto_renew_flag" {
+  description = "Auto renew flag (0/1). Only for PREPAID."
+  type        = number
+  default     = 0
+  validation {
+    condition     = contains([0, 1], var.auto_renew_flag)
+    error_message = "auto_renew_flag must be 0 or 1."
+  }
+}
+
+# ---------------- Zone / HA ----------------
+variable "availability_zone" {
+  description = "Availability zone to use."
   type        = string
-  default     = "UNIVERSAL"
-}
-
-variable "tags" {
-  description = "Instance tags."
-  type        = map(string)
-  default     = {}
-}
-
-variable "engine_version" {
-  description = "The version number of the database engine to use. Supported versions include 5.5/5.6/5.7, and default is 5.7."
-  type        = string
-  default     = "5.7"
+  default     = null
 }
 
 variable "root_password" {
-  description = "Password of root account. This parameter can be specified when you purchase master instances, but it should be ignored when you purchase read-only instances or disaster recovery instances."
+  description = "Root account password. Sensitive. Ignore for read-only/disaster recovery instances."
   type        = string
-  default     = ""
+  sensitive   = true
+  default     = null
 }
 
-variable "availability_zone" {
-  description = "Indicates which availability zone will be used."
-  type        = string
-  default     = "ap-guangzhou-2"
-}
-
-variable "project_id" {
-  description = "Project ID, default value is 0."
+variable "slave_deploy_mode" {
+  description = "AZ deploy mode. 0 - Single AZ; 1 - Multiple AZ. Not supported for readonly instances."
   type        = number
   default     = 0
+  validation {
+    condition     = contains([0, 1], var.slave_deploy_mode)
+    error_message = "slave_deploy_mode must be 0 or 1."
+  }
+}
+
+variable "first_slave_zone" {
+  description = "Zone of the first slave instance."
+  type        = string
+  default     = null
+}
+
+variable "second_slave_zone" {
+  description = "Zone of the second slave instance."
+  type        = string
+  default     = null
+}
+
+variable "slave_sync_mode" {
+  description = "Data replication mode. 0 - Async; 1 - Semisync; 2 - Strongsync."
+  type        = number
+  default     = 0
+  validation {
+    condition     = contains([0, 1, 2], var.slave_sync_mode)
+    error_message = "slave_sync_mode must be 0, 1 or 2."
+  }
+}
+
+# ---------------- Network ----------------
+variable "intranet_port" {
+  description = "Intranet access port, range [1024-65535]. Default 3306."
+  type        = number
+  default     = 3306
+  validation {
+    condition     = var.intranet_port >= 1024 && var.intranet_port <= 65535
+    error_message = "intranet_port must be between 1024 and 65535."
+  }
+}
+
+variable "vpc_id" {
+  description = "ID of VPC. Can be modified once per 24h, cannot be removed."
+  type        = string
+  default     = null
+}
+
+variable "subnet_id" {
+  description = "Private network ID. Required when vpc_id is set."
+  type        = string
+  default     = null
 }
 
 variable "security_groups" {
@@ -73,113 +147,140 @@ variable "security_groups" {
   default     = []
 }
 
-variable "parameters" {
-  description = "List of parameters to use."
-  type        = map(string)
-  default     = {}
-}
-
-# MySQL instance net configuration
-variable "internet_service" {
-  description = "Indicates whether to enable the access to an instance from public network: 0 - No, 1 - Yes."
+# ---------------- Spec ----------------
+variable "param_template_id" {
+  description = "Specify parameter template id."
   type        = number
-  default     = 0
+  default     = null
 }
 
-variable "intranet_port" {
-  description = "Public access port, rang form 1024 to 65535 and default value is 3306."
+variable "fast_upgrade" {
+  description = "Fast upgrade on spec change. 1 enabled, 0 disabled."
   type        = number
-  default     = 3306
+  default     = null
 }
 
-variable "vpc_id" {
-  description = "ID of VPC, which can be modified once every 24 hours and can't be removed."
+variable "device_type" {
+  description = "Device type: UNIVERSAL (default), EXCLUSIVE, BASIC_V2, CLOUD_NATIVE_CLUSTER, CLOUD_NATIVE_CLUSTER_EXCLUSIVE."
   type        = string
-  default     = ""
+  default     = null
+  validation {
+    condition     = var.device_type == null || contains(["UNIVERSAL", "EXCLUSIVE", "BASIC_V2", "CLOUD_NATIVE_CLUSTER", "CLOUD_NATIVE_CLUSTER_EXCLUSIVE"], var.device_type)
+    error_message = "Invalid device_type."
+  }
 }
 
-variable "subnet_id" {
-  description = "Private network ID. If vpc_id is set, this value is required."
+variable "disk_type" {
+  description = "Disk type (ForceNew): CLOUD_SSD, CLOUD_HSSD, CLOUD_PREMIUM."
   type        = string
-  default     = ""
+  default     = null
+  validation {
+    condition     = var.disk_type == null || contains(["CLOUD_SSD", "CLOUD_HSSD", "CLOUD_PREMIUM"], var.disk_type)
+    error_message = "Invalid disk_type."
+  }
 }
 
-# MySQL instance payment configuration
-variable "charge_type" {
-  description = "Pay type of instance, valid values are PREPAID, POSTPAID. Default is POSTPAID."
-  type        = string
-  default     = "POSTPAID"
-}
-
-variable "prepaid_period" {
-  description = "Period of instance. NOTES: Only supported prepaid instance."
-  default     = 1
-}
-
-variable "auto_renew_flag" {
-  description = "Auto renew flag. NOTES: Only supported prepaid instance."
-  type        = number
-  default     = 0
-}
-
+# ---------------- Behavior ----------------
 variable "force_delete" {
-  description = "Indicate whether to delete instance directly or not. Default is false. If set true, the instance will be deleted instead of staying recycle bin. Note: only works for PREPAID instance. When the main mysql instance set true, this para of the readonly mysql instance will not take effect."
+  description = "Force delete directly (skip recycle bin). Only for PREPAID."
   type        = bool
   default     = false
 }
 
-# MySQL instance slave configuration
-variable "first_slave_zone" {
-  description = "Zone information about first slave instance."
-  type        = string
-  default     = ""
-}
-
-variable "second_slave_zone" {
-  description = "Zone information about second slave instance."
-  type        = string
-  default     = ""
-}
-
-variable "slave_deploy_mode" {
-  description = "Availability zone deployment method. Available values: 0 - Single availability zone; 1 - Multiple availability zones."
+variable "wait_switch" {
+  description = "Switch method to new instance. 0 immediate, 1 in time window."
   type        = number
   default     = 0
+  validation {
+    condition     = contains([0, 1], var.wait_switch)
+    error_message = "wait_switch must be 0 or 1."
+  }
 }
 
-variable "slave_sync_mode" {
-  description = "Data replication mode. 0 - Async replication; 1 - Semisync replication; 2 - Strongsync replication."
-  type        = number
-  default     = 0
+variable "destroy_protect" {
+  description = "Destroy protection status: on (enable), off (disable)."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.destroy_protect == null || contains(["on", "off"], var.destroy_protect)
+    error_message = "destroy_protect must be on or off."
+  }
 }
 
-##################################################
-# resource: tencentcloud_mysql_readonly_instance
-##################################################
-variable "readonly_instances" {
-  description = "Multiple readonly instances.Every element of the list contains a tencentcloud_mysql_readonly_instance configuration object.See https://www.terraform.io/docs/providers/tencentcloud/r/mysql_readonly_instance.html for configuration guide."
-  type        = list(object({
-    master_instance_id = string # Indicates the master instance ID of recovery instances.
-    instance_name      = string
-    cpu_count          = number
-    mem_size           = number
-    volume_size        = number
-    device_type        = optional(string, "UNIVERSAL")
-    intranet_port      = optional(number, 3306)
-    charge_type        = optional(string, "POSTPAID")
-    prepaid_period     = optional(number)
-    security_groups    = optional(list(string))
-    master_region      = optional(string)
-    zone               = optional(string)
-    vpc_id             = optional(string)
-    subnet_id          = optional(string)
-    slave_deploy_mode  = optional(number)
-    ro_group_id        = optional(string)
-    auto_renew_flag    = optional(number)
-    force_delete       = optional(bool)
-    tags               = optional(map(string))
+# ---------------- Cluster Edition topology ----------------
+variable "cluster_topology" {
+  description = "Cluster Edition node topology. Required for cluster edition. RO nodes 1-5."
+  type = list(object({
+    read_write_node = optional(object({
+      zone    = string
+      node_id = optional(string)
+    }))
+    read_only_nodes = optional(list(object({
+      is_random_zone = optional(bool)
+      zone           = optional(string)
+      node_id        = optional(string)
+    })))
   }))
   default = []
+}
+
+# ---------------- Parameters & Engine ----------------
+variable "parameters" {
+  description = "List of parameters to use (key-value map)."
+  type        = map(string)
+  default     = null
+}
+
+variable "internet_service" {
+  description = "Enable public network access. 0 - No, 1 - Yes."
+  type        = number
+  default     = 0
+  validation {
+    condition     = contains([0, 1], var.internet_service)
+    error_message = "internet_service must be 0 or 1."
+  }
+}
+
+variable "engine_version" {
+  description = "Database engine version. Supported: 5.5/5.6/5.7/8.0/8.4. Default 5.7."
+  type        = string
+  default     = "5.7"
+  validation {
+    condition     = contains(["5.5", "5.6", "5.7", "8.0", "8.4"], var.engine_version)
+    error_message = "engine_version must be one of 5.5/5.6/5.7/8.0/8.4."
+  }
+}
+
+variable "engine_type" {
+  description = "Instance engine type. InnoDB (default) or RocksDB."
+  type        = string
+  default     = "InnoDB"
+  validation {
+    condition     = var.engine_type == null || contains(["InnoDB", "RocksDB"], var.engine_type)
+    error_message = "engine_type must be InnoDB or RocksDB."
+  }
+}
+
+variable "upgrade_subversion" {
+  description = "Kernel subversion upgrade flag. 1 - upgrade subversion; 0 - upgrade engine version. Only for upgrade ops."
+  type        = number
+  default     = null
+}
+
+variable "max_deay_time" {
+  description = "Latency threshold (1~10). Only for upgrade kernel subversion and engine version. NOTE: provider schema typo (deay)."
+  type        = number
+  default     = null
+  validation {
+    condition     = var.max_deay_time == null || (var.max_deay_time >= 1 && var.max_deay_time <= 10)
+    error_message = "max_deay_time must be between 1 and 10."
+  }
+}
+
+variable "tags" {
+  description = "Instance tags."
+  type        = map(string)
+  default     = {}
 }
 
 ##################################################
