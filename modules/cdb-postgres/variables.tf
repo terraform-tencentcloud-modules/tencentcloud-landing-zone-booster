@@ -48,6 +48,12 @@ variable "postgres_instance" {
   })
 }
 
+variable "create_kms_strategy" {
+  description = "Whether to create kms strategy for postgres to use kms"
+  type        = bool
+  default     = false
+}
+
 variable "root_user" {
   description = "Instance root account name. This parameter is optional, Default value is root"
   type        = string
