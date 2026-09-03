@@ -1,4 +1,13 @@
 ################################################################################
+# Zone list by product
+################################################################################
+variable "zone_query_product" {
+  description = "Product name for which to query the zones."
+  type        = string
+  default     = "vpc"
+}
+
+################################################################################
 # TDMQ for Pulsar Professional Cluster
 # NOTE: tencentcloud_tdmq_instance is DEPRECATED (Create returns an error);
 #       use tencentcloud_tdmq_professional_cluster as the cluster/instance.
@@ -6,16 +15,17 @@
 variable "cluster" {
   description = "(Required) TDMQ for Pulsar professional cluster configuration. NOTE: tencentcloud_tdmq_instance is deprecated; use professional_cluster."
   type = object({
-    cluster_name    = string           # Name of cluster. No Chinese/special chars except - and _, <=64 chars.
-    zone_names      = list(string)     # Multi-AZ: 3 zone names.
-    product_name    = string           # Cluster spec code, e.g. "pulsar.2u4g". See Professional Cluster Specifications.
-    storage_size    = number           # Storage specification in GB.
-    auto_renew_flag = number           # 1: auto renew on, 0: off.
-    time_span       = optional(number) # Purchase duration 1~50, default 1. ForceNew.
-    auto_voucher    = optional(number) # 1: use voucher, 0: no. Default 0. ForceNew.
-    vpc_id          = optional(string) # VPC to deploy the cluster into (private access). Must be set together with subnet_id.
-    subnet_id       = optional(string) # Subnet for the VPC above. Must be set together with vpc_id.
-    tags            = optional(map(string), {})
+    cluster_name     = string           # Name of cluster. No Chinese/special chars except - and _, <=64 chars.
+    zone_names       = list(string)     # Multi-AZ: 3 zone names.
+    product_name     = string           # Cluster spec code, e.g. "pulsar.2u4g". See Professional Cluster Specifications.
+    instance_version = string           # Cluster version information. User can specify a version when creating the cluster.
+    storage_size     = number           # Storage specification in GB.
+    auto_renew_flag  = number           # 1: auto renew on, 0: off.
+    time_span        = optional(number) # Purchase duration 1~50, default 1. ForceNew.
+    auto_voucher     = optional(number) # 1: use voucher, 0: no. Default 0. ForceNew.
+    vpc_id           = optional(string) # VPC to deploy the cluster into (private access). Must be set together with subnet_id.
+    subnet_id        = optional(string) # Subnet for the VPC above. Must be set together with vpc_id.
+    tags             = optional(map(string), {})
   })
 
   validation {

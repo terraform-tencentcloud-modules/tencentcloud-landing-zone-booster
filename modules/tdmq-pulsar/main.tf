@@ -1,10 +1,10 @@
 data "tencentcloud_availability_zones_by_product" "this" {
-  include_unavailable = false
-  product             = "pulsar"
+  include_unavailable = true
+  product             = var.zone_query_product
 }
 
 locals {
-  pulsar_zone_map = {
+  zone_map = {
     for zone in data.tencentcloud_availability_zones_by_product.this.zones : zone.name => zone.id
   }
 }
@@ -14,14 +14,15 @@ locals {
 # (replaces the deprecated tencentcloud_tdmq_instance)
 ################################################################################
 resource "tencentcloud_tdmq_professional_cluster" "this" {
-  cluster_name    = var.cluster.cluster_name
-  zone_ids        = [for zone in var.cluster.zone_names : local.pulsar_zone_map[zone]]
-  product_name    = var.cluster.product_name
-  storage_size    = var.cluster.storage_size
-  auto_renew_flag = var.cluster.auto_renew_flag
-  time_span       = var.cluster.time_span
-  auto_voucher    = var.cluster.auto_voucher
-  tags            = var.cluster.tags
+  cluster_name     = var.cluster.cluster_name
+  zone_ids         = [for zone in var.cluster.zone_names : local.zone_map[zone]]
+  product_name     = var.cluster.product_name
+  instance_version = var.cluster.instance_version
+  storage_size     = var.cluster.storage_size
+  auto_renew_flag  = var.cluster.auto_renew_flag
+  time_span        = var.cluster.time_span
+  auto_voucher     = var.cluster.auto_voucher
+  tags             = var.cluster.tags
 
   dynamic "vpc" {
     for_each = var.cluster.vpc_id != null && var.cluster.subnet_id != null ? [1] : []
