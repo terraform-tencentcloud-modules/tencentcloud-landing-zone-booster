@@ -19,11 +19,18 @@ variable "mongodb_instance" {
     user_desc                = optional(string, "")                 # new user account remarks.
     enable_ssl               = optional(bool, false)                # Whether to enable SSL
     enable_encryption        = optional(bool, false)                # Whether to enable mongodb transparent data encryption
-    kms_region               = optional(string, "ap-jakarta")       # KMS region
+    kms_region               = optional(string)                     # The region where the Key Management Service (KMS) serves, such as ap-shanghai.
+    kms_key_id               = optional(string)                     # Key ID. If this parameter is not set and the specific key ID is not specified, Tencent Cloud will automatically generate the key and this key will be beyond the control of Terraform.
     security_group_ids       = optional(list(string), [])           # List of security group IDs to attach to the MongoDB instance.
     password_length          = optional(number, 32)                 # Length of auto-generated passwords.
     password_rotation_months = optional(number, 0)                  # Password rotation period in months. 0 means disabled.
   })
+}
+
+variable "create_kms_strategy" {
+  description = "Whether to create kms strategy for postgres to use kms"
+  type        = bool
+  default     = false
 }
 
 variable "system_user_password" {

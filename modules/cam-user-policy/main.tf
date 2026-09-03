@@ -36,7 +36,8 @@ locals {
 }
 
 resource "random_password" "pwds" {
-  for_each         = var.users
+  for_each = var.users
+
   length           = 12
   min_numeric      = 1
   min_special      = 1
@@ -47,7 +48,8 @@ resource "random_password" "pwds" {
 
 # create user
 resource "tencentcloud_cam_user" "users" {
-  for_each            = var.users
+  for_each = var.users
+
   name                = each.key // ForceNew, so there is no need a name variable in values
   remark              = try(each.value.user_remark, each.key)
   console_login       = try(each.value.console_login, true)
@@ -63,7 +65,8 @@ resource "tencentcloud_cam_user" "users" {
 
 # create policies
 resource "tencentcloud_cam_policy" "policies" {
-  for_each    = var.policies
+  for_each = var.policies
+
   name        = each.key // ForceNew
   document    = try(each.value.document, null)
   description = try(each.value.description, "")
@@ -71,14 +74,16 @@ resource "tencentcloud_cam_policy" "policies" {
 
 # attach policies
 resource "tencentcloud_cam_user_policy_attachment" "user_policy_attachment_basic" {
-  for_each  = local.user_policy_map
+  for_each = local.user_policy_map
+
   user_name = tencentcloud_cam_user.users[each.value.user_key].name
   policy_id = each.value.policy_id
 }
 
 # access key
 resource "tencentcloud_cam_access_key" "access_keys" {
-  for_each   = local.create_access_keys
+  for_each = local.create_access_keys
+  
   target_uin = each.value.target_uin
   status     = each.value.status
 }

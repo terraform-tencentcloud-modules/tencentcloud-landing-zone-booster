@@ -36,6 +36,7 @@ resource "tencentcloud_mongodb_instance_transparent_data_encryption" "encryption
 
   instance_id = tencentcloud_mongodb_instance.instance.id
   kms_region  = var.mongodb_instance.kms_region
+  key_id      = var.mongodb_instance.kms_key_id
 }
 
 # MongoDB Backup Rule

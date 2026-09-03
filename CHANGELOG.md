@@ -1,3 +1,150 @@
+## September 03, 2026
+
+## Summary
+
+This release updates IAM policy assignment, KMS key management, CVM configuration, MongoDB provisioning, and Private DNS extended endpoint modules. It also adds MongoDB CAM integration and expands documentation for billing, database, CCN routing, and VPC route-notification modules.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact variable, resource, permission, default-value, and provider-version changes must be verified against the complete `git diff` before release.
+
+## Added
+
+### MongoDB CAM integration
+
+- Added `modules/mongodb/cam.tf`.
+- Introduced dedicated CAM resources or permissions for MongoDB provisioning and management.
+- Separated MongoDB authorization logic from the main database resource implementation.
+
+### Module documentation
+
+Added README documentation for:
+
+- `modules/billing-budget`
+- `modules/billing-instance`
+- `modules/ccn-route-switch`
+- `modules/cdb-postgres`
+- `modules/vpc-notify-routes`
+
+The new documentation improves module discovery and is expected to describe usage, inputs, outputs, dependencies, and examples for the affected modules.
+
+## Changed
+
+### CAM group and user policies
+
+Updated the following IAM modules:
+
+- `modules/cam-group-user-policy`
+- `modules/cam-user-policy`
+
+Changes affect resource implementation and input-variable definitions for attaching policies to CAM groups and users.
+
+Before upgrading, verify:
+
+- Policy ID and policy name handling.
+- Preset and custom policy assignment behavior.
+- Collection types and `for_each` resource keys.
+- User/group association behavior.
+- Whether existing attachment addresses change in Terraform state.
+
+### KMS key module
+
+Updated `modules/kms-key` resource definitions and input variables.
+
+Review the full diff for changes to:
+
+- Key creation and lifecycle settings.
+- Key usage, rotation, description, and tags.
+- BYOK or external key material behavior.
+- Deletion protection and scheduled deletion.
+- Input defaults that could affect existing keys.
+
+### CVM instance module
+
+Updated the `modules/cvm-instance` input-variable interface.
+
+Existing callers should check for added, renamed, removed, or retyped CVM inputs before upgrading.
+
+### MongoDB module
+
+Updated the MongoDB resource implementation and variable interface, alongside the new CAM configuration file.
+
+Review changes related to:
+
+- Instance specifications and topology.
+- Networking and security groups.
+- Authentication or service-role requirements.
+- Backup, encryption, maintenance, and lifecycle settings.
+- Provider permissions required to create or manage MongoDB resources.
+
+### Private DNS extended endpoint module
+
+Updated:
+
+- Resource implementation.
+- Input-variable definitions.
+- Terraform and Tencent Cloud provider compatibility constraints.
+
+Review endpoint networking, VPC association, forwarding, access-control, and lifecycle behavior before upgrading existing deployments.
+
+### Anti-DDoS module compatibility
+
+Updated `modules/anti-ddos/version.tf` to revise Terraform or Tencent Cloud provider compatibility requirements.
+
+## Documentation
+
+The following modules now include dedicated README files:
+
+| Module | Purpose |
+|---|---|
+| `billing-budget` | Billing budget configuration and cost-control thresholds |
+| `billing-instance` | Billing or account-level instance configuration |
+| `ccn-route-switch` | CCN route enablement or route-switch management |
+| `cdb-postgres` | TencentDB for PostgreSQL provisioning |
+| `vpc-notify-routes` | VPC route notification or route propagation configuration |
+
+## Compatibility
+
+No module path removals are shown in the supplied file list. However, changes to resource definitions and variable interfaces may affect existing callers or Terraform state.
+
+Potential compatibility risks include:
+
+- CAM attachment `for_each` key changes causing attachment recreation.
+- KMS argument changes causing key replacement or lifecycle changes.
+- MongoDB CAM permission changes requiring new authorization.
+- MongoDB or Private DNS input changes affecting existing module calls.
+- Updated provider constraints requiring `terraform init -upgrade`.
+- CVM variable changes impacting Terragrunt or Terraform caller validation.
+
+## Migration Notes
+
+1. Review the complete diff for all modified `variables.tf` files.
+2. Update Terraform and Terragrunt callers for renamed or newly required inputs.
+3. Run `terraform init -upgrade` for Anti-DDoS and Private DNS stacks with changed version constraints.
+4. Review CAM policy attachment resource addresses before applying.
+5. If CAM attachment keys changed, migrate existing addresses with `terraform state mv` rather than recreating attachments.
+6. Confirm that the MongoDB deployment identity can create or attach all CAM resources defined in `cam.tf`.
+7. Review KMS plans carefully; avoid replacing or deleting production encryption keys.
+8. Verify that Private DNS extended endpoint networking remains unchanged unless replacement is intended.
+9. Validate each new README against the actual module inputs and outputs.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform init -upgrade` for affected stacks.
+- [ ] Run `terraform validate` for every changed module.
+- [ ] Verify CAM user policy attachments.
+- [ ] Verify CAM group policy attachments.
+- [ ] Review CAM attachment state addresses for replacement.
+- [ ] Verify KMS key plans contain no unintended replacement or deletion.
+- [ ] Verify CVM callers against the updated variable schema.
+- [ ] Verify MongoDB creation and update behavior.
+- [ ] Confirm MongoDB CAM permissions follow least-privilege principles.
+- [ ] Verify Private DNS extended endpoint connectivity and VPC associations.
+- [ ] Confirm Anti-DDoS and Private DNS provider constraints are compatible with consuming stacks.
+- [ ] Validate README examples against current module interfaces.
+- [ ] Review the final plan for unexpected destructive operations.
+
+
 ## September 01, 2026
 
 ## Summary
