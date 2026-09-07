@@ -39,8 +39,6 @@ resource "tencentcloud_cam_role_policy_attachment" "role_policies" {
 
   role_id   = lookup(tencentcloud_cam_role.TKE_QCSRole.0, "id")
   policy_id = local.tke_qcsrole_policies[count.index]
-
-  depends_on = [ tencentcloud_cam_role.TKE_QCSRole ]
 }
 
 # IPAMDofTKE_QCSRole

@@ -41,8 +41,4 @@ resource "tencentcloud_cam_role_policy_attachment" "role_policies" {
 
   role_id   = tencentcloud_cam_role.role.0.id
   policy_id = local.policies[count.index]
-
-  depends_on = [
-    tencentcloud_cam_role.role,
-  ]
 }

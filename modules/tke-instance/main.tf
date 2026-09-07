@@ -87,7 +87,10 @@ resource "tencentcloud_kubernetes_cluster" "cluster" {
     ]
   }
 
-  depends_on = [ tencentcloud_cam_role.TKE_QCSRole ]
+  depends_on = [
+    tencentcloud_cam_role.TKE_QCSRole,
+    tencentcloud_cam_role_policy_attachment.role_policies
+  ]
 }
 
 resource "tencentcloud_kubernetes_auth_attachment" "auth_attach" {

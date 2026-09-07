@@ -31,6 +31,7 @@ resource "tencentcloud_audit_track" "track" {
 
   depends_on = [
     tencentcloud_cam_role.role,
+    tencentcloud_cam_role_policy_attachment.role_policies,
     tencentcloud_cos_bucket.bucket,
     tencentcloud_cls_logset.logset,
     tencentcloud_cls_topic.topic

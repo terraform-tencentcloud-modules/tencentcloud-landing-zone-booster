@@ -1,3 +1,163 @@
+## September 07, 2026
+
+## Summary
+
+This release introduces a modular Terraform implementation for Tencent Cloud EdgeOne (TEO) and updates CloudAudit and TKE permission handling. New modules separate EdgeOne zone, domain, certificate, and acceleration-rule management so each capability can be composed independently.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resource behavior, variables, outputs, CAM permissions, defaults, and compatibility requirements should be verified against the complete `git diff` before release.
+
+## Added
+
+### EdgeOne modules
+
+Added the following standalone Terraform modules:
+
+- `modules/teo` — EdgeOne zone or core service configuration.
+- `modules/teo-domain` — EdgeOne acceleration-domain management.
+- `modules/teo-cert` — EdgeOne certificate management and certificate association.
+- `modules/teo-acc-rule` — EdgeOne acceleration-rule configuration.
+
+The new module structure separates EdgeOne responsibilities:
+
+```text
+modules/
+├── teo/             # EdgeOne zone and core configuration
+├── teo-domain/      # Acceleration domains
+├── teo-cert/        # Certificates and certificate bindings
+└── teo-acc-rule/    # Acceleration rules
+```
+
+This design enables callers to:
+
+- Provision EdgeOne zones independently.
+- Manage multiple acceleration domains under a zone.
+- Configure certificates separately from domain resources.
+- Apply acceleration rules through a dedicated module.
+- Reuse the modules across Landing Zone and application environments.
+
+## Changed
+
+### CloudAudit component
+
+Updated `components/audit-log/cloud-audit/main.tf`.
+
+The change affects CloudAudit resource configuration or storage integration. Review the complete diff for changes to:
+
+- Audit track creation and delivery settings.
+- COS or CLS storage references.
+- Resource dependencies.
+- Account UIN and App ID handling.
+- Conditional resource indexing.
+
+### CloudAudit CAM permissions
+
+Updated CAM configuration for:
+
+- `modules/cloudaudit-events-track`
+- `modules/cloudaudit-track`
+
+The changes revise the permissions or role configuration required for CloudAudit event tracking and audit-track management.
+
+Before upgrading, verify:
+
+- Trusted service principals.
+- Preset and custom policy attachments.
+- Policy action and resource scopes.
+- Service-linked or custom role behavior.
+- Whether existing CAM resources change Terraform addresses.
+
+### TKE instance module
+
+Updated:
+
+- `modules/tke-instance/cam.tf`
+- `modules/tke-instance/main.tf`
+
+The changes affect TKE instance provisioning and its associated CAM permissions. Review cluster resource dependencies, service-role requirements, and the permissions granted to TKE before applying.
+
+## Architecture
+
+A typical EdgeOne composition can now follow this dependency flow:
+
+```text
+TEO zone
+   ├── TEO domain
+   │     └── TEO acceleration rules
+   └── TEO certificate
+         └── Domain certificate binding
+```
+
+Recommended deployment order:
+
+1. Create or import the EdgeOne zone through `modules/teo`.
+2. Add acceleration domains through `modules/teo-domain`.
+3. Create or reference certificates through `modules/teo-cert`.
+4. Configure acceleration behavior through `modules/teo-acc-rule`.
+5. Pass module outputs explicitly between dependent modules.
+
+## Security Considerations
+
+- Review CloudAudit and TKE CAM policy changes against least-privilege requirements.
+- Avoid wildcard actions and resources unless required by Tencent Cloud service behavior.
+- Confirm that EdgeOne certificate inputs do not expose private keys in logs, outputs, or version control.
+- Mark certificate-sensitive variables and outputs as `sensitive = true` where applicable.
+- Confirm that Terraform state containing certificate material is stored in an encrypted remote backend with restricted access.
+- Validate domain ownership and certificate coverage before enabling production traffic.
+
+## Compatibility
+
+The new EdgeOne modules are additive and should not affect existing resources unless current EdgeOne resources are migrated into them.
+
+The modified CloudAudit and TKE modules may introduce compatibility risks if they include:
+
+- CAM role or policy resource-address changes.
+- Added or removed permissions.
+- Changed resource dependencies.
+- New required inputs.
+- Changed conditional resource creation.
+- TKE resource replacement behavior.
+
+Review the complete Terraform plan before applying to existing environments.
+
+## Migration Notes
+
+1. Review the complete diff for CloudAudit and TKE changes before upgrading existing deployments.
+2. Compare CAM policies with current production permissions and approve any privilege expansion.
+3. If CAM resource addresses changed, use `terraform state mv` to preserve existing roles and attachments.
+4. Import existing EdgeOne resources before managing them with the new modules.
+5. Do not create duplicate EdgeOne zones, domains, certificates, or rules for resources that already exist.
+6. Wire module dependencies using zone IDs, domain IDs, and certificate IDs rather than hard-coded values where possible.
+7. Run `terraform init -upgrade` if the new modules introduce updated Tencent Cloud provider requirements.
+8. Validate EdgeOne modules in a non-production zone before routing production traffic.
+
+Example state migration pattern:
+
+```bash
+terraform state mv \
+  '<old-resource-address>' \
+  'module.<edgeone-module>.<new-resource-address>'
+```
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform init -upgrade` for affected stacks.
+- [ ] Run `terraform validate` for CloudAudit, TKE, and all EdgeOne modules.
+- [ ] Review CloudAudit CAM policies for least privilege.
+- [ ] Verify CloudAudit track creation and log delivery.
+- [ ] Review TKE CAM policies for least privilege.
+- [ ] Verify TKE instance creation and update behavior.
+- [ ] Create or import an EdgeOne zone.
+- [ ] Create or import an EdgeOne acceleration domain.
+- [ ] Validate DNS ownership and origin connectivity.
+- [ ] Create or associate a certificate without exposing private key material.
+- [ ] Apply and verify EdgeOne acceleration rules.
+- [ ] Verify module outputs required by downstream modules.
+- [ ] Review the plan for unexpected CAM, CloudAudit, TKE, or EdgeOne replacement.
+- [ ] Test EdgeOne configuration in a non-production environment.
+
+
 ## September 03, 2026
 
 ## Summary
