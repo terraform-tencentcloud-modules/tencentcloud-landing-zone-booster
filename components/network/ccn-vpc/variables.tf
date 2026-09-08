@@ -52,6 +52,12 @@ variable "tags" {
 ################################################################################
 # CCN attachment config
 ################################################################################
+variable "attach_ccn" {
+  description = "Whether to attach this VPC to CCN."
+  type        = bool
+  default     = true
+}
+
 variable "ccn_id" {
   description = "The ID of ccn which to attach."
   type        = string
