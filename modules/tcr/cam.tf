@@ -2,7 +2,7 @@ resource "tencentcloud_cam_role" "tcr_qcs_role" {
   count = var.create_cam_strategy ? 1 : 0
 
   name          = "TCR_QCSRole"
-  description   = "TCR permissions (including but not limited to): COS (create bucket, read/write/delete/copy object, initiate multiple upload); VPC (query VPC and subnet)."
+  description   = "This policy is associated with the Tencent Container Registry (TCR) service role (TCR_QCSRole) for the TCR to create image pre-warming tasks. Contains operation rights related to Agent Sandbox (ags)."
   document = jsonencode({
     version = "2.0"
     statement = [{
