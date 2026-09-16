@@ -1,11 +1,4 @@
 ################################################################################
-### Subscribe Private Zone Service (Enable the service first)
-################################################################################
-resource "tencentcloud_subscribe_private_zone_service" "this" {
-  count = var.enable_private_zone_service ? 1 : 0
-}
-
-################################################################################
 ### Private DNS Zones
 ################################################################################
 resource "tencentcloud_private_dns_zone" "zones" {
@@ -37,8 +30,6 @@ resource "tencentcloud_private_dns_zone" "zones" {
   }
 
   tags = each.value.tags
-
-  depends_on = [tencentcloud_subscribe_private_zone_service.this]
 }
 
 ################################################################################

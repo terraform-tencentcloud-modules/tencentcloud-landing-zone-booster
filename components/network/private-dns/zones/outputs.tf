@@ -1,12 +1,4 @@
 ################################################################################
-### Private Zone Service Outputs
-################################################################################
-output "private_zone_service_enabled" {
-  description = "Whether private zone service is enabled"
-  value       = var.enable_private_zone_service
-}
-
-################################################################################
 ### Private DNS Zone Outputs
 ################################################################################
 output "zone_ids" {
