@@ -1,3 +1,103 @@
+## September 16, 2026
+
+## Summary
+
+This release adds a reusable Private DNS component and a dedicated module for enabling the Tencent Cloud Private DNS zone service. The new structure separates service activation from Private DNS zone orchestration, making Private DNS deployments easier to compose across Landing Zone accounts and VPC environments.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree directory list. Exact resources, variables, outputs, defaults, dependencies, and provider constraints should be verified against the complete `git diff --no-index /dev/null <file>` output or the staged diff before release.
+
+## Added
+
+### Private DNS component
+
+Added:
+
+```text
+components/network/private-dns/
+```
+
+The component provides a component-level entry point for orchestrating Tencent Cloud Private DNS resources and their network dependencies.
+
+Expected responsibilities include:
+
+- Private DNS zone configuration.
+- VPC association and resolution scope management.
+- Private DNS records or related zone settings.
+- Integration with Landing Zone network deployments.
+- Exposing outputs for downstream Terraform or Terragrunt dependencies.
+
+### Private DNS service enablement module
+
+Added:
+
+```text
+modules/private-dns-zone-service-enable/
+```
+
+The module provides a dedicated Terraform boundary for enabling the Tencent Cloud Private DNS zone service before dependent Private DNS resources are provisioned.
+
+This separation allows callers to:
+
+- Enable the service once per required account or region scope.
+- Establish an explicit dependency between service activation and zone creation.
+- Reuse the service-enablement logic across multiple Private DNS deployments.
+- Keep service activation separate from zone and record lifecycle management.
+
+## Architecture
+
+The recommended dependency flow is:
+
+```text
+Private DNS service enablement
+              |
+              v
+     Private DNS component
+              |
+              v
+    Zones, VPC associations,
+       records, and outputs
+```
+
+A typical deployment should enable the Private DNS service first, then pass the required account, region, VPC, and zone configuration to the Private DNS component.
+
+## Compatibility
+
+These additions are backward compatible because no existing files or module paths are shown as modified or removed.
+
+Potential integration considerations include:
+
+- Private DNS service activation may be account- or region-scoped.
+- Existing manually enabled services may need to be imported or treated as externally managed.
+- Existing Private DNS zones must be imported before being managed by the new component.
+- VPC associations must not conflict with zones already managed elsewhere.
+- Required CAM permissions must be granted to the Terraform execution identity.
+
+## Migration Notes
+
+1. Confirm whether the Private DNS service is already enabled in each target account.
+2. Use `modules/private-dns-zone-service-enable` only where Terraform should manage service activation.
+3. Import existing service or zone resources when supported instead of creating duplicates.
+4. Configure `components/network/private-dns` with the correct VPC and zone dependencies.
+5. Verify whether the component manages zones only or also manages records and VPC associations.
+6. Run `terraform init`, `terraform validate`, and `terraform plan` before applying.
+7. Review the plan for duplicate zones, conflicting VPC associations, or unexpected DNS record changes.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform init -backend=false` for both new directories.
+- [ ] Run `terraform validate` for the module and component.
+- [ ] Confirm required Terraform and Tencent Cloud provider versions.
+- [ ] Confirm the Terraform identity has the required Private DNS and CAM permissions.
+- [ ] Verify service enablement in a test account.
+- [ ] Verify Private DNS zone creation or import.
+- [ ] Verify VPC associations and DNS resolution scope.
+- [ ] Verify record creation and resolution from associated VPCs, if managed by the component.
+- [ ] Verify outputs required by downstream modules and Terragrunt dependencies.
+- [ ] Confirm repeated applies are idempotent.
+- [ ] Review the final plan for duplicate or destructive DNS changes.
+
 ## September 07, 2026
 
 ## Summary
