@@ -1,3 +1,215 @@
+## September 22, 2026
+
+## Summary
+
+This release fixes protocol-specific argument handling in the CLB listener module, corrects variable references used by certificate and keepalive configuration, and removes the module's listener and rule outputs.
+
+## Fixed
+
+### Multi-certificate evaluation
+
+- Replaced the invalid `each.value.sni_switch` reference with the listener certificate configuration.
+- Defaulted an unset SNI switch to `false` through `coalesce`.
+- Limited `multi_cert_info` generation to:
+  - `TCP_SSL` listeners; or
+  - `HTTPS` listeners with SNI disabled.
+- Preserved the restriction that `multi_cert_info` cannot be used together with the single-certificate arguments.
+
+Updated condition:
+
+```hcl
+for_each = (
+  var.protocol == "TCP_SSL" ||
+  (var.protocol == "HTTPS" && !coalesce(var.certificate.sni_switch, false))
+) && var.multi_cert_info != null ? var.multi_cert_info : []
+```
+
+### HTTP keepalive configuration
+
+- Replaced the incorrect `each.value.keepalive_enable` reference with `var.keepalive_enable`.
+- Applied `keepalive_enable` only to `HTTP` and `HTTPS` listeners.
+- Returned `null` for protocols that do not support this option.
+
+### Protocol-aware SNAT configuration
+
+- Restricted `snat_enable` to `HTTP` and `HTTPS` listeners.
+- Forced the argument to `null` for `TCP`, `UDP`, `TCP_SSL`, QUIC, and other unsupported listener protocols.
+- Prevented Tencent Cloud API errors caused by sending `snat_enable` to unsupported listener types.
+
+## Removed
+
+Removed `modules/clb-listener/output.tf` and the following module outputs:
+
+- `listener_id`
+- `listener_name`
+- `listener_port`
+- `listener_protocol`
+- `rule_id`
+
+## Breaking Changes
+
+> [!WARNING]
+> Removing the output file is a breaking module interface change.
+
+Any Terraform or Terragrunt configuration that references the removed outputs will fail with an unsupported attribute error after upgrading.
+
+Affected references may include:
+
+```hcl
+module.clb_listener.listener_id
+module.clb_listener.listener_name
+module.clb_listener.listener_port
+module.clb_listener.listener_protocol
+module.clb_listener.rule_id
+```
+
+Update downstream consumers before adopting this version. If these values are still required, expose equivalent outputs from the module or obtain them from the relevant CLB resources or data sources.
+
+Removing outputs does not remove the underlying CLB listener or listener-rule resources from Terraform state. It only removes their exported values from the module interface.
+
+## Review Note
+
+If `var.certificate` itself can be `null`, this expression may still fail before `coalesce` is evaluated:
+
+```hcl
+coalesce(var.certificate.sni_switch, false)
+```
+
+Use a null-safe expression when the entire object is optional, for example:
+
+```hcl
+coalesce(try(var.certificate.sni_switch, null), false)
+```
+
+Alternatively, define `certificate` as a non-null object with an optional `sni_switch` attribute that defaults to `false`.
+
+## Migration Notes
+
+1. Search all consumers for references to the five removed outputs.
+2. Replace those references or restore the outputs if they remain part of the public module contract.
+3. Run `terraform plan` for TCP, UDP, TCP_SSL, HTTP, and HTTPS listener configurations.
+4. Confirm that `snat_enable` appears only for HTTP and HTTPS listeners.
+5. Confirm that `keepalive_enable` uses the module variable and is omitted for unsupported protocols.
+6. Validate single-certificate, multi-certificate, SNI-enabled, and SNI-disabled HTTPS scenarios.
+7. Confirm that `var.certificate` cannot be null, or make the SNI expression null-safe.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform validate` for the CLB listener module.
+- [ ] Verify TCP and UDP plans omit `snat_enable`.
+- [ ] Verify HTTP and HTTPS plans set `snat_enable` as configured.
+- [ ] Verify HTTP and HTTPS keepalive configuration.
+- [ ] Verify TCP_SSL multi-certificate configuration.
+- [ ] Verify HTTPS multi-certificate configuration with SNI disabled.
+- [ ] Verify HTTPS with SNI enabled does not configure `multi_cert_info`.
+- [ ] Verify behavior when `certificate.sni_switch` is omitted.
+- [ ] Verify behavior when the complete `certificate` object is null.
+- [ ] Update or remove all downstream references to deleted outputs.
+- [ ] Review the final plan for unintended listener or rule replacement.
+
+
+
+## September 16, 2026
+
+## Summary
+
+This release adds a reusable Private DNS component and a dedicated module for enabling the Tencent Cloud Private DNS zone service. The new structure separates service activation from Private DNS zone orchestration, making Private DNS deployments easier to compose across Landing Zone accounts and VPC environments.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree directory list. Exact resources, variables, outputs, defaults, dependencies, and provider constraints should be verified against the complete `git diff --no-index /dev/null <file>` output or the staged diff before release.
+
+## Added
+
+### Private DNS component
+
+Added:
+
+```text
+components/network/private-dns/
+```
+
+The component provides a component-level entry point for orchestrating Tencent Cloud Private DNS resources and their network dependencies.
+
+Expected responsibilities include:
+
+- Private DNS zone configuration.
+- VPC association and resolution scope management.
+- Private DNS records or related zone settings.
+- Integration with Landing Zone network deployments.
+- Exposing outputs for downstream Terraform or Terragrunt dependencies.
+
+### Private DNS service enablement module
+
+Added:
+
+```text
+modules/private-dns-zone-service-enable/
+```
+
+The module provides a dedicated Terraform boundary for enabling the Tencent Cloud Private DNS zone service before dependent Private DNS resources are provisioned.
+
+This separation allows callers to:
+
+- Enable the service once per required account or region scope.
+- Establish an explicit dependency between service activation and zone creation.
+- Reuse the service-enablement logic across multiple Private DNS deployments.
+- Keep service activation separate from zone and record lifecycle management.
+
+## Architecture
+
+The recommended dependency flow is:
+
+```text
+Private DNS service enablement
+              |
+              v
+     Private DNS component
+              |
+              v
+    Zones, VPC associations,
+       records, and outputs
+```
+
+A typical deployment should enable the Private DNS service first, then pass the required account, region, VPC, and zone configuration to the Private DNS component.
+
+## Compatibility
+
+These additions are backward compatible because no existing files or module paths are shown as modified or removed.
+
+Potential integration considerations include:
+
+- Private DNS service activation may be account- or region-scoped.
+- Existing manually enabled services may need to be imported or treated as externally managed.
+- Existing Private DNS zones must be imported before being managed by the new component.
+- VPC associations must not conflict with zones already managed elsewhere.
+- Required CAM permissions must be granted to the Terraform execution identity.
+
+## Migration Notes
+
+1. Confirm whether the Private DNS service is already enabled in each target account.
+2. Use `modules/private-dns-zone-service-enable` only where Terraform should manage service activation.
+3. Import existing service or zone resources when supported instead of creating duplicates.
+4. Configure `components/network/private-dns` with the correct VPC and zone dependencies.
+5. Verify whether the component manages zones only or also manages records and VPC associations.
+6. Run `terraform init`, `terraform validate`, and `terraform plan` before applying.
+7. Review the plan for duplicate zones, conflicting VPC associations, or unexpected DNS record changes.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform init -backend=false` for both new directories.
+- [ ] Run `terraform validate` for the module and component.
+- [ ] Confirm required Terraform and Tencent Cloud provider versions.
+- [ ] Confirm the Terraform identity has the required Private DNS and CAM permissions.
+- [ ] Verify service enablement in a test account.
+- [ ] Verify Private DNS zone creation or import.
+- [ ] Verify VPC associations and DNS resolution scope.
+- [ ] Verify record creation and resolution from associated VPCs, if managed by the component.
+- [ ] Verify outputs required by downstream modules and Terragrunt dependencies.
+- [ ] Confirm repeated applies are idempotent.
+- [ ] Review the final plan for duplicate or destructive DNS changes.
+
 ## September 07, 2026
 
 ## Summary

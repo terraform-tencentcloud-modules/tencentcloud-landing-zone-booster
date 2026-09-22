@@ -14,7 +14,7 @@ resource "tencentcloud_clb_listener" "this" {
 
   # Multi-certificate info (for HTTPS with SNI disabled, cannot be used with certificate_* at the same time)
   dynamic "multi_cert_info" {
-    for_each = (var.protocol == "TCP_SSL" || (var.protocol == "HTTPS" && !each.value.sni_switch)) && var.multi_cert_info != null ? var.multi_cert_info : []
+    for_each = (var.protocol == "TCP_SSL" || (var.protocol == "HTTPS" && !coalesce(var.certificate.sni_switch, false))) && var.multi_cert_info != null ? var.multi_cert_info : []
     content {
       cert_id_list = multi_cert_info.value.cert_id_list
       ssl_mode     = multi_cert_info.value.ssl_mode
@@ -25,8 +25,10 @@ resource "tencentcloud_clb_listener" "this" {
   scheduler           = contains(["TCP", "UDP", "TCP_SSL", "QUIC"], var.protocol) ? var.scheduler : null
   target_type         = contains(["TCP", "UDP"], var.protocol) ? var.target_type : null
   session_expire_time = contains(["TCP", "UDP"], var.protocol) ? var.session_expire_time : null
-  keepalive_enable    = contains(["HTTP", "HTTPS"], var.protocol) && var.keepalive_enable != null ? each.value.keepalive_enable : null
-  snat_enable         = var.snat_enable
+  keepalive_enable    = contains(["HTTP", "HTTPS"], var.protocol) && var.keepalive_enable != null ? var.keepalive_enable : null
+  # SNAT is only supported for HTTP/HTTPS listeners; Tencent Cloud rejects
+  # snat_enable for TCP/UDP protocols, so force it to null for those protocols.
+  snat_enable         = contains(["HTTP", "HTTPS"], var.protocol) ? var.snat_enable : null
 
   #TCP/UDP health check
   health_check_switch        = contains(["TCP", "UDP", "TCP_SSL", "QUIC"], var.protocol) && try(var.health_check.enabled, true)
