@@ -1,3 +1,115 @@
+## September 22, 2026
+
+## Summary
+
+This release fixes protocol-specific argument handling in the CLB listener module, corrects variable references used by certificate and keepalive configuration, and removes the module's listener and rule outputs.
+
+## Fixed
+
+### Multi-certificate evaluation
+
+- Replaced the invalid `each.value.sni_switch` reference with the listener certificate configuration.
+- Defaulted an unset SNI switch to `false` through `coalesce`.
+- Limited `multi_cert_info` generation to:
+  - `TCP_SSL` listeners; or
+  - `HTTPS` listeners with SNI disabled.
+- Preserved the restriction that `multi_cert_info` cannot be used together with the single-certificate arguments.
+
+Updated condition:
+
+```hcl
+for_each = (
+  var.protocol == "TCP_SSL" ||
+  (var.protocol == "HTTPS" && !coalesce(var.certificate.sni_switch, false))
+) && var.multi_cert_info != null ? var.multi_cert_info : []
+```
+
+### HTTP keepalive configuration
+
+- Replaced the incorrect `each.value.keepalive_enable` reference with `var.keepalive_enable`.
+- Applied `keepalive_enable` only to `HTTP` and `HTTPS` listeners.
+- Returned `null` for protocols that do not support this option.
+
+### Protocol-aware SNAT configuration
+
+- Restricted `snat_enable` to `HTTP` and `HTTPS` listeners.
+- Forced the argument to `null` for `TCP`, `UDP`, `TCP_SSL`, QUIC, and other unsupported listener protocols.
+- Prevented Tencent Cloud API errors caused by sending `snat_enable` to unsupported listener types.
+
+## Removed
+
+Removed `modules/clb-listener/output.tf` and the following module outputs:
+
+- `listener_id`
+- `listener_name`
+- `listener_port`
+- `listener_protocol`
+- `rule_id`
+
+## Breaking Changes
+
+> [!WARNING]
+> Removing the output file is a breaking module interface change.
+
+Any Terraform or Terragrunt configuration that references the removed outputs will fail with an unsupported attribute error after upgrading.
+
+Affected references may include:
+
+```hcl
+module.clb_listener.listener_id
+module.clb_listener.listener_name
+module.clb_listener.listener_port
+module.clb_listener.listener_protocol
+module.clb_listener.rule_id
+```
+
+Update downstream consumers before adopting this version. If these values are still required, expose equivalent outputs from the module or obtain them from the relevant CLB resources or data sources.
+
+Removing outputs does not remove the underlying CLB listener or listener-rule resources from Terraform state. It only removes their exported values from the module interface.
+
+## Review Note
+
+If `var.certificate` itself can be `null`, this expression may still fail before `coalesce` is evaluated:
+
+```hcl
+coalesce(var.certificate.sni_switch, false)
+```
+
+Use a null-safe expression when the entire object is optional, for example:
+
+```hcl
+coalesce(try(var.certificate.sni_switch, null), false)
+```
+
+Alternatively, define `certificate` as a non-null object with an optional `sni_switch` attribute that defaults to `false`.
+
+## Migration Notes
+
+1. Search all consumers for references to the five removed outputs.
+2. Replace those references or restore the outputs if they remain part of the public module contract.
+3. Run `terraform plan` for TCP, UDP, TCP_SSL, HTTP, and HTTPS listener configurations.
+4. Confirm that `snat_enable` appears only for HTTP and HTTPS listeners.
+5. Confirm that `keepalive_enable` uses the module variable and is omitted for unsupported protocols.
+6. Validate single-certificate, multi-certificate, SNI-enabled, and SNI-disabled HTTPS scenarios.
+7. Confirm that `var.certificate` cannot be null, or make the SNI expression null-safe.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform validate` for the CLB listener module.
+- [ ] Verify TCP and UDP plans omit `snat_enable`.
+- [ ] Verify HTTP and HTTPS plans set `snat_enable` as configured.
+- [ ] Verify HTTP and HTTPS keepalive configuration.
+- [ ] Verify TCP_SSL multi-certificate configuration.
+- [ ] Verify HTTPS multi-certificate configuration with SNI disabled.
+- [ ] Verify HTTPS with SNI enabled does not configure `multi_cert_info`.
+- [ ] Verify behavior when `certificate.sni_switch` is omitted.
+- [ ] Verify behavior when the complete `certificate` object is null.
+- [ ] Update or remove all downstream references to deleted outputs.
+- [ ] Review the final plan for unintended listener or rule replacement.
+
+
+
 ## September 16, 2026
 
 ## Summary
