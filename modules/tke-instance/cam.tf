@@ -57,13 +57,9 @@ resource "tencentcloud_cam_role" "ipamd_role" {
   })
 }
 
-data "tencentcloud_cam_policies" "tke_ipamd_role" {
-  name = "QcloudAccessForIPAMDofTKERole"
-}
-
 resource "tencentcloud_cam_role_policy_attachment" "ipamd_tke" {
   count = var.create_cam_strategy_ipamd ? 1 : 0
 
   role_id   = lookup(tencentcloud_cam_role.ipamd_role.0, "id")
-  policy_id = lookup(data.tencentcloud_cam_policies.tke_ipamd_role.policy_list.0, "policy_id")
+  policy_id = "9319432" # QcloudAccessForIPAMDofTKERole
 }
