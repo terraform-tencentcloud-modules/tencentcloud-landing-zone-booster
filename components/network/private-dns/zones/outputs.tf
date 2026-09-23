@@ -59,3 +59,29 @@ output "forward_rules" {
   description = "Complete Private DNS forward rule resource objects"
   value       = tencentcloud_private_dns_forward_rule.forward_rules
 }
+
+################################################################################
+### Private DNS End Point Outputs
+################################################################################
+output "end_point_ids" {
+  description = "Map of end point keys to their IDs"
+  value       = { for k, v in tencentcloud_private_dns_end_point.end_points : k => v.id }
+}
+
+output "end_points" {
+  description = "Complete Private DNS end point resource objects"
+  value       = tencentcloud_private_dns_end_point.end_points
+}
+
+################################################################################
+### Private DNS Extend End Point Outputs
+################################################################################
+output "extend_end_point_ids" {
+  description = "Map of extend end point keys to their IDs"
+  value       = { for k, v in tencentcloud_private_dns_extend_end_point.extend_end_points : k => v.id }
+}
+
+output "extend_end_points" {
+  description = "Complete Private DNS extend end point resource objects"
+  value       = tencentcloud_private_dns_extend_end_point.extend_end_points
+}
