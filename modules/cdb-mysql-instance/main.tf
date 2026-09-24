@@ -107,6 +107,14 @@ resource "tencentcloud_mysql_instance" "this" {
   }
 }
 
+resource "tencentcloud_mysql_instance_encryption_operation" "this" {
+  count = var.encryption_enabled ? 1 : 0
+
+  instance_id = tencentcloud_mysql_instance.this.id
+  key_id      = var.encryption_key_id
+  key_region  = var.encryption_key_region
+}
+
 resource "tencentcloud_mysql_backup_policy" "this" {
   count = var.create_backup_policy ? 1 : 0
 

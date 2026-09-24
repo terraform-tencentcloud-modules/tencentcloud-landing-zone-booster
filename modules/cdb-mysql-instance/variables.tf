@@ -224,6 +224,25 @@ variable "cluster_topology" {
   default = []
 }
 
+# ---------------- Data encryption ----------------
+variable "encryption_enabled" {
+  description = "Key ID for data encryption."
+  type        = bool
+  default     = false
+}
+
+variable "encryption_key_id" {
+  description = "Key ID for data encryption."
+  type        = string
+  default     = null
+}
+
+variable "encryption_key_region" {
+  description = "Key region for data encryption."
+  type        = string
+  default     = null
+}
+
 # ---------------- Parameters & Engine ----------------
 variable "parameters" {
   description = "List of parameters to use (key-value map)."
