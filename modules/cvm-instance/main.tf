@@ -24,7 +24,7 @@ locals {
   instance_type = var.instance_type != null ? var.instance_type : data.tencentcloud_instance_types.this.instance_types[0].instance_type
   image_id      = var.image_id != null ? var.image_id : data.tencentcloud_images.this.images[0].image_id
   # password
-  password = var.password != null && var.password != "" ? var.password : random_password.pwd.result
+  password = var.key_ids == null || length(var.key_ids) == 0 ? (var.password != null && var.password != "" ? var.password : random_password.pwd.result) : null
   # placement group
   create_placement_group = var.placement_group_name != null && var.placement_group_name != ""
   placement_group_id     = var.placement_group_id != null && var.placement_group_id != "" ? var.placement_group_id : local.create_placement_group ? tencentcloud_placement_group.this[0].id : null
