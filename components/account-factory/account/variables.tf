@@ -22,18 +22,29 @@ variable "permission_ids" {
 
     Values 1 and 2 are required.
   EOD
-  type = list(number)
+  type        = list(number)
 }
 
 variable "policy_type" {
   description = "Organization policy type. Financial: Financial management policy."
   type        = string
+  default     = "Financial"
+
+  validation {
+    condition     = contains(["Financial"], var.policy_type)
+    error_message = "policy_type currently only supports: Financial."
+  }
 }
 
 variable "pay_uin" {
-  description = "The UIN of the payment account on behalf. Required when permission_ids contains 7."
+  description = "The UIN of the payment account on behalf. Required when permission_ids contains 7 (Pay on behalf)."
   type        = string
   default     = null
+
+  validation {
+    condition     = !contains(var.permission_ids, 7) || var.pay_uin != null
+    error_message = "pay_uin is required when permission_ids contains 7 (Pay on behalf)."
+  }
 }
 
 # Optional variables
