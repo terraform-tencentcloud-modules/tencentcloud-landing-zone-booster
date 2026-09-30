@@ -1,199 +1,119 @@
-# tencentcloud-waf-saas-domain 模块
+# tencentcloud-waf-saas-domain module
 
-这个 Terraform 模块用于在腾讯云上创建 WAF SaaS 域名（tencentcloud_waf_saas_domain）。
+This Terraform module provisions a WAF SaaS domain on Tencent Cloud using the `tencentcloud_waf_saas_domain` resource.
 
-## 说明
+## Overview
 
-该模块封装了 `tencentcloud_waf_saas_domain` 资源的常用配置项，便于在不同环境中复用。主要用于将域名接入 WAF 实例并配置监听端口、上游类型、证书和相关策略。
+The module wraps common configuration for `tencentcloud_waf_saas_domain`, making it easy to reuse across environments. Use it to attach a domain to a WAF instance and configure listening ports, upstream settings, certificates, and related policies.
 
-## 目录结构
+## Directory structure
 
-下面列出模块目录中常见文件及其用途，便于快速定位与二次开发：
+The following lists common files and their purpose within this module to help you quickly find and modify items:
 
-- `main.tf` — 模块主体，声明 `tencentcloud_waf_saas_domain` 资源及其配置。
-- `variables.tf` — 模块输入变量定义与说明（类型、默认值、是否敏感等）。
-- `outputs.tf` — 模块输出（如果存在，导出域名 ID、证书 ID 等）；当前模块包含 `outputs.tf`（可根据需要添加/调整导出项）。
-- `versions.tf` — provider 与 Terraform 版本约束，用于保证兼容性。
-- `examples/` — 示例调用与变量文件（若存在），演示常见使用场景。
-- `README.md` — 中文文档（本文件），包含使用说明与示例。
-- `README_EN.md` — 英文文档，包含与中文对应的说明与示例。
+- `main.tf` — The module entry; declares the `tencentcloud_waf_saas_domain` resource and its configuration.
+- `variables.tf` — Input variable definitions (types, defaults, sensitive flags).
+- `outputs.tf` — Module outputs (if present, expose domain id, ssl id, etc.). Update or add outputs as needed.
+- `versions.tf` — Terraform and provider version constraints to ensure compatibility.
+- `examples/` — Example usages and `*.tfvars` files (if present) illustrating common scenarios.
+- `README.md` — Chinese documentation for the module.
+- `README_EN.md` — English documentation (this file).
 
-在对模块进行改动（例如新增变量、变更输出）时，请同时更新相应的 `variables.tf` / `outputs.tf` 与文档，以保持一致性。
+When changing module inputs or outputs, please update the corresponding `variables.tf` / `outputs.tf` and documentation to keep them in sync.
 
-## 输入（Variables）
+## Inputs (Variables)
 
-以下变量基于模块的 `variables.tf`。标注说明：Required 表示必填；可选变量给出默认值。
+The variables are defined in `variables.tf`. Required and optional inputs are listed below.
 
-- `domain` (string) — 必填。域名。
-- `instance_id` (string) — 必填。WAF 实例 ID。
-- `ports` (list(object)) — 必填。端口配置列表，每项包含：
-  - `port` (string) 监听端口
-  - `protocol` (string) 协议（例如 `http`/`https`）
-  - `upstream_port` (string) 上游端口
-  - `upstream_protocol` (string) 上游协议
+- `domain` (string) — Required. The domain name.
+- `instance_id` (string) — Required. WAF instance ID.
+- `ports` (list(object)) — Required. A list of port configurations. Each entry contains:
+  - `port` (string) — listen port
+  - `protocol` (string) — protocol (e.g. `http`/`https`)
+  - `upstream_port` (string) — upstream port
+  - `upstream_protocol` (string) — upstream protocol
 
-可选参数（含默认值）：
+Optional variables (with defaults):
 
-- `active_check` (number, default 0) — 是否启用主动健康检测（0 关，1 开）。
-- `api_safe_status` (number, default 0) — API 防护开关（1 开，0 关）。
-- `bot_status` (number, default 0) — Bot 管控（1 开，0 关）。
-- `cert_type` (number, default 0) — 证书类型：0 无证书；1 自有证书；2 托管证书。
-- `cert` (string, sensitive, default null) — 证书内容（cert_type=1 时需填）。
-- `private_key` (string, sensitive, default null) — 证书私钥（cert_type=1 时需填）。
-- `ssl_id` (string, default null) — 托管证书 ID（cert_type=2 时需填）。
-- `cipher_template` (number, default 0) — 加密套件模板（0 默认，1 通用，2 安全，3 自定义）。
-- `ciphers` (list(number), default []) — 自定义加密套件编号列表（当 template=3 等）。
-- `cls_status` (number, default 0) — 是否开启访问日志（1 开，0 关）。
-- `https_rewrite` (number, default 0) — 是否开启 HTTP->HTTPS 跳转（1 开，0 关）。
-- `https_upstream_port` (string, default null) — HTTPS 上游端口（特殊场景下需要）。
-- `ip_headers` (list(string), default []) — 当 is_cdn=3 时自定义客户端 IP Header 列表。
-- `is_cdn` (number, default 0) — 是否有代理在 WAF 之前（0 无，1 使用 X-Forwarded-For 首项，2 使用 remote_addr，3 使用自定义 Header）。
-- `is_http2` (number, default 0) — 是否启用 HTTP/2（需要 HTTPS，1 开，0 关）。
-- `is_keep_alive` (string, default "0") — 是否开启 keep-alive（"0" 关，"1" 开）。
-- `is_websocket` (number, default 0) — 是否启用 WebSocket（1 开，0 关）。
-- `load_balance` (string, default "0") — 负载均衡策略（"0" 轮询，"1" IP hash，"2" 加权轮询）。
-- `proxy_read_timeout` (number, default 300) — 代理读取超时时间（秒）。
-- `proxy_send_timeout` (number, default 300) — 代理发送超时时间（秒）。
-- `sni_host` (string, default null) — 自定义 SNI 主机（当 sni_type=3）。
-- `sni_type` (number, default 0) — 上游 SNI 类型（0 禁用，1 使用原始请求 host，2 使用上游 host，3 自定义 host）。
-- `src_list` (list(string), default []) — 上游 IP 列表（上游类型 upstream_type=0 时需要）。
-- `upstream_domain` (string, default null) — 上游域名（上游类型 upstream_type=1 时需要）。
-- `upstream_scheme` (string, default "http") — 上游协议（http/https）。
-- `upstream_type` (number, default 0) — 上游类型（0 IP，1 域名）。
-- `weights` (list(number), default []) — 上游权重列表（对应 `src_list`/上游列表）。
-- `xff_reset` (number, default 0) — 是否重写 X-Forwarded-For（0 关，1 开）。
-- `status` (number, default 1) — WAF 开关状态（1 开启，0 关闭）。
-- `tls_version` (number, default 1.2) — TLS 协议版本。
+- `active_check` (number, default 0) — Enable active health check (0 off, 1 on).
+- `api_safe_status` (number, default 0) — API protection (1 on, 0 off).
+- `bot_status` (number, default 0) — Bot control (1 on, 0 off).
+- `cert_type` (number, default 0) — Certificate type: 0 none; 1 self-owned; 2 managed.
+- `cert` (string, sensitive, default null) — Certificate content (when cert_type=1).
+- `private_key` (string, sensitive, default null) — Certificate private key (when cert_type=1).
+- `ssl_id` (string, default null) — Managed certificate ID (when cert_type=2).
+- `cipher_template` (number, default 0) — Cipher template (0 default, 1 universal, 2 secure, 3 custom).
+- `ciphers` (list(number), default []) — Cipher list (when using custom template).
+- `cls_status` (number, default 0) — Enable access logs (1 on, 0 off).
+- `https_rewrite` (number, default 0) — Enable HTTP->HTTPS redirect (1 on, 0 off).
+- `https_upstream_port` (string, default null) — Upstream port for HTTPS (special cases).
+- `ip_headers` (list(string), default []) — Custom client IP headers (when is_cdn=3).
+- `is_cdn` (number, default 0) — CDN deployment mode (0 none, 1 X-Forwarded-For first, 2 remote_addr, 3 custom headers).
+- `is_http2` (number, default 0) — Enable HTTP/2 (requires HTTPS, 1 on, 0 off).
+- `is_keep_alive` (string, default "0") — Keep-alive ("0" off, "1" on).
+- `is_websocket` (number, default 0) — WebSocket support (1 on, 0 off).
+- `load_balance` (string, default "0") — Load balancing strategy ("0" round-robin, "1" IP hash, "2" weighted round-robin).
+- `proxy_read_timeout` (number, default 300) — Proxy read timeout (seconds).
+- `proxy_send_timeout` (number, default 300) — Proxy send timeout (seconds).
+- `sni_host` (string, default null) — Custom SNI host (when sni_type=3).
+- `sni_type` (number, default 0) — Upstream SNI type (0 disable, 1 use original request host, 2 use upstream host, 3 custom host).
+- `src_list` (list(string), default []) — Upstream IP list (when upstream_type=0).
+- `upstream_domain` (string, default null) — Upstream domain (when upstream_type=1).
+- `upstream_scheme` (string, default "http") — Upstream scheme (`http` or `https`).
+- `upstream_type` (number, default 0) — Upstream type (0 IP, 1 domain).
+- `weights` (list(number), default []) — Weights for upstreams (matching `src_list`).
+- `xff_reset` (number, default 0) — Reset X-Forwarded-For (0 off, 1 on).
+- `status` (number, default 1) — WAF switch (1 on, 0 off).
+- `tls_version` (number, default 1.2) — TLS protocol version.
 
-> 注意：`cert` 与 `private_key` 在 `variables.tf` 中被标为 sensitive，建议将它们通过安全方式（例如 Terraform Cloud/Enterprise 的敏感变量、或使用 Vault）传入。
+> Note: `cert` and `private_key` are marked sensitive in `variables.tf`. Provide them through secure variable storage (Terraform Cloud/Enterprise variable, Vault, etc.).
 
-## 输出（Outputs）
+## Outputs
 
-该模块目录下未发现 `outputs.tf` 文件，因此当前模块不导出任何显式输出（如果需要可以添加，如域名 ID、证书 ID 等）。
+There is no `outputs.tf` in the module directory at the moment, so the module does not export explicit outputs. Add an `outputs.tf` if you need to expose values like domain ID or ssl_id.
 
-## 基本用法示例
+## Examples
 
-下面给出若干常见场景的示例配置，供参考：
+Below are example `*.tfvars` files in `examples/` matching the examples in the Chinese README.
 
-### 1) 最小化（HTTP 域名接入）
+### 1) Minimal (HTTP)
 
-```hcl
-module "waf_domain_basic" {
-  source      = "../../modules/tencentcloud-waf-saas-domain"
-  domain      = "example.com"
-  instance_id = "waf-instance-xxxx"
-  ports = [
-    {
-      port              = "80"
-      protocol          = "http"
-      upstream_port     = "80"
-      upstream_protocol = "http"
-    }
-  ]
-}
-```
+See `examples/basic.tfvars`.
 
-适用于仅通过 HTTP 暴露并且上游为 IP 列表或单一服务器的场景（后端用 `src_list` 或 `upstream_domain` 配置）。
+### 2) Managed certificate (HTTPS)
 
-### 2) 使用托管证书（HTTPS）
+See `examples/https.tfvars`.
 
-```hcl
-module "waf_domain_https" {
-  source      = "../../modules/tencentcloud-waf-saas-domain"
-  domain      = "secure.example.com"
-  instance_id = "waf-instance-xxxx"
-  ports = [
-    {
-      port              = "443"
-      protocol          = "https"
-      upstream_port     = "443"
-      upstream_protocol = "https"
-    }
-  ]
-  cert_type = 2
-  ssl_id    = "managed-cert-xxxx"
-  is_http2  = 1
-  https_rewrite = 1
-}
-```
+### 3) Self-owned certificate + custom SNI + upstream domain
 
-当使用腾讯云托管证书时，将 `cert_type` 设为 `2` 并传入 `ssl_id`。可同时启用 HTTP/2 与 HTTP->HTTPS 重定向。
+See `examples/custom_cert.tfvars`. Be careful: `cert` and `private_key` are sensitive; do not commit real keys to source control.
 
-### 3) 自有证书 + 自定义 SNI + 上游为域名
+### 4) Multiple backends (IP list) with weighted load
 
-```hcl
-module "waf_domain_custom_cert" {
-  source      = "../../modules/tencentcloud-waf-saas-domain"
-  domain      = "api.example.com"
-  instance_id = "waf-instance-xxxx"
-  ports = [
-    {
-      port              = "443"
-      protocol          = "https"
-      upstream_port     = "8443"
-      upstream_protocol = "https"
-    }
-  ]
-  cert_type   = 1
-  cert        = var.api_cert_pem      # sensitive
-  private_key = var.api_cert_key_pem  # sensitive
-  sni_type    = 3
-  sni_host    = "upstream.internal.example.com"
-  upstream_type = 1
-  upstream_domain = "upstream.internal.example.com"
-}
-```
+See `examples/multi_backend.tfvars`.
 
-当证书为自有证书时，请通过安全方式提供 `cert` 与 `private_key`。若上游需要自定义 SNI，可设置 `sni_type=3` 并传入 `sni_host`。
+## Common scenarios & recommendations
 
-### 4) 多后端（IP 列表）与加权负载
+- If WAF is placed behind a CDN, configure `is_cdn` and `ip_headers` correctly to ensure the module obtains the real client IP:
+  - CDN using X-Forwarded-For first item: `is_cdn = 1`
+  - CDN using remote_addr: `is_cdn = 2`
+  - Custom header(s): `is_cdn = 3` and set `ip_headers`.
 
-```hcl
-module "waf_domain_multi_backend" {
-  source      = "../../modules/tencentcloud-waf-saas-domain"
-  domain      = "app.example.com"
-  instance_id = "waf-instance-xxxx"
-  ports = [
-    {
-      port              = "80"
-      protocol          = "http"
-      upstream_port     = "80"
-      upstream_protocol = "http"
-    }
-  ]
-  upstream_type = 0
-  src_list = ["10.0.1.10", "10.0.1.11"]
-  weights  = [70, 30]
-  load_balance = "2" # 加权轮询
-}
-```
+- Prefer managed certificates (`cert_type=2`) to reduce private key handling risks. If using self-owned certificates, store them securely.
 
-确保 `src_list` 与 `weights` 数量一致，分别对应每个上游的权重。
+- If enabling HTTP/2 (`is_http2=1`), you must use HTTPS (listen on 443).
 
-## 常见场景与建议
+- Tune `proxy_read_timeout` and `proxy_send_timeout` to fit backend response times to avoid 502/504.
 
-- 若在 CDN 之后再接入 WAF，请根据 CDN 填写 `is_cdn` 与 `ip_headers` 来确保获得真实客户端 IP：
-  - CDN 且使用 X-Forwarded-For 首项：`is_cdn = 1`
-  - CDN 且需要使用 remote_addr：`is_cdn = 2`
-  - 使用自定义 header：`is_cdn = 3` 且填写 `ip_headers`。
+- Enable `cls_status = 1` to send access logs to Cloud Log Service for troubleshooting and auditing.
 
-- 推荐将私钥与证书字段作为敏感变量处理，并使用托管证书（`cert_type=2`）以降低私钥管理风险。
+## Notes
 
-- 若启用 HTTP/2（`is_http2=1`），必须同时使用 HTTPS（监听 443）。
+- Add an `outputs.tf` to the module if you want to expose attributes (domain id, ssl id, etc.) to the caller.
+- Ensure `instance_id` has required permissions to manage domains in the WAF instance.
 
-- `proxy_read_timeout` 与 `proxy_send_timeout` 根据后端响应时间酌情调整，避免出现超时导致的 502/504。
+## Quick local test
 
-- 若需要日志与监控，开启 `cls_status = 1` 将访问日志发送到 CL S (Cloud Log Service)，便于排查与审计。
-
-## 注意事项
-
-- 模块当前没有导出 outputs，如果需要在调用方引用某些属性（例如创建成功后的域名 ID 或证书 ID），请在模块中添加 `outputs.tf` 并显式导出相应属性。
-
-- 请根据实际的 WAF 实例与账号权限确保 `instance_id` 有权限对域名进行管理。
-
-## 验证（本地测试提示）
-
-1. 填写调用模块的 `terraform.tfvars` 或在 `module` 调用中传入必要变量。
-2. 运行 `terraform init`。
-3. 运行 `terraform plan -var-file=examples/basic.tfvars` 查看变更。
-4. 运行 `terraform apply -var-file=examples/basic.tfvars` 创建资源。
+1. Copy one of the `examples/*.tfvars` to your working directory (or reference it with `-var-file`).
+2. Run `terraform init`.
+3. Run `terraform plan -var-file=examples/basic.tfvars` (replace file name as needed).
+4. Run `terraform apply -var-file=examples/basic.tfvars` to create resources.

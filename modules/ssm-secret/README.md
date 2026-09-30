@@ -1,19 +1,19 @@
-# TencentCloud SSM 模块
+# TencentCloud SSM Module
 
-本模块用于在腾讯云上创建和管理SSM（Secrets Manager）密钥和密钥版本。
+This module is used to create and manage SSM (Secrets Manager) secrets and secret versions on TencentCloud.
 
-## 功能特性
+## Features
 
-- 创建和管理SSM密钥
-- 支持密钥版本管理
-- 支持密钥自动轮换配置
-- 支持多种密钥类型（用户定义、Redis等）
-- 支持KMS加密密钥配置
-- 完整的输出信息
+- Create and manage SSM secrets
+- Support secret version management
 
-## 使用方法
+- Support multiple secret types (user-defined, Redis, etc.)
+- Support KMS encryption key configuration
+- Complete output information
 
-### 基本使用
+## Usage
+
+### Basic Usage
 
 ```hcl
 module "ssm_secret" {
@@ -25,7 +25,7 @@ module "ssm_secret" {
 }
 ```
 
-### 完整配置示例
+### Complete Configuration Example
 
 ```hcl
 module "ssm_secret" {
@@ -38,7 +38,7 @@ module "ssm_secret" {
   recovery_window_in_days  = 7
   secret_enabled           = true
   
-  # 标签
+  # Tags
   tags = {
     Environment = "production"
     Project     = "my-project"
@@ -46,48 +46,48 @@ module "ssm_secret" {
 }
 ```
 
-## 输入变量
+## Input Variables
 
-### 基础配置
+### Basic Configuration
 
-- `secret_name` (必需) - 密钥名称
-- `secret_description` (可选) - 密钥描述
-- `secret_version_id` (可选) - 密钥版本ID
-- `secret_string` (可选) - 密钥明文内容
-- `secret_binary` (可选) - 密钥二进制内容（base64格式）
+- `secret_name` (Required) - Secret name
+- `secret_description` (Optional) - Secret description
+- `secret_version_id` (Optional) - Secret version ID
+- `secret_string` (Optional) - Secret text in plain text
+- `secret_binary` (Optional) - Secret binary data in base64 format
 
-### 其他配置
+### Other Configuration
 
-- `recovery_window_in_days` (可选) - 恢复窗口天数
-- `secret_enabled` (可选) - 是否启用密钥
-- `kms_key_id` (可选) - KMS加密密钥ID
-- `kms_key_id_from_module` (可选) - 从KMS模块获取的密钥ID。优先级高于kms_key_id变量
-- `additional_config` (可选) - 附加配置（JSON格式）
-- `secret_type` (可选) - 密钥类型（0=用户定义，4=Redis）
-- `tags` (可选) - 资源标签
+- `recovery_window_in_days` (Optional) - Recovery window in days
+- `secret_enabled` (Optional) - Whether the secret is enabled
+- `kms_key_id` (Optional) - KMS key ID used for encryption
+- `kms_key_id_from_module` (Optional) - KMS key ID from KMS module output. Takes precedence over kms_key_id variable
+- `additional_config` (Optional) - Additional configuration in JSON format
+- `secret_type` (Optional) - Secret type (0=user-defined, 4=Redis)
+- `tags` (Optional) - Resource tags
 
-### KMS密钥ID优先级
+### KMS Key ID Priority
 
-kms_key_id参数按照以下优先级顺序获取：
-1. `kms_key_id_from_module` - 从KMS模块输出获取的密钥ID
-2. `kms_key_id` - 直接指定的密钥ID变量
-3. `null` - 如果两者都为空，则使用null（使用SSM默认CMK）
+kms_key_id parameter follows this priority order:
+1. `kms_key_id_from_module` - KMS key ID from KMS module output
+2. `kms_key_id` - Directly specified KMS key ID variable
+3. `null` - If both are empty, use null (use SSM default CMK)
 
-## 输出变量
+## Output Variables
 
-- `ssm_secret_id` - SSM密钥ID
-- `ssm_secret_status` - SSM密钥状态
-- `ssm_secret_version_id` - SSM密钥版本ID
-- `secret_details` - 完整的密钥详情（敏感信息）
+- `ssm_secret_id` - SSM secret ID
+- `ssm_secret_status` - SSM secret status
+- `ssm_secret_version_id` - SSM secret version ID
+- `secret_details` - Complete secret details (sensitive)
 
-## 注意事项
+## Notes
 
-- `secret_string`和`secret_binary`只能指定其中一个
-- 密钥名称在同一个地域内必须唯一
-- 恢复窗口设置为0表示立即删除，1-30表示保留天数
-- 启用轮换时，轮换频率必须至少7天
+- Only one of `secret_string` or `secret_binary` can be specified
+- Secret names must be unique within the same region
+- Recovery window of 0 means delete immediately, 1-30 means retention days
 
-## 依赖要求
+
+## Requirements
 
 - Terraform >= 1.0.0
 - TencentCloud Provider >= 1.81.0

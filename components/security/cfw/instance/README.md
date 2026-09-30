@@ -1,587 +1,603 @@
-# 腾讯云云防火墙（CFW）实例模块
+# Tencent Cloud Cloud Firewall (CFW) Instance Component
 
-## 模块概述
+Terraform component under `components/security/cfw/instance` for deploying and managing a Cloud Firewall (CFW) instance in Tencent Cloud — as part of the `security` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中部署和管理云防火墙（Cloud Firewall，CFW）实例，提供全面的网络安全防护能力，主要功能包括：
+## Overview
 
-- **实例创建** - 创建和管理云防火墙实例
-- **版本选择** - 支持基础版、企业版、旗舰版三种版本
-- **计费管理** - 支持预付费模式，灵活配置购买时长
-- **带宽配置** - 配置南北向和VPC防火墙带宽
-- **日志服务** - 配置日志分析和日志存储功能
-- **扩展功能** - 支持全流量检测、网络蜜罐、地址模板等高级功能
-- **自动续费** - 支持自动续费配置
-- **多地域部署** - 支持在不同地域和可用区部署
+This component deploys and manages a Cloud Firewall (CFW) instance, providing comprehensive network security protection. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudFinanceFullAccess` | 财务管理权限 |
-| `QcloudBillingReadOnlyAccess` | 账单只读权限 |
-| `QcloudCFWFullAccess` | 云防火墙全权限 |
-| `QcloudCFWReadOnlyAccess` | 云防火墙只读权限 |
-| `QcloudVPCFullAccess` | VPC网络权限 |
-
-### 其他要求
-
-- 需要确定云防火墙版本（基础版、企业版、旗舰版）
-- 需要规划带宽需求和日志存储需求
-- 需要确定购买时长和续费策略
-- 需要选择部署地域和可用区
-- 需要配置扩展功能（如需要）
-- 需要准备项目ID（如需要）
+- **Instance creation** – create and manage a CFW instance.
+- **Edition selection** – supports Advanced, Enterprise, and Ultimate editions.
+- **Billing management** – PrePay (subscription) mode with flexible purchase duration.
+- **Bandwidth configuration** – configure north-south and VPC firewall bandwidth.
+- **Log service** – configure log analysis and log storage.
+- **Extended features** – full-traffic detection (NDR), network honeypot, address template, and more.
+- **Auto renewal** – configure auto-renewal.
+- **Multi-region deployment** – deploy in different regions and availability zones.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 必需配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.1.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `region` | `string` | 是 | - | 部署地域，如：ap-beijing |
-| `zone` | `string` | 是 | - | 可用区，如：ap-beijing-1 |
-| `pay_mode` | `string` | 否 | `PrePay` | 付费模式，仅支持预付费（PrePay） |
+## Providers
 
-### 计费配置变量
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `period` | `number` | 否 | `1` | 购买时长，最大36，默认1 |
-| `period_unit` | `string` | 否 | `m` | 时长单位：m(月), y(年) |
-| `renew_flag` | `string` | 否 | `NOTIFY_AND_MANUAL_RENEW` | 续费标志：NOTIFY_AND_MANUAL_RENEW(手动续费), NOTIFY_AND_AUTO_RENEW(自动续费), DISABLE_NOTIFY_AND_MANUAL_RENEW(禁用续费) |
+### IAM Permissions
 
-### 产品参数配置变量
+The executing principal needs the following Tencent Cloud permissions:
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `parameter` | `object` | 是 | - | 产品详细参数配置对象 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudFinanceFullAccess` | Financial management access |
+| `QcloudBillingReadOnlyAccess` | Billing read-only access |
+| `QcloudCFWFullAccess` | Full access to Cloud Firewall |
+| `QcloudCFWReadOnlyAccess` | Read-only access to Cloud Firewall |
+| `QcloudVPCFullAccess` | Access to VPC |
 
-### 参数对象字段说明
+### Prerequisites
 
-#### 通用配置
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `goodsNum` | `number` | 否 | `1` | 商品数量 |
-
-#### 版本选择
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `sv_cloudfirewall_basic_aeps` | `bool` | 否 | `false` | 高级版（Advanced Edition） |
-| `sv_cloudfirewall_basic_eeps` | `bool` | 否 | `false` | 企业版（Enterprise Edition） |
-| `sv_cloudfirewall_basic_ueps` | `bool` | 否 | `false` | 旗舰版（Ultimate Edition） |
-
-#### 日志服务
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `sv_cloudfirewall_extended_clasps` | `bool` | 否 | `false` | 日志分析功能 |
-| `sv_cloudfirewall_extended_clsesps` | `number` | 否 | `0` | 日志存储容量（单位：GB，步长1000） |
-
-#### 带宽配置
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `sv_cloudfirewall_extended_ibtesps` | `number` | 否 | `0` | 南北向保护带宽（单位：Mbps，步长1） |
-| `sv_cloudfirewall_extended_vpcbges` | `number` | 否 | `0` | VPC防火墙带宽（单位：Gbps，步长1） |
-| `sv_cloudfirewall_extended_vpc` | `number` | 否 | `0` | VPC防火墙带宽（单位：Mbps，步长1） |
-| `sv_cloudfirewall_extended_ndr` | `number` | 否 | `0` | 全流量检测和响应NDR带宽（单位：Gbps，步长1） |
-
-#### 扩展功能
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `sv_cloudfirewall_extended_pcs` | `number` | 否 | `0` | 网络蜜罐（步长1） |
-| `sv_cloudfirewall_extended_sub` | `number` | 否 | `0` | 通用实例（步长1） |
-| `sv_cloudfirewall_extended_subs` | `number` | 否 | `0` | 通用规则（步长100） |
-| `sv_cloudfirewall_extended_ates` | `number` | 否 | `0` | 地址模板（步长10） |
-| `sv_cloudfirewall_extended_spt` | `bool` | 否 | `false` | 关键保护工具包 |
-
-#### 其他配置
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `sv_cloudfirewall_extended_ex` | `number` | 否 | `0` | 扩展功能（未知） |
-| `sv_cloudfirewall_extended_nats` | `number` | 否 | `0` | NAT相关（未知） |
-| `sv_cloudfirewall_extended_sra` | `number` | 否 | `0` | SRA相关（未知） |
-| `sv_cloudfirewall_extended_srb` | `number` | 否 | `0` | SRB相关（未知） |
-
-### 可选配置变量
-
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `project_id` | `number` | 否 | `0` | 项目ID |
-| `create_timeout` | `string` | 否 | `20m` | 创建超时时间 |
+- Decide the CFW edition (Advanced / Enterprise / Ultimate).
+- Plan bandwidth and log-storage requirements.
+- Decide the purchase duration and renewal strategy.
+- Select the deployment region and availability zone.
+- Configure extended features if needed.
+- Prepare the project ID if needed.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### Required configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_region"></a> [region](#input\_region) | `string` | yes | – | Deployment region, e.g. `ap-beijing`. |
+| <a name="input_zone"></a> [zone](#input\_zone) | `string` | yes | – | Availability zone, e.g. `ap-beijing-1`. |
+| <a name="input_parameter"></a> [parameter](#input\_parameter) | `object` | yes | – | Product detail parameter object. All of its sub-fields are optional (see below). |
+
+### Optional configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_pay_mode"></a> [pay\_mode](#input\_pay\_mode) | `string` | no | `PrePay` | Payment mode. Only `PrePay` (subscription) is supported. |
+| <a name="input_project_id"></a> [project\_id](#input\_project\_id) | `number` | no | `0` | Project ID. |
+| <a name="input_period"></a> [period](#input\_period) | `number` | no | `1` | Purchase duration, max value is `36`. |
+| <a name="input_period_unit"></a> [period\_unit](#input\_period\_unit) | `string` | no | `m` | Purchase duration unit: `m` (month), `y` (year). |
+| <a name="input_renew_flag"></a> [renew\_flag](#input\_renew\_flag) | `string` | no | `NOTIFY_AND_MANUAL_RENEW` | Renewal flag: `NOTIFY_AND_MANUAL_RENEW` (manual), `NOTIFY_AND_AUTO_RENEW` (auto), `DISABLE_NOTIFY_AND_MANUAL_RENEW` (disabled). |
+| <a name="input_create_timeout"></a> [create\_timeout](#input\_create\_timeout) | `string` | no | `20m` | Create timeout. |
+
+### `parameter` object fields
+
+#### Common
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `goodsNum` | `number` | `1` | Goods quantity. |
+
+#### Edition selection
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sv_cloudfirewall_basic_aeps` | `bool` | `false` | Advanced Edition. |
+| `sv_cloudfirewall_basic_eeps` | `bool` | `false` | Enterprise Edition. |
+| `sv_cloudfirewall_basic_ueps` | `bool` | `false` | Ultimate Edition. |
+
+#### Log service
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sv_cloudfirewall_extended_clasps` | `bool` | `false` | Log analysis feature. |
+| `sv_cloudfirewall_extended_clsesps` | `number` | `0` | Log storage capacity (GB, step size 1000). |
+
+#### Bandwidth configuration
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sv_cloudfirewall_extended_ibtesps` | `number` | `0` | North-south protection bandwidth (Mbps, step size 1). |
+| `sv_cloudfirewall_extended_vpcbges` | `number` | `0` | VPC firewall bandwidth (Gbps, step size 1). |
+| `sv_cloudfirewall_extended_vpc` | `number` | `0` | VPC firewall bandwidth (Mbps, step size 1). |
+| `sv_cloudfirewall_extended_ndr` | `number` | `0` | Full-traffic detection and response (NDR) bandwidth (Gbps, step size 1). |
+
+#### Extended features
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sv_cloudfirewall_extended_pcs` | `number` | `0` | Network honeypot (step size 1). |
+| `sv_cloudfirewall_extended_sub` | `number` | `0` | General instance (step size 1). |
+| `sv_cloudfirewall_extended_subs` | `number` | `0` | General rule (step size 100). |
+| `sv_cloudfirewall_extended_ates` | `number` | `0` | Address template (step size 10). |
+| `sv_cloudfirewall_extended_spt` | `bool` | `false` | Critical Protection Toolkit. |
+
+#### Other (purpose not documented in the API)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sv_cloudfirewall_extended_ex` | `number` | `0` | Extended feature (purpose unspecified). |
+| `sv_cloudfirewall_extended_nats` | `number` | `0` | NAT-related (purpose unspecified). |
+| `sv_cloudfirewall_extended_sra` | `number` | `0` | SRA-related (purpose unspecified). |
+| `sv_cloudfirewall_extended_srb` | `number` | `0` | SRB-related (purpose unspecified). |
+
+> **Note**: At most one edition flag (`..._aeps` / `..._eeps` / `..._ueps`) should be set to `true`. Setting more than one will trigger a `Version conflict` error.
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_instance_id"></a> [instance\_id](#output\_instance\_id) | CFW instance ID. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars`
 
 ```hcl
-# 基础配置
+# Basic configuration
 region     = "ap-beijing"
 zone       = "ap-beijing-1"
 pay_mode   = "PrePay"
 
-# 计费配置
+# Billing configuration
 period      = 12
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 产品参数配置
+# Product parameter configuration
 parameter = {
-  # 版本选择 - 选择企业版
+  # Edition selection - Enterprise
   sv_cloudfirewall_basic_eeps = true
-  
-  # 日志服务
-  sv_cloudfirewall_extended_clasps  = true  # 启用日志分析
-  sv_cloudfirewall_extended_clsesps = 1000  # 1TB日志存储
-  
-  # 带宽配置
-  sv_cloudfirewall_extended_ibtesps = 100   # 100Mbps南北向带宽
-  sv_cloudfirewall_extended_vpcbges = 1     # 1Gbps VPC防火墙带宽
-  
-  # 扩展功能
-  sv_cloudfirewall_extended_pcs = 2         # 2个网络蜜罐
-  sv_cloudfirewall_extended_ates = 10       # 10个地址模板
-  sv_cloudfirewall_extended_spt  = true     # 启用关键保护工具包
+
+  # Log service
+  sv_cloudfirewall_extended_clasps  = true  # enable log analysis
+  sv_cloudfirewall_extended_clsesps = 1000  # 1TB log storage
+
+  # Bandwidth configuration
+  sv_cloudfirewall_extended_ibtesps = 100   # 100Mbps north-south bandwidth
+  sv_cloudfirewall_extended_vpcbges = 1     # 1Gbps VPC firewall bandwidth
+
+  # Extended features
+  sv_cloudfirewall_extended_pcs = 2         # 2 network honeypots
+  sv_cloudfirewall_extended_ates = 10       # 10 address templates
+  sv_cloudfirewall_extended_spt  = true     # enable Critical Protection Toolkit
 }
 
-# 可选配置
+# Optional configuration
 project_id = 123456
 ```
 
-### 生产环境配置示例
+### Production environment configuration
 
 ```hcl
-# 生产环境配置
+# Production environment configuration
 region     = "ap-shanghai"
 zone       = "ap-shanghai-2"
 
-# 长期订阅
+# Long-term subscription
 period      = 36
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 生产级参数
+# Production-grade parameters
 parameter = {
-  # 选择旗舰版
+  # Ultimate edition
   sv_cloudfirewall_basic_ueps = true
-  
-  # 完整的日志服务
+
+  # Full log service
   sv_cloudfirewall_extended_clasps  = true
-  sv_cloudfirewall_extended_clsesps = 5000  # 5TB日志存储
-  
-  # 高带宽配置
-  sv_cloudfirewall_extended_ibtesps = 1000  # 1Gbps南北向带宽
-  sv_cloudfirewall_extended_vpcbges = 5     # 5Gbps VPC防火墙带宽
-  sv_cloudfirewall_extended_ndr     = 2     # 2Gbps全流量检测
-  
-  # 高级安全功能
-  sv_cloudfirewall_extended_pcs  = 5        # 5个网络蜜罐
-  sv_cloudfirewall_extended_subs = 500      # 500条通用规则
-  sv_cloudfirewall_extended_ates = 50       # 50个地址模板
-  sv_cloudfirewall_extended_spt  = true     # 关键保护工具包
+  sv_cloudfirewall_extended_clsesps = 5000  # 5TB log storage
+
+  # High bandwidth
+  sv_cloudfirewall_extended_ibtesps = 1000  # 1Gbps north-south bandwidth
+  sv_cloudfirewall_extended_vpcbges = 5     # 5Gbps VPC firewall bandwidth
+  sv_cloudfirewall_extended_ndr     = 2     # 2Gbps full-traffic detection
+
+  # Advanced security features
+  sv_cloudfirewall_extended_pcs  = 5        # 5 network honeypots
+  sv_cloudfirewall_extended_subs = 500      # 500 general rules
+  sv_cloudfirewall_extended_ates = 50       # 50 address templates
+  sv_cloudfirewall_extended_spt  = true     # Critical Protection Toolkit
 }
 
 project_id = 789012
 ```
 
-### 测试环境配置示例
+### Testing environment configuration
 
 ```hcl
-# 测试环境配置
+# Testing environment configuration
 region = "ap-guangzhou"
 zone   = "ap-guangzhou-1"
 
-# 短期订阅
+# Short-term subscription
 period      = 1
 period_unit = "m"
 
-# 基础参数
+# Basic parameters
 parameter = {
-  # 选择基础版
+  # Advanced edition
   sv_cloudfirewall_basic_aeps = true
-  
-  # 基础日志服务
-  sv_cloudfirewall_extended_clsesps = 100  # 100GB日志存储
-  
-  # 基础带宽
-  sv_cloudfirewall_extended_ibtesps = 10   # 10Mbps南北向带宽
-  sv_cloudfirewall_extended_vpc     = 100  # 100Mbps VPC防火墙带宽
+
+  # Basic log service
+  sv_cloudfirewall_extended_clsesps = 100  # 100GB log storage
+
+  # Basic bandwidth
+  sv_cloudfirewall_extended_ibtesps = 10   # 10Mbps north-south bandwidth
+  sv_cloudfirewall_extended_vpc     = 100  # 100Mbps VPC firewall bandwidth
 }
 ```
 
-### 最小化配置示例
+### Minimal configuration
 
 ```hcl
-# 最小化配置
+# Minimal configuration
 region = "ap-beijing"
 zone   = "ap-beijing-3"
 
 parameter = {
-  # 仅选择基础版
+  # Advanced edition only
   sv_cloudfirewall_basic_aeps = true
-  
-  # 最小带宽配置
-  sv_cloudfirewall_extended_ibtesps = 1  # 1Mbps南北向带宽
+
+  # Minimum bandwidth
+  sv_cloudfirewall_extended_ibtesps = 1  # 1Mbps north-south bandwidth
 }
 ```
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：企业级云防火墙部署
+### Example 1: Enterprise CFW deployment
 
 ```hcl
-# 企业级CFW配置
+# Enterprise CFW configuration
 region     = "ap-shanghai"
 zone       = "ap-shanghai-2"
-period     = 24  # 2年
+period     = 24  # 2 years
 period_unit = "m"
 
 parameter = {
-  # 企业版
+  # Enterprise edition
   sv_cloudfirewall_basic_eeps = true
-  
-  # 企业级日志
-  sv_cloudfirewall_extended_clasps  = true  # 日志分析
-  sv_cloudfirewall_extended_clsesps = 2000  # 2TB存储
-  
-  # 企业带宽
-  sv_cloudfirewall_extended_ibtesps = 500   # 500Mbps南北向
-  sv_cloudfirewall_extended_vpcbges = 2     # 2Gbps VPC防火墙
-  
-  # 企业安全功能
-  sv_cloudfirewall_extended_pcs  = 3        # 3个蜜罐
-  sv_cloudfirewall_extended_ates = 20       # 20个地址模板
-  sv_cloudfirewall_extended_spt  = true     # 关键保护
+
+  # Enterprise log
+  sv_cloudfirewall_extended_clasps  = true  # log analysis
+  sv_cloudfirewall_extended_clsesps = 2000  # 2TB storage
+
+  # Enterprise bandwidth
+  sv_cloudfirewall_extended_ibtesps = 500   # 500Mbps north-south
+  sv_cloudfirewall_extended_vpcbges = 2     # 2Gbps VPC firewall
+
+  # Enterprise security features
+  sv_cloudfirewall_extended_pcs  = 3        # 3 honeypots
+  sv_cloudfirewall_extended_ates = 20       # 20 address templates
+  sv_cloudfirewall_extended_spt  = true     # critical protection
 }
 
 project_id = 100001
 ```
 
-### 示例二：金融行业高安全配置
+### Example 2: Finance high-security configuration
 
 ```hcl
-# 金融行业CFW配置
+# Finance CFW configuration
 region     = "ap-beijing"
 zone       = "ap-beijing-1"
-period     = 36  # 3年最长订阅
+period     = 36  # max 3-year subscription
 
 parameter = {
-  # 旗舰版最高安全
+  # Ultimate edition, highest security
   sv_cloudfirewall_basic_ueps = true
-  
-  # 完整的审计日志
+
+  # Complete audit log
   sv_cloudfirewall_extended_clasps  = true
-  sv_cloudfirewall_extended_clsesps = 10000 # 10TB日志存储
-  
-  # 高带宽配置
-  sv_cloudfirewall_extended_ibtesps = 2000  # 2Gbps南北向
-  sv_cloudfirewall_extended_vpcbges = 10    # 10Gbps VPC防火墙
-  sv_cloudfirewall_extended_ndr     = 5     # 5Gbps全流量检测
-  
-  # 高级威胁防护
-  sv_cloudfirewall_extended_pcs  = 10       # 10个网络蜜罐
-  sv_cloudfirewall_extended_subs = 1000     # 1000条规则
-  sv_cloudfirewall_extended_ates = 100      # 100个地址模板
-  sv_cloudfirewall_extended_spt  = true     # 关键保护工具包
+  sv_cloudfirewall_extended_clsesps = 10000 # 10TB log storage
+
+  # High bandwidth
+  sv_cloudfirewall_extended_ibtesps = 2000  # 2Gbps north-south
+  sv_cloudfirewall_extended_vpcbges = 10    # 10Gbps VPC firewall
+  sv_cloudfirewall_extended_ndr     = 5     # 5Gbps full-traffic detection
+
+  # Advanced threat protection
+  sv_cloudfirewall_extended_pcs  = 10       # 10 network honeypots
+  sv_cloudfirewall_extended_subs = 1000     # 1000 rules
+  sv_cloudfirewall_extended_ates = 100      # 100 address templates
+  sv_cloudfirewall_extended_spt  = true     # Critical Protection Toolkit
 }
 
 project_id = 200002
 ```
 
-### 示例三：多VPC网络防护
+### Example 3: Multi-VPC network protection
 
 ```hcl
-# 多VPC环境CFW配置
+# Multi-VPC environment CFW configuration
 region = "ap-guangzhou"
 zone   = "ap-guangzhou-3"
 
 parameter = {
-  # 企业版支持多VPC
+  # Enterprise edition supports multi-VPC
   sv_cloudfirewall_basic_eeps = true
-  
-  # VPC防火墙配置
-  sv_cloudfirewall_extended_vpcbges = 3     # 3Gbps总带宽
+
+  # VPC firewall configuration
+  sv_cloudfirewall_extended_vpcbges = 3     # 3Gbps total bandwidth
   sv_cloudfirewall_extended_vpc     = 500   # 500Mbps per VPC
-  
-  # 集中日志管理
+
+  # Centralized log management
   sv_cloudfirewall_extended_clasps  = true
-  sv_cloudfirewall_extended_clsesps = 3000  # 3TB存储
-  
-  # 统一安全策略
-  sv_cloudfirewall_extended_subs = 300      # 300条统一规则
-  sv_cloudfirewall_extended_ates = 30       # 30个共享地址模板
+  sv_cloudfirewall_extended_clsesps = 3000  # 3TB storage
+
+  # Unified security policy
+  sv_cloudfirewall_extended_subs = 300      # 300 unified rules
+  sv_cloudfirewall_extended_ates = 30       # 30 shared address templates
 }
 
 project_id = 300003
 ```
 
-### 示例四：开发测试环境
+### Example 4: Development / testing environment
 
 ```hcl
-# 开发测试CFW配置
+# Dev/test CFW configuration
 region = "ap-shanghai"
 zone   = "ap-shanghai-4"
 
-# 月度订阅便于调整
+# Monthly subscription for flexibility
 period      = 1
 period_unit = "m"
 
 parameter = {
-  # 基础版足够
+  # Advanced edition is enough
   sv_cloudfirewall_basic_aeps = true
-  
-  # 基础带宽
+
+  # Basic bandwidth
   sv_cloudfirewall_extended_ibtesps = 50    # 50Mbps
   sv_cloudfirewall_extended_vpc     = 50    # 50Mbps
-  
-  # 基础日志
-  sv_cloudfirewall_extended_clsesps = 500   # 500GB存储
-  
-  # 测试功能
-  sv_cloudfirewall_extended_pcs = 1         # 1个蜜罐测试
+
+  # Basic log
+  sv_cloudfirewall_extended_clsesps = 500   # 500GB storage
+
+  # Test features
+  sv_cloudfirewall_extended_pcs = 1         # 1 honeypot for testing
 }
+
+project_id = 400004
 ```
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 版本功能对比
+### Edition comparison
 
-| 版本 | 编码 | 防护能力 | 适用场景 | 价格等级 |
-|------|------|----------|----------|----------|
-| **基础版** | sv_cloudfirewall_basic_aeps | 基础防护 | 小型业务、测试环境 | 低 |
-| **企业版** | sv_cloudfirewall_basic_eeps | 增强防护+多VPC | 中型企业、生产环境 | 中 |
-| **旗舰版** | sv_cloudfirewall_basic_ueps | 全面防护+高级功能 | 大型企业、金融级 | 高 |
+| Edition | Field | Protection | Use case | Price level |
+|---------|-------|------------|----------|-------------|
+| **Advanced** | `sv_cloudfirewall_basic_aeps` | Basic protection | Small business, test env | Low |
+| **Enterprise** | `sv_cloudfirewall_basic_eeps` | Enhanced + multi-VPC | Medium business, production | Medium |
+| **Ultimate** | `sv_cloudfirewall_basic_ueps` | Full + advanced features | Large business, finance | High |
 
-### 带宽配置指南
+### Bandwidth configuration guide
 
-#### 南北向带宽（sv_cloudfirewall_extended_ibtesps）
-- **单位**：Mbps
-- **步长**：1
-- **建议**：根据互联网出口带宽的50-70%配置
-- **示例**：100Mbps出口带宽 → 配置50-70Mbps
+#### North-south bandwidth (`sv_cloudfirewall_extended_ibtesps`)
+- **Unit**: Mbps.
+- **Step**: 1.
+- **Suggestion**: configure 50–70% of the internet egress bandwidth.
+- **Example**: 100Mbps egress → configure 50–70Mbps.
 
-#### VPC防火墙带宽（sv_cloudfirewall_extended_vpcbges）
-- **单位**：Gbps
-- **步长**：1
-- **建议**：根据VPC间流量峰值配置
-- **示例**：多VPC环境 → 配置1-5Gbps
+#### VPC firewall bandwidth (`sv_cloudfirewall_extended_vpcbges`)
+- **Unit**: Gbps.
+- **Step**: 1.
+- **Suggestion**: configure per inter-VPC traffic peak.
+- **Example**: multi-VPC → configure 1–5Gbps.
 
-#### 全流量检测带宽（sv_cloudfirewall_extended_ndr）
-- **单位**：Gbps
-- **步长**：1
-- **功能**：深度流量分析和威胁检测
-- **适用**：高安全要求场景
+#### Full-traffic detection bandwidth (`sv_cloudfirewall_extended_ndr`)
+- **Unit**: Gbps.
+- **Step**: 1.
+- **Feature**: deep traffic analysis and threat detection.
+- **Use case**: high-security scenarios.
 
-### 日志存储配置
+### Log storage configuration
 
-#### 日志分析（sv_cloudfirewall_extended_clasps）
-- **功能**：启用智能日志分析和威胁检测
-- **建议**：生产环境必选
-- **成本**：额外费用
+#### Log analysis (`sv_cloudfirewall_extended_clasps`)
+- **Feature**: enable intelligent log analysis and threat detection.
+- **Suggestion**: recommended for production.
+- **Cost**: additional charge.
 
-#### 日志存储（sv_cloudfirewall_extended_clsesps）
-- **单位**：GB
-- **步长**：1000（1TB起）
-- **保留时间**：根据存储容量决定
-- **建议**：按30天流量预估
+#### Log storage (`sv_cloudfirewall_extended_clsesps`)
+- **Unit**: GB.
+- **Step**: 1000 (starts at 1TB).
+- **Retention**: depends on storage capacity.
+- **Suggestion**: estimate per 30 days of traffic.
 
-### 高级功能说明
+### Advanced features
 
-#### 网络蜜罐（sv_cloudfirewall_extended_pcs）
-- **功能**：部署诱饵系统检测攻击者
-- **适用**：高威胁环境
-- **数量**：根据网络规模配置
+#### Network honeypot (`sv_cloudfirewall_extended_pcs`)
+- **Feature**: deploy decoy systems to detect attackers.
+- **Use case**: high-threat environments.
+- **Count**: per network scale.
 
-#### 地址模板（sv_cloudfirewall_extended_ates）
-- **功能**：自定义IP地址组用于策略
-- **步长**：10
-- **适用**：复杂网络策略管理
+#### Address template (`sv_cloudfirewall_extended_ates`)
+- **Feature**: custom IP address groups for policies.
+- **Step**: 10.
+- **Use case**: complex policy management.
 
-#### 关键保护工具包（sv_cloudfirewall_extended_spt）
-- **功能**：增强的关键资产保护功能
-- **包含**：高级威胁情报、零信任访问等
-- **适用**：关键业务系统
+#### Critical Protection Toolkit (`sv_cloudfirewall_extended_spt`)
+- **Feature**: enhanced protection for critical assets.
+- **Includes**: advanced threat intelligence, zero-trust access, etc.
+- **Use case**: critical business systems.
 
-### 计费模式说明
+### Billing mode
 
-#### 预付费模式（PrePay）
-- **优势**：折扣优惠，成本可控
-- **时长**：1-36个月
-- **续费**：支持自动续费
-- **适用**：长期稳定业务
+#### PrePay (subscription)
+- **Advantage**: discounts, controllable cost.
+- **Duration**: 1–36 months.
+- **Renewal**: auto-renewal supported.
+- **Use case**: long-running, stable workloads.
 
-#### 续费策略
-- **自动续费**：业务连续性要求高
-- **手动续费**：需要灵活控制
-- **禁用续费**：临时测试用途
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **版本选择**
-   - 确认版本符合业务需求和合规要求
-   - 旗舰版提供最全面的安全功能
-   - 基础版适合测试和小型应用
-
-2. **带宽规划**
-   - 准确预估南北向和VPC间流量
-   - 留出20-30%的带宽余量
-   - 监控带宽使用情况及时调整
-
-3. **日志存储**
-   - 根据合规要求确定保留时间
-   - 考虑日志分析需求
-   - 监控存储使用情况
-
-4. **地域选择**
-   - 选择离业务最近的地域
-   - 确认地域支持所需功能
-   - 考虑跨地域流量成本
-
-5. **权限验证**
-   - 确认有足够的CFW操作权限
-   - 检查财务相关权限
-   - 验证VPC网络权限
-
-6. **网络配置**
-   - 确认VPC网络配置正确
-   - 检查路由表配置
-   - 验证网络连通性
-
-7. **成本控制**
-   - 合理配置带宽避免过度配置
-   - 选择合适订阅时长
-   - 监控实际资源使用
-
-8. **功能兼容性**
-   - 确认所选功能在版本中可用
-   - 检查功能之间的依赖关系
-   - 验证地域功能支持情况
-
-9. **安全合规**
-   - 确保配置符合安全标准
-   - 保留足够的日志用于审计
-   - 遵循行业合规要求
-
-10. **变更管理**
-    - 生产环境变更前充分测试
-    - 制定回滚计划
-    - 记录变更操作日志
+#### Renewal strategy
+- **Auto renewal**: high business-continuity requirement.
+- **Manual renewal**: flexible control needed.
+- **Disabled renewal**: temporary testing use.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：权限不足
+1. **Edition selection**
+   - Confirm the edition meets business and compliance requirements.
+   - Ultimate provides the most comprehensive security features.
+   - Advanced is suitable for testing and small applications.
+
+2. **Bandwidth planning**
+   - Estimate north-south and inter-VPC traffic accurately.
+   - Leave 20–30% bandwidth headroom.
+   - Monitor usage and adjust in time.
+
+3. **Log storage**
+   - Determine retention per compliance requirements.
+   - Consider log analysis needs.
+   - Monitor storage usage.
+
+4. **Region selection**
+   - Choose the region closest to your business.
+   - Confirm the region supports required features.
+   - Consider cross-region traffic cost.
+
+5. **Permission verification**
+   - Confirm sufficient CFW operation permissions.
+   - Check finance-related permissions.
+   - Verify VPC network permissions.
+
+6. **Network configuration**
+   - Confirm VPC network configuration is correct.
+   - Check route table configuration.
+   - Verify network connectivity.
+
+7. **Cost control**
+   - Configure bandwidth reasonably to avoid over-provisioning.
+   - Choose an appropriate subscription duration.
+   - Monitor actual resource usage.
+
+8. **Feature compatibility**
+   - Confirm selected features are available in the edition.
+   - Check feature dependencies.
+   - Verify regional feature support.
+
+9. **Security & compliance**
+   - Ensure configuration meets security standards.
+   - Retain enough logs for auditing.
+   - Follow industry compliance requirements.
+
+10. **Change management**
+    - Test thoroughly before production changes.
+    - Prepare a rollback plan.
+    - Record change operation logs.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查CFW相关权限
-- 申请QcloudCFWFullAccess权限
-- 验证财务权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check CFW related permissions.
+- Request `QcloudCFWFullAccess`.
+- Verify finance permissions.
 
-#### 错误二：地域不支持
+#### Error 2: Region not supported
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Region not available
 ```
 
-**原因**：选择的地域不支持CFW
-**解决方案**：
-- 检查地域可用性
-- 选择支持的地域
-- 联系腾讯云支持
+**Cause**: The selected region does not support CFW.
+**Solution**:
+- Check region availability.
+- Choose a supported region.
+- Contact Tencent Cloud support.
 
-#### 错误三：参数配置错误
+#### Error 3: Invalid parameter configuration
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid parameter configuration
 ```
 
-**原因**：参数配置格式或值错误
-**解决方案**：
-- 检查parameter对象格式
-- 确认参数值符合要求
-- 验证步长和单位
+**Cause**: Wrong parameter format or value.
+**Solution**:
+- Check the `parameter` object format.
+- Confirm parameter values meet requirements.
+- Validate step and unit.
 
-#### 错误四：版本冲突
+#### Error 4: Version conflict
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Version conflict
 ```
 
-**原因**：同时选择了多个版本
-**解决方案**：
-- 只选择一个版本（aeps/eeps/ueps）
-- 检查参数配置
+**Cause**: More than one edition selected.
+**Solution**:
+- Select only one edition (`aeps` / `eeps` / `ueps`).
+- Check parameter configuration.
 
-#### 错误五：资源配额不足
+#### Error 5: Resource quota exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=LimitExceeded
 Message=Resource quota exceeded
 ```
 
-**原因**：超过资源配额限制
-**解决方案**：
-- 检查当前资源使用情况
-- 申请配额扩容
-- 调整配置参数
+**Cause**: Exceeds resource quota limits.
+**Solution**:
+- Check current resource usage.
+- Request a quota increase.
+- Adjust configuration parameters.
 
-#### 错误六：网络配置错误
+#### Error 6: Network configuration error
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Network configuration error
 ```
 
-**原因**：VPC或网络配置错误
-**解决方案**：
-- 检查VPC配置
-- 验证网络连通性
-- 检查安全组规则
+**Cause**: VPC or network configuration error.
+**Solution**:
+- Check VPC configuration.
+- Verify network connectivity.
+- Check security group rules.
 
-#### 错误七：财务账户问题
+#### Error 7: Payment account issue
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Payment account issue
 ```
 
-**原因**：财务账户状态异常
-**解决方案**：
-- 检查账户余额
-- 验证支付方式
-- 联系财务支持
+**Cause**: Abnormal financial account status.
+**Solution**:
+- Check account balance.
+- Verify payment method.
+- Contact finance support.
+
+## License
+
+See [LICENSE](../../../../LICENSE) for full details.

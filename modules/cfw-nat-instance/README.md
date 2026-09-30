@@ -1,45 +1,45 @@
-# tencentcloud_cfw_nat_instance 模块
+# tencentcloud_cfw_nat_instance module
 
-该 Terraform 模块用于在腾讯云上创建和管理云防火墙（CFW）NAT 实例（资源：`tencentcloud_cfw_nat_instance`）。模块封装了常用参数与校验，便于在不同环境中复用与统一管理 NAT 型防火墙实例。
+This Terraform module manages a Cloud Firewall (CFW) NAT instance on Tencent Cloud (`tencentcloud_cfw_nat_instance`). It provides a lightweight wrapper around the provider resource and validates common inputs to simplify reuse across environments.
 
-## 目录结构
+## Directory structure
 
-模块目录下常见文件与用途：
+Common files in this module and their purpose:
 
-- `main.tf` — 模块主体，声明 `tencentcloud_cfw_nat_instance` 资源及动态块。
-- `variables.tf` — 模块输入变量定义与说明（类型、默认值、校验规则）。
-- `outputs.tf` — 模块导出输出（例如资源 `id`）。
-- `versions.tf` — provider 与 Terraform 版本约束（如存在）。
-- `examples/` — 示例变量文件（`.tfvars`），演示常见使用场景。
-- `README.md` — 中文文档（本文件）。
-- `README_EN.md` — 英文文档。
+- `main.tf` — Module entry, declares the `tencentcloud_cfw_nat_instance` resource and dynamic blocks.
+- `variables.tf` — Input variable definitions and validation rules.
+- `outputs.tf` — Exported outputs (for example the resource `id`).
+- `versions.tf` — Provider and Terraform version constraints (if present).
+- `examples/` — Example `.tfvars` files demonstrating common scenarios.
+- `README.md` — Chinese README for the module.
+- `README_EN.md` — This English README.
 
-在对模块进行改动（例如新增变量、变更输出）时，请同时更新 `variables.tf` / `outputs.tf` 与本 README，以保持一致性。
+When you modify the module (add variables, outputs, or examples), please update `variables.tf` / `outputs.tf` and these READMEs accordingly.
 
-## 简介
+## Overview
 
-模块映射以下重要字段：
+Key fields mapped by the module:
 
-- `mode` (number) — 模式：1 表示接入模式(access mode)，0 表示新模式(new mode)。该变量被校验为 0 或 1。
-- `name` (string) — 实例名称。
-- `width` (number) — 带宽（单位取决于腾讯云 API，通常为 Mbps）。
-- `zone_set` (set(string)) — 可用区集合，至少一个。
-- `cross_a_zone` (number, optional) — 是否开启跨可用区/异地灾备（0/1），默认 0。
-- `nat_gw_list` (set(string), optional) — 当为接入模式时，可填写关联的 NAT 网关列表（至少与 `new_mode_items` 之一传入）。
-- `new_mode_items` (list(object), optional) — 新模式下的参数列表，每项包含 `eips`（弹性公网 IP 集合）与 `vpc_list`（VPC 列表）。
+- `mode` (number) — 1 means access mode; 0 means new mode. Validated to be 0 or 1.
+- `name` (string) — Instance name.
+- `width` (number) — Bandwidth.
+- `zone_set` (set(string)) — A set of zones.
+- `cross_a_zone` (number, optional) — Cross-zone/disaster recovery toggle (0 or 1), default 0.
+- `nat_gw_list` (set(string), optional) — For access mode: list of NAT gateways to attach.
+- `new_mode_items` (list(object), optional) — For new mode: list of objects each containing `eips` (set of EIPs) and `vpc_list` (set of VPCs).
 
-模块会创建 `tencentcloud_cfw_nat_instance` 资源并导出 `id`。
+The module creates `tencentcloud_cfw_nat_instance` and exports `id`.
 
-## 变量（Variables）
+## Variables
 
-参见 `variables.tf` 中的定义。要点摘要：
+See `variables.tf`. Summary:
 
-- `mode`：必须为 0 或 1。
-- `name`、`width`、`zone_set`：必填。
-- `cross_a_zone`：可选，默认 0。
-- `nat_gw_list` / `new_mode_items`：至少传递其中之一（用于不同模式下的网络接入配置）。
+- `mode` must be 0 or 1.
+- `name`, `width`, `zone_set` are required.
+- `cross_a_zone` defaults to 0.
+- Provide at least one of `nat_gw_list` or `new_mode_items` according to the selected mode.
 
-示例最小调用（引用模块）：
+Example usage:
 
 ```hcl
 module "cfw_nat" {
@@ -57,20 +57,20 @@ module "cfw_nat" {
 }
 ```
 
-## 输出（Outputs）
+## Outputs
 
-- `id` — 资源 ID，来自 `tencentcloud_cfw_nat_instance`。
+- `id` — The resource ID from `tencentcloud_cfw_nat_instance`.
 
-## 常见示例（examples/）
+## Examples (in `examples/`)
 
-模块目录下的 `examples/` 包含若干 `.tfvars` 示例：
+This module includes several `.tfvars` example files under `examples/`:
 
-1. `new_mode.tfvars` — 使用新模式（mode=0），通过 `new_mode_items` 指定 EIP 与 VPC 列表。
-2. `access_mode.tfvars` — 使用接入模式（mode=1），通过 `nat_gw_list` 指定接入的 NAT 网关。
-3. `cross_zone.tfvars` — 示例启用跨可用区（`cross_a_zone=1`）。
-4. `mixed.tfvars` — 组合示例（多个可用区、较大带宽）。
+1. `new_mode.tfvars` — New mode (mode=0), passing `new_mode_items` with EIPs and VPC lists.
+2. `access_mode.tfvars` — Access mode (mode=1), using `nat_gw_list` to attach NAT gateways.
+3. `cross_zone.tfvars` — Example enabling cross-zone (`cross_a_zone=1`).
+4. `mixed.tfvars` — Mixed example with multiple zones and larger bandwidth.
 
-使用示例：
+Run the examples with:
 
 ```bash
 terraform init
@@ -78,10 +78,8 @@ terraform plan -var-file=modules/tencentcloud-cfw-nat-instance/examples/new_mode
 terraform apply -var-file=modules/tencentcloud-cfw-nat-instance/examples/new_mode.tfvars
 ```
 
-## 注意事项
+## Notes
 
-- `mode` 影响需要传入的参数：接入模式通常需指定 `nat_gw_list`，新模式需通过 `new_mode_items` 填写 `eips` 与 `vpc_list`。
-- 请确保传入的 `zone_set` 与账户/地域支持一致。
-- 如果需要将敏感信息或受管资源 ID（如 EIP/ VPC）从其他模块传入，建议使用变量引用或远程状态引用的方式。
-
-如需我把 `versions.tf` 的 provider 约束摘入 README 或添加一个完整的 caller 示例（含 `main.tf`），告诉我即可。
+- `mode` determines which connection parameters are applicable. For access mode, use `nat_gw_list`. For new mode, use `new_mode_items` with `eips` and `vpc_list`.
+- Ensure `zone_set` is supported in your chosen region and account quota.
+- If you want me to include `versions.tf` contents here or add a complete caller example (`examples/complete/` with `main.tf`), I can add that.

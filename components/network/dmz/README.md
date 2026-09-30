@@ -1,129 +1,155 @@
-# 腾讯云DMZ网络架构模块
+# Tencent Cloud DMZ Component
 
-## 模块概述
+Terraform component under `components/network/dmz` for building a complete DMZ (Demilitarized Zone) network architecture in Tencent Cloud, implementing a secure isolated network boundary between external and internal traffic, as part of the `network` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中构建完整的DMZ（Demilitarized Zone，隔离区）网络架构，实现内外网隔离的安全网络环境，主要功能包括：
+## Overview
 
-- **入站VPC创建** - 创建用于接收外部流量的入站VPC
-- **出站VPC创建** - 创建用于内部业务访问的出站VPC
-- **NAT网关配置** - 为出站VPC提供网络地址转换服务
-- **CCN云联网关联** - 将VPC关联到云联网实现网络互通
-- **子网管理** - 支持多可用区子网配置
-- **安全隔离** - 实现内外网流量的安全隔离和管控
+This component creates an inbound VPC (for external traffic), an outbound VPC (for internal services), a NAT gateway for the outbound VPC, and attaches both VPCs to a CCN (Cloud Connect Network) instance. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudVPCFullAccess` | VPC管理全权限 |
-| `QcloudCCNFullAccess` | CCN管理全权限 |
-| `QcloudNATGatewayFullAccess` | NAT网关管理全权限 |
-| `QcloudTagFullAccess` | 标签管理全权限 |
-
-### 其他要求
-
-- 需要规划好VPC的CIDR地址段
-- 需要了解CCN实例的ID或名称
-- 需要规划好子网划分策略
-- 需要确定NAT网关的带宽需求
-- 需要规划好网络流量走向
+- **Inbound VPC** – receives external traffic; deploy web/API tiers here.
+- **Outbound VPC** – hosts internal business services; egress via NAT gateway.
+- **NAT gateway** – provides outbound network address translation and public egress for the outbound VPC.
+- **CCN attachment** – attach both VPCs to a CCN instance for inter-VPC connectivity.
+- **Multi-AZ subnets** – multi availability-zone subnet configuration.
+- **Security isolation** – separate external/internal traffic with independent VPCs and tagging.
 
 ---
 
-## 变量说明
+## Requirements
 
-### VPC通用配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `vpc_region` | `string` | 是 | - | VPC所在区域 |
-| `vpc_default_subnet_name` | `string` | 否 | `default_subnet` | 默认子网名称 |
-| `vpc_availability_zones` | `list(string)` | 否 | `[]` | 可用区列表 |
-| `vpc_common_tags` | `map(string)` | 否 | `{}` | 通用资源标签 |
+## Providers
 
-### 入站VPC配置变量
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `vpc_inbound_name` | `string` | 否 | `my-vpc` | 入站VPC名称 |
-| `vpc_inbound_cidr` | `string` | 否 | `172.16.0.0/16` | 入站VPC CIDR |
-| `vpc_inbound_is_multicast` | `bool` | 否 | `true` | 是否支持组播 |
-| `vpc_inbound_tags` | `map(string)` | 否 | `{}` | 入站VPC标签 |
-| `vpc_inbound_subnet_cidrs` | `list(object)` | 是 | - | 入站子网配置 |
-| `vpc_inbound_subnet_tags` | `map(string)` | 否 | `{}` | 入站子网标签 |
+### IAM Permissions
 
-### 出站VPC配置变量
+The executing principal needs the following Tencent Cloud permissions:
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `vpc_outbound_name` | `string` | 否 | `my-vpc` | 出站VPC名称 |
-| `vpc_outbound_cidr` | `string` | 否 | `172.16.0.0/16` | 出站VPC CIDR |
-| `vpc_outbound_is_multicast` | `bool` | 否 | `true` | 是否支持组播 |
-| `vpc_outbound_tags` | `map(string)` | 否 | `{}` | 出站VPC标签 |
-| `vpc_outbound_subnet_cidrs` | `list(object)` | 是 | - | 出站子网配置 |
-| `vpc_outbound_subnet_tags` | `map(string)` | 否 | `{}` | 出站子网标签 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudVPCFullAccess` | Full access to VPC management |
+| `QcloudCCNFullAccess` | Full access to CCN management |
+| `QcloudNATGatewayFullAccess` | Full access to NAT gateway management |
+| `QcloudTagFullAccess` | Full access to Tag management |
 
-### NAT网关配置变量
+### Prerequisites
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `nat_gateway_name` | `string` | 否 | `""` | NAT网关名称 |
-| `nat_eips` | `list(string)` | 否 | `[]` | NAT网关EIP列表 |
-| `nat_public_ips` | `list(string)` | 否 | `[]` | NAT网关公网IP列表 |
-| `nat_internet_max_bandwidth_out` | `number` | 否 | `100` | 最大出带宽（Mbps） |
-| `nat_product_version` | `number` | 否 | `1` | NAT网关版本（1:传统, 2:标准） |
-| `nat_enable_flow_monitor` | `bool` | 否 | `false` | 是否启用流量监控 |
-| `nat_tags` | `map(string)` | 否 | `{}` | NAT网关标签 |
-
-### CCN关联配置变量
-
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `ccn_id` | `string` | 否 | `null` | CCN实例ID |
-| `ccn_name` | `string` | 否 | `null` | CCN实例名称 |
-| `attachment_description` | `string` | 否 | `""` | 关联描述 |
-| `ccn_uin` | `string` | 否 | `null` | CCN所属账号UIN |
+- Plan the inbound/outbound VPC CIDR blocks so they do not overlap.
+- Obtain the target CCN instance ID (`ccn_id`) and/or name (`ccn_name`).
+- Plan the subnet division strategy and AZ placement.
+- Determine the NAT gateway bandwidth and EIP requirements.
+- Plan the network traffic direction (north-south vs east-west).
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### VPC common configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_vpc_region"></a> [vpc\_region](#input\_vpc\_region) | `string` | yes | – | The region of the VPCs. |
+| <a name="input_vpc_common_tags"></a> [vpc\_common\_tags](#input\_vpc\_common\_tags) | `map(string)` | no | `{}` | Common tags added to all resources. |
+
+### Inbound VPC configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_vpc_inbound_name"></a> [vpc\_inbound\_name](#input\_vpc\_inbound\_name) | `string` | no | `"my-vpc"` | Name of the inbound VPC. |
+| <a name="input_vpc_inbound_cidr"></a> [vpc\_inbound\_cidr](#input\_vpc\_inbound\_cidr) | `string` | no | `"172.16.0.0/16"` | CIDR block of the inbound VPC. |
+| <a name="input_vpc_inbound_is_multicast"></a> [vpc\_inbound\_is\_multicast](#input\_vpc\_inbound\_is\_multicast) | `bool` | no | `true` | Whether the inbound VPC supports multicast. |
+| <a name="input_vpc_inbound_dns_servers"></a> [vpc\_inbound\_dns\_servers](#input\_vpc\_inbound\_dns\_servers) | `list(string)` | no | `null` | Custom DNS servers for the inbound VPC. |
+| <a name="input_vpc_inbound_tags"></a> [vpc\_inbound\_tags](#input\_vpc\_inbound\_tags) | `map(string)` | no | `{}` | Additional tags for the inbound VPC. |
+| <a name="input_vpc_inbound_subnet_cidrs"></a> [vpc\_inbound\_subnet\_cidrs](#input\_vpc\_inbound\_subnet\_cidrs) | `list(object)` | yes | – | Subnet definitions for the inbound VPC. |
+| `↳ subnet_name` | `string` | yes | – | Subnet name (max 60 characters). |
+| `↳ subnet_cidr` | `string` | yes | – | Subnet CIDR block. |
+| `↳ subnet_is_multicast` | `bool` | no | `true` | Whether the subnet supports multicast. |
+| `↳ availability_zone` | `string` | no | – | Availability zone; if not set, randomly chosen from all. |
+| <a name="input_vpc_inbound_subnet_tags"></a> [vpc\_inbound\_subnet\_tags](#input\_vpc\_inbound\_subnet\_tags) | `map(string)` | no | `{}` | Additional tags for the inbound subnets. |
+
+### Outbound VPC configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_vpc_outbound_name"></a> [vpc\_outbound\_name](#input\_vpc\_outbound\_name) | `string` | no | `"my-vpc"` | Name of the outbound VPC. |
+| <a name="input_vpc_outbound_cidr"></a> [vpc\_outbound\_cidr](#input\_vpc\_outbound\_cidr) | `string` | no | `"172.16.0.0/16"` | CIDR block of the outbound VPC. |
+| <a name="input_vpc_outbound_is_multicast"></a> [vpc\_outbound\_is\_multicast](#input\_vpc\_outbound\_is\_multicast) | `bool` | no | `true` | Whether the outbound VPC supports multicast. |
+| <a name="input_vpc_outbound_dns_servers"></a> [vpc\_outbound\_dns\_servers](#input\_vpc\_outbound\_dns\_servers) | `list(string)` | no | `null` | Custom DNS servers for the outbound VPC. |
+| <a name="input_vpc_outbound_tags"></a> [vpc\_outbound\_tags](#input\_vpc\_outbound\_tags) | `map(string)` | no | `{}` | Additional tags for the outbound VPC. |
+| <a name="input_vpc_outbound_subnet_cidrs"></a> [vpc\_outbound\_subnet\_cidrs](#input\_vpc\_outbound\_subnet\_cidrs) | `list(object)` | yes | – | Subnet definitions for the outbound VPC. |
+| `↳ subnet_name` | `string` | yes | – | Subnet name (max 60 characters). |
+| `↳ subnet_cidr` | `string` | yes | – | Subnet CIDR block. |
+| `↳ subnet_is_multicast` | `bool` | no | `true` | Whether the subnet supports multicast. |
+| `↳ availability_zone` | `string` | no | – | Availability zone; if not set, randomly chosen from all. |
+| <a name="input_vpc_outbound_subnet_tags"></a> [vpc\_outbound\_subnet\_tags](#input\_vpc\_outbound\_subnet\_tags) | `map(string)` | no | `{}` | Additional tags for the outbound subnets. |
+
+### NAT gateway configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_nat_gateway_name"></a> [nat\_gateway\_name](#input\_nat\_gateway\_name) | `string` | no | `""` | Name of the NAT gateway (created in the outbound VPC). |
+| <a name="input_nat_eips"></a> [nat\_eips](#input\_nat\_eips) | `list(string)` | no | `[]` | List of EIPs to bind to the NAT gateway. |
+| <a name="input_nat_public_ips"></a> [nat\_public\_ips](#input\_nat\_public\_ips) | `list(string)` | no | `[]` | List of public IPs to bind to the NAT gateway. |
+| <a name="input_nat_internet_max_bandwidth_out"></a> [nat\_internet\_max\_bandwidth\_out](#input\_nat\_internet\_max\_bandwidth\_out) | `number` | no | `100` | Max egress bandwidth to the internet (Mbps). |
+| <a name="input_nat_product_version"></a> [nat\_product\_version](#input\_nat\_product\_version) | `number` | no | `1` | NAT product version: `1` (traditional), `2` (standard). |
+| <a name="input_nat_gateway_bandwidth"></a> [nat\_gateway\_bandwidth](#input\_nat\_gateway\_bandwidth) | `number` | no | `100` | Bandwidth of the NAT gateway. |
+| <a name="input_nat_gateway_concurrent"></a> [nat\_gateway\_concurrent](#input\_nat\_gateway\_concurrent) | `number` | no | `1000000` | Max concurrent connections of the NAT gateway. |
+| <a name="input_nat_enable_flow_monitor"></a> [nat\_enable\_flow\_monitor](#input\_nat\_enable\_flow\_monitor) | `bool` | no | `false` | Whether to enable flow monitoring. |
+| <a name="input_nat_tags"></a> [nat\_tags](#input\_nat\_tags) | `map(string)` | no | `{}` | Tags for the NAT gateway. |
+
+### CCN attachment configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_ccn_id"></a> [ccn\_id](#input\_ccn\_id) | `string` | no | `null` | The ID of the CCN instance to attach. |
+| <a name="input_ccn_name"></a> [ccn\_name](#input\_ccn\_name) | `string` | no | `null` | The name of the CCN instance to attach (used if `ccn_id` is not set). |
+| <a name="input_attachment_description"></a> [attachment\_description](#input\_attachment\_description) | `string` | no | `""` | Description of the CCN attachment (max 100 bytes). |
+| <a name="input_ccn_uin"></a> [ccn\_uin](#input\_ccn\_uin) | `string` | no | `null` | UIN of the CCN owner. If not set, uses the current account's UIN. Used for cross-account CCN attachment (only `VPC` instance type supported for now). |
+
+> **Note**: CCN attachment is identified by `ccn_id` first, falling back to `ccn_name` lookup. If neither is provided, the VPCs are created without CCN attachment.
+
+---
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_inbound_vpc_id"></a> [inbound\_vpc\_id](#output\_inbound\_vpc\_id) | The ID of the inbound VPC. |
+| <a name="output_outbound_vpc_id"></a> [outbound\_vpc\_id](#output\_outbound\_vpc\_id) | The ID of the outbound VPC. |
+| <a name="output_nat_gateway_id"></a> [nat\_gateway\_id](#output\_nat\_gateway\_id) | The ID of the NAT gateway. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` – production DMZ
 
 ```hcl
-# VPC通用配置
-vpc_region          = "ap-beijing"
-vpc_default_subnet_name = "dmz-subnet"
-vpc_availability_zones = ["ap-beijing-3", "ap-beijing-4"]
+# VPC common configuration
+vpc_region = "ap-beijing"
 vpc_common_tags = {
   Environment = "production"
   NetworkType = "dmz"
   ManagedBy   = "terraform"
 }
 
-# 入站VPC配置
+# Inbound VPC
 vpc_inbound_name         = "dmz-inbound-vpc"
 vpc_inbound_cidr         = "10.0.0.0/16"
 vpc_inbound_is_multicast = true
+vpc_inbound_dns_servers  = ["183.60.83.19", "183.60.82.98"]
 vpc_inbound_tags = {
   VPCType = "inbound"
   Purpose = "external-access"
 }
 
-# 入站子网配置
 vpc_inbound_subnet_cidrs = [
   {
     subnet_name         = "inbound-subnet-1"
@@ -143,16 +169,16 @@ vpc_inbound_subnet_tags = {
   SubnetType = "inbound"
 }
 
-# 出站VPC配置
+# Outbound VPC
 vpc_outbound_name         = "dmz-outbound-vpc"
 vpc_outbound_cidr         = "10.1.0.0/16"
 vpc_outbound_is_multicast = true
+vpc_outbound_dns_servers  = ["183.60.83.19"]
 vpc_outbound_tags = {
   VPCType = "outbound"
   Purpose = "internal-services"
 }
 
-# 出站子网配置
 vpc_outbound_subnet_cidrs = [
   {
     subnet_name         = "outbound-subnet-1"
@@ -172,29 +198,30 @@ vpc_outbound_subnet_tags = {
   SubnetType = "outbound"
 }
 
-# NAT网关配置
-nat_gateway_name           = "dmz-nat-gateway"
-nat_eips                   = ["eip-xxxxxx", "eip-yyyyyy"]
+# NAT gateway
+nat_gateway_name                = "dmz-nat-gateway"
+nat_eips                        = ["eip-xxxxxx", "eip-yyyyyy"]
 nat_internet_max_bandwidth_out = 500
-nat_product_version        = 2
-nat_enable_flow_monitor    = true
+nat_product_version             = 2
+nat_gateway_bandwidth           = 500
+nat_gateway_concurrent          = 2000000
+nat_enable_flow_monitor         = true
 nat_tags = {
   GatewayType = "nat"
   Bandwidth   = "500Mbps"
 }
 
-# CCN关联配置
+# CCN attachment
 ccn_id                 = "ccn-abcdef"
-attachment_description = "DMZ网络关联到生产环境CCN"
+attachment_description = "DMZ network attached to production CCN"
 ```
 
-### 简单配置示例
+### Simple configuration
 
 ```hcl
-# 基础DMZ配置
 vpc_region = "ap-shanghai"
 
-# 入站VPC
+# Inbound VPC
 vpc_inbound_name = "dmz-inbound"
 vpc_inbound_cidr = "10.10.0.0/16"
 vpc_inbound_subnet_cidrs = [
@@ -204,7 +231,7 @@ vpc_inbound_subnet_cidrs = [
   }
 ]
 
-# 出站VPC
+# Outbound VPC
 vpc_outbound_name = "dmz-outbound"
 vpc_outbound_cidr = "10.11.0.0/16"
 vpc_outbound_subnet_cidrs = [
@@ -214,22 +241,20 @@ vpc_outbound_subnet_cidrs = [
   }
 ]
 
-# NAT网关
-nat_gateway_name = "dmz-nat"
+# NAT gateway
+nat_gateway_name                = "dmz-nat"
 nat_internet_max_bandwidth_out = 200
 
-# CCN关联
+# CCN attachment
 ccn_id = "ccn-123456"
 ```
 
-### 多可用区高可用配置示例
+### Multi-AZ high-availability configuration
 
 ```hcl
-# 多可用区DMZ配置
 vpc_region = "ap-guangzhou"
-vpc_availability_zones = ["ap-guangzhou-3", "ap-guangzhou-4", "ap-guangzhou-6"]
 
-# 入站VPC多子网
+# Inbound VPC (multi-AZ)
 vpc_inbound_name = "ha-dmz-inbound"
 vpc_inbound_cidr = "10.20.0.0/16"
 vpc_inbound_subnet_cidrs = [
@@ -250,7 +275,7 @@ vpc_inbound_subnet_cidrs = [
   }
 ]
 
-# 出站VPC多子网
+# Outbound VPC (multi-AZ)
 vpc_outbound_name = "ha-dmz-outbound"
 vpc_outbound_cidr = "10.21.0.0/16"
 vpc_outbound_subnet_cidrs = [
@@ -266,37 +291,35 @@ vpc_outbound_subnet_cidrs = [
   }
 ]
 
-# 高可用NAT网关
-nat_gateway_name = "ha-dmz-nat"
-nat_eips = ["eip-ha1", "eip-ha2", "eip-ha3"]
+# High-availability NAT gateway
+nat_gateway_name                = "ha-dmz-nat"
+nat_eips                        = ["eip-ha1", "eip-ha2", "eip-ha3"]
 nat_internet_max_bandwidth_out = 1000
-nat_product_version = 2
-nat_enable_flow_monitor = true
+nat_product_version             = 2
+nat_gateway_bandwidth           = 1000
+nat_enable_flow_monitor         = true
 
-# CCN关联
-ccn_id = "ccn-ha-infra"
-attachment_description = "高可用DMZ网络关联"
+# CCN attachment
+ccn_id                 = "ccn-ha-infra"
+attachment_description = "High-availability DMZ network attachment"
 
-# 标签配置
 vpc_common_tags = {
-  Environment    = "production"
-  HighAvailability = "enabled"
-  MultiAZ        = "true"
+  Environment       = "production"
+  HighAvailability  = "enabled"
+  MultiAZ           = "true"
 }
 ```
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：生产环境DMZ架构
+### Example 1: Production DMZ architecture
 
 ```hcl
-# 生产环境DMZ网络架构
 vpc_region = "ap-beijing"
-vpc_availability_zones = ["ap-beijing-3", "ap-beijing-4"]
 
-# 入站VPC - 外部访问区域
+# Inbound VPC - external access zone
 vpc_inbound_name = "prod-dmz-inbound"
 vpc_inbound_cidr = "10.100.0.0/16"
 vpc_inbound_subnet_cidrs = [
@@ -312,7 +335,7 @@ vpc_inbound_subnet_cidrs = [
   }
 ]
 
-# 出站VPC - 内部服务区域
+# Outbound VPC - internal services zone
 vpc_outbound_name = "prod-dmz-outbound"
 vpc_outbound_cidr = "10.101.0.0/16"
 vpc_outbound_subnet_cidrs = [
@@ -328,18 +351,15 @@ vpc_outbound_subnet_cidrs = [
   }
 ]
 
-# NAT网关配置
-nat_gateway_name = "prod-dmz-nat"
-nat_eips = ["eip-prod-1", "eip-prod-2"]
+nat_gateway_name                = "prod-dmz-nat"
+nat_eips                        = ["eip-prod-1", "eip-prod-2"]
 nat_internet_max_bandwidth_out = 1000
-nat_product_version = 2
-nat_enable_flow_monitor = true
+nat_product_version             = 2
+nat_enable_flow_monitor         = true
 
-# CCN关联
-ccn_id = "ccn-prod-main"
-attachment_description = "生产环境DMZ网络关联"
+ccn_id                 = "ccn-prod-main"
+attachment_description = "Production DMZ network attachment"
 
-# 生产环境标签
 vpc_common_tags = {
   Environment = "production"
   NetworkType = "dmz"
@@ -358,13 +378,11 @@ vpc_outbound_tags = {
 }
 ```
 
-### 示例二：开发测试环境DMZ
+### Example 2: Development DMZ
 
 ```hcl
-# 开发测试环境DMZ
 vpc_region = "ap-shanghai"
 
-# 入站VPC
 vpc_inbound_name = "dev-dmz-inbound"
 vpc_inbound_cidr = "10.200.0.0/16"
 vpc_inbound_subnet_cidrs = [
@@ -374,7 +392,6 @@ vpc_inbound_subnet_cidrs = [
   }
 ]
 
-# 出站VPC
 vpc_outbound_name = "dev-dmz-outbound"
 vpc_outbound_cidr = "10.201.0.0/16"
 vpc_outbound_subnet_cidrs = [
@@ -384,14 +401,10 @@ vpc_outbound_subnet_cidrs = [
   }
 ]
 
-# NAT网关
-nat_gateway_name = "dev-dmz-nat"
+nat_gateway_name                = "dev-dmz-nat"
 nat_internet_max_bandwidth_out = 100
+ccn_id                          = "ccn-dev"
 
-# CCN关联
-ccn_id = "ccn-dev"
-
-# 开发环境标签
 vpc_common_tags = {
   Environment = "development"
   Purpose     = "testing"
@@ -399,14 +412,12 @@ vpc_common_tags = {
 }
 ```
 
-### 示例三：金融级安全DMZ
+### Example 3: Finance-grade secure DMZ
 
 ```hcl
-# 金融级安全DMZ架构
 vpc_region = "ap-singapore"
-vpc_availability_zones = ["ap-singapore-1", "ap-singapore-2"]
 
-# 入站VPC - 严格安全控制
+# Inbound VPC - strict security control
 vpc_inbound_name = "finance-dmz-inbound"
 vpc_inbound_cidr = "10.50.0.0/16"
 vpc_inbound_subnet_cidrs = [
@@ -422,7 +433,7 @@ vpc_inbound_subnet_cidrs = [
   }
 ]
 
-# 出站VPC - 内部核心服务
+# Outbound VPC - internal core services
 vpc_outbound_name = "finance-dmz-outbound"
 vpc_outbound_cidr = "10.51.0.0/16"
 vpc_outbound_subnet_cidrs = [
@@ -438,23 +449,20 @@ vpc_outbound_subnet_cidrs = [
   }
 ]
 
-# 高安全NAT网关
-nat_gateway_name = "finance-dmz-nat"
-nat_eips = ["eip-finance-1", "eip-finance-2"]
+nat_gateway_name                = "finance-dmz-nat"
+nat_eips                        = ["eip-finance-1", "eip-finance-2"]
 nat_internet_max_bandwidth_out = 500
-nat_product_version = 2
-nat_enable_flow_monitor = true
+nat_product_version             = 2
+nat_enable_flow_monitor         = true
 
-# CCN关联
-ccn_id = "ccn-finance"
-attachment_description = "金融级DMZ网络关联"
+ccn_id                 = "ccn-finance"
+attachment_description = "Finance-grade DMZ network attachment"
 
-# 金融级安全标签
 vpc_common_tags = {
-  Environment    = "production"
-  Industry       = "finance"
-  SecurityLevel  = "high"
-  Compliance     = "pci-dss"
+  Environment   = "production"
+  Industry      = "finance"
+  SecurityLevel = "high"
+  Compliance    = "pci-dss"
 }
 
 vpc_inbound_tags = {
@@ -470,178 +478,177 @@ vpc_outbound_tags = {
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### DMZ网络架构说明
+### DMZ architecture components
 
-| 组件 | 说明 | 安全级别 |
-|------|------|----------|
-| **入站VPC** | 接收外部流量，部署Web服务器、API网关等 | 中等安全 |
-| **出站VPC** | 内部业务服务，部署应用服务器、数据库等 | 高安全 |
-| **NAT网关** | 提供出站网络地址转换 | 网络边界 |
-| **CCN关联** | 实现VPC间网络互通 | 内部网络 |
+| Component | Description | Security level |
+|-----------|-------------|----------------|
+| **Inbound VPC** | Receives external traffic; hosts web servers, API gateways, etc. | Medium |
+| **Outbound VPC** | Hosts internal business services; egress via NAT. | High |
+| **NAT gateway** | Provides outbound network address translation. | Network boundary |
+| **CCN attachment** | Enables inter-VPC connectivity. | Internal network |
 
-### 子网配置对象说明
+### Subnet object schema
 
-子网配置对象包含以下字段：
 ```hcl
 {
-  subnet_name         = "subnet-name"        # 子网名称（最多60字符）
-  subnet_cidr         = "10.0.1.0/24"        # 子网CIDR
-  subnet_is_multicast = true                 # 是否支持组播（可选，默认true）
-  availability_zone   = "ap-beijing-3"       # 可用区（可选）
+  subnet_name         = "subnet-name"        # Subnet name (max 60 characters)
+  subnet_cidr         = "10.0.1.0/24"        # Subnet CIDR
+  subnet_is_multicast = true                 # Whether multicast is supported (optional, default true)
+  availability_zone   = "ap-beijing-3"       # Availability zone (optional)
 }
 ```
 
-### NAT网关版本说明
+### NAT gateway versions
 
-| 版本 | 说明 | 适用场景 |
-|------|------|----------|
-| **版本1** | 传统NAT网关 | 基础网络地址转换 |
-| **版本2** | 标准NAT网关 | 高性能、高可用场景 |
+| Version | Description | Use case |
+|---------|-------------|----------|
+| **Version 1** | Traditional NAT gateway | Basic network address translation. |
+| **Version 2** | Standard NAT gateway | High-performance / high-availability scenarios. |
 
-### 输出说明
+### CCN attachment priority
 
-模块输出三个关键ID：
-```hcl
-inbound_vpc_id   = "vpc-xxxxxx"    # 入站VPC ID
-outbound_vpc_id  = "vpc-yyyyyy"    # 出站VPC ID
-nat_gateway_id   = "nat-zzzzzz"    # NAT网关ID
-```
+- If both `ccn_id` and `ccn_name` are provided, `ccn_id` takes precedence.
+- If only `ccn_name` is provided, the CCN instance ID is looked up by name.
+- If neither is provided, the VPCs are created without CCN attachment.
 
-### 依赖关系
+### Internal dependency order
 
-模块内部依赖关系：
-1. 先创建入站VPC和出站VPC
-2. 然后创建NAT网关（依赖出站VPC）
-3. 最后进行CCN关联（依赖两个VPC）
+1. The inbound VPC and outbound VPC are created first.
+2. The NAT gateway is created (depends on the outbound VPC).
+3. Finally the CCN attachment is applied (depends on both VPCs).
 
 ---
 
-## 注意事项
+## Important Notes
 
-> ⚠️ **重要提示，操作前请仔细阅读**
+> ⚠️ **Important: read carefully before making changes**
 
-1. **网络规划**
-   - 确保入站VPC和出站VPC的CIDR不重叠
-   - 合理规划子网大小，预留扩展空间
-   - 考虑多可用区部署提高可用性
+1. **Network planning**
+   - Ensure the inbound VPC and outbound VPC CIDR blocks do not overlap.
+   - Right-size subnets and reserve room for expansion.
+   - Consider multi-AZ deployment for higher availability.
 
-2. **安全策略**
-   - 入站VPC应配置严格的安全组规则
-   - 出站VPC应限制外部访问
-   - 使用网络ACL进行流量控制
+2. **Security policy**
+   - Apply strict security group rules to the inbound VPC.
+   - Restrict external access to the outbound VPC.
+   - Use network ACLs for traffic control.
 
-3. **NAT网关配置**
-   - 根据业务需求选择合适的带宽
-   - 考虑使用标准NAT网关（版本2）获得更好性能
-   - 启用流量监控以便故障排查
+3. **NAT gateway configuration**
+   - Choose bandwidth according to business needs.
+   - Prefer the standard NAT gateway (version 2) for better performance.
+   - Enable flow monitoring for troubleshooting.
 
-4. **CCN关联**
-   - 确保CCN实例存在且状态正常
-   - 了解CCN的路由策略和带宽限制
-   - 考虑跨账号关联时的权限配置
+4. **CCN attachment**
+   - Ensure the CCN instance exists and is in a normal state.
+   - Understand CCN routing policy and bandwidth limits.
+   - For cross-account attachment, configure `ccn_uin`.
 
-5. **成本优化**
-   - 合理选择NAT网关带宽避免资源浪费
-   - 使用标签进行成本分摊和监控
-   - 考虑预付费模式降低成本
+5. **Cost optimization**
+   - Choose NAT bandwidth appropriately to avoid waste.
+   - Use tags for cost allocation and monitoring.
+   - Consider prepaid mode to reduce cost.
 
-6. **监控告警**
-   - 配置NAT网关流量监控
-   - 设置VPC网络流量告警
-   - 监控CCN带宽使用情况
+6. **Monitoring & alerting**
+   - Configure NAT gateway traffic monitoring.
+   - Set VPC network traffic alerts.
+   - Monitor CCN bandwidth usage.
 
-7. **备份恢复**
-   - 定期备份网络配置
-   - 制定网络故障恢复预案
-   - 测试网络切换流程
+7. **Backup & recovery**
+   - Back up network configuration periodically.
+   - Prepare a network failure recovery plan.
+   - Test network failover procedures.
 
-8. **合规要求**
-   - 确保网络架构符合安全合规要求
-   - 记录网络变更操作
-   - 定期进行安全审计
+8. **Compliance**
+   - Ensure the network architecture meets security/compliance requirements.
+   - Record network change operations.
+   - Conduct periodic security audits.
 
 ---
 
-## 故障排除
+## Troubleshooting
 
-### 常见错误及解决方案
+### Common errors and solutions
 
-#### 错误一：VPC CIDR冲突
+#### Error 1: VPC CIDR conflict
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=VPC CIDR conflict
 ```
 
-**原因**：VPC CIDR地址段冲突或重叠
-**解决方案**：
-- 检查入站VPC和出站VPC的CIDR是否重叠
-- 确保CIDR在VPC区域内唯一
-- 使用不同的私有地址段
+**Cause**: The VPC CIDR blocks conflict or overlap.
+**Solution**:
+- Check whether the inbound and outbound VPC CIDRs overlap.
+- Ensure the CIDR is unique within the region.
+- Use different private address ranges.
 
-#### 错误二：子网CIDR超出VPC范围
+#### Error 2: Subnet CIDR out of VPC range
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Subnet CIDR out of VPC range
 ```
 
-**原因**：子网CIDR不在VPC CIDR范围内
-**解决方案**：
-- 确保子网CIDR是VPC CIDR的子集
-- 检查子网掩码设置是否正确
-- 重新规划子网划分
+**Cause**: The subnet CIDR is not within the VPC CIDR range.
+**Solution**:
+- Ensure the subnet CIDR is a subset of the VPC CIDR.
+- Check the subnet mask is correct.
+- Re-plan the subnet division.
 
-#### 错误三：NAT网关创建失败
+#### Error 3: NAT gateway creation failed
 
 ```
 Error: [TencentCloudSDKError] Code=NatGatewayError
 Message=NAT gateway creation failed
 ```
 
-**原因**：NAT网关创建失败
-**解决方案**：
-- 检查VPC ID是否正确
-- 验证EIP是否可用
-- 确认带宽设置是否合理
+**Cause**: The NAT gateway creation failed.
+**Solution**:
+- Check the VPC ID is correct.
+- Verify the EIPs are available.
+- Confirm the bandwidth settings are reasonable.
 
-#### 错误四：CCN关联失败
+#### Error 4: CCN attachment failed
 
 ```
 Error: [TencentCloudSDKError] Code=CcnAttachmentError
 Message=CCN attachment failed
 ```
 
-**原因**：CCN关联操作失败
-**解决方案**：
-- 确认CCN实例存在且状态正常
-- 检查CCN区域匹配性
-- 验证关联权限
+**Cause**: The CCN attachment operation failed.
+**Solution**:
+- Confirm the CCN instance exists and is in a normal state.
+- Check region consistency.
+- Verify attachment permissions (and `ccn_uin` for cross-account).
 
-#### 错误五：权限不足
+#### Error 5: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=UnauthorizedOperation
 Message=You are not authorized to perform the operation
 ```
 
-**原因**：执行账号缺少必要权限
-**解决方案**：
-- 确认Provider配置的密钥具有所需权限
-- 检查是否包含VPC、CCN、NAT网关管理权限
-- 验证跨账号操作的权限配置
+**Cause**: The executing account lacks the required permissions.
+**Solution**:
+- Confirm the provider credentials have the required permissions.
+- Check VPC, CCN and NAT gateway management permissions are included.
+- Verify cross-account operation permissions.
 
-#### 错误六：资源配额限制
+#### Error 6: Resource quota exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=QuotaExceeded
 Message=Resource quota exceeded
 ```
 
-**原因**：达到资源配额限制
-**解决方案**：
-- 检查VPC、子网、NAT网关的配额限制
-- 申请提高配额或删除无用资源
-- 合理规划资源使用
+**Cause**: A resource quota limit has been reached.
+**Solution**:
+- Check the quotas for VPC, subnet and NAT gateway.
+- Request a quota increase or delete unused resources.
+- Plan resource usage reasonably.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

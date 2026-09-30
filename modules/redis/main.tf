@@ -1,18 +1,17 @@
 ################################################################################
 ### Redis Instance, Backup Config, SSL Config
 ################################################################################
+data "tencentcloud_zones" "az" {
+  count = length(var.redis.replica_zone_names) > 0 ? 1 : 0
 
-# Get availability zones for Redis product
-data "tencentcloud_availability_zones_by_product" "az" {
-  count   = length(var.redis.replica_zone_names) > 0 ? 1 : 0
-  product = "redis"
+  product = var.zone_query_product
 }
 
 locals {
   # Build a map of zone name to zone id
   zone_id_map = length(var.redis.replica_zone_names) > 0 ? {
-    for zone in data.tencentcloud_availability_zones_by_product.az[0].zones :
-    zone.name => zone.id
+    for zone in data.tencentcloud_zones.az[0].zone_list :
+    zone.zone => zone.zone_id
   } : {}
 
   # Convert zone names to zone IDs (use lookup with validation)

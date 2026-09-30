@@ -1,11 +1,10 @@
-data "tencentcloud_availability_zones_by_product" "this" {
-  include_unavailable = true
-  product             = var.zone_query_product
+data "tencentcloud_zones" "az" {
+  product = var.zone_query_product
 }
 
 locals {
   zone_map = {
-    for zone in data.tencentcloud_availability_zones_by_product.this.zones : zone.name => zone.id
+    for zone in data.tencentcloud_zones.az.zone_list : zone.zone => zone.zone_id
   }
 }
 

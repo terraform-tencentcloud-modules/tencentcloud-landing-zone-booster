@@ -1,62 +1,62 @@
-# tencentcloud-waf-saas-ip-access-control 模块
+# tencentcloud-waf-saas-ip-access-control module
 
-这个 Terraform 模块用于在腾讯云上创建 WAF SaaS IP 访问控制规则（tencentcloud_waf_saas_ip_access_control）。
+This Terraform module provisions a WAF SaaS IP access control rule on Tencent Cloud using the `tencentcloud_waf_saas_ip_access_control` resource.
 
-## 说明
+## Overview
 
-该模块封装了 `tencentcloud_waf_saas_ip_access_control` 资源的常用配置项，便于在不同环境中复用。主要用于为 WAF SaaS 域名配置 IP 黑白名单规则，实现对特定 IP 地址的访问控制，支持定时配置功能。
+The module wraps common configuration for `tencentcloud_waf_saas_ip_access_control`, making it easy to reuse across environments. Use it to configure IP whitelist/blacklist rules for WAF SaaS domains, implementing access control for specific IP addresses with support for scheduled configurations.
 
-## 目录结构
+## Directory structure
 
-下面列出模块目录中常见文件及其用途，便于快速定位与二次开发：
+The following lists common files and their purpose within this module to help you quickly find and modify items:
 
-- `main.tf` — 模块主体，声明 `tencentcloud_waf_saas_ip_access_control` 资源及其配置。
-- `variables.tf` — 模块输入变量定义与说明（类型、默认值、是否敏感等）。
-- `outputs.tf` — 模块输出（导出资源 ID 和规则 ID）。
-- `versions.tf` — provider 与 Terraform 版本约束，用于保证兼容性。
-- `examples/` — 示例调用与变量文件，演示常见使用场景。
-- `README.md` — 中文文档（本文件），包含使用说明与示例。
-- `README_EN.md` — 英文文档，包含与中文对应的说明与示例。
+- `main.tf` — The module entry; declares the `tencentcloud_waf_saas_ip_access_control` resource and its configuration.
+- `variables.tf` — Input variable definitions (types, defaults, sensitive flags).
+- `outputs.tf` — Module outputs (expose resource ID and rule ID).
+- `versions.tf` — Terraform and provider version constraints to ensure compatibility.
+- `examples/` — Example usages and `*.tfvars` files illustrating common scenarios.
+- `README.md` — Chinese documentation for the module.
+- `README_EN.md` — English documentation (this file).
 
-在对模块进行改动（例如新增变量、变更输出）时，请同时更新相应的 `variables.tf` / `outputs.tf` 与文档，以保持一致性。
+When changing module inputs or outputs, please update the corresponding `variables.tf` / `outputs.tf` and documentation to keep them in sync.
 
-## 输入（Variables）
+## Inputs (Variables)
 
-以下变量基于模块的 `variables.tf`。标注说明：Required 表示必填；可选变量给出默认值。
+The variables are defined in `variables.tf`. Required and optional inputs are listed below.
 
-### 必填参数
-- `instance_id` (string) — WAF 实例 ID。
-- `domain` (string) — 应用规则的域名。
-- `ip_list` (list(string)) — 要控制的 IP 或 CIDR 列表。
-- `action_type` (number) — 访问控制类型：42: 黑名单；40: 白名单。
+### Required variables
+- `instance_id` (string) — WAF instance ID.
+- `domain` (string) — Domain to apply the rule to.
+- `ip_list` (list(string)) — List of IPs or CIDRs to control.
+- `action_type` (number) — Access control type: 42: blocklist; 40: allowlist.
 
-### 可选参数（含默认值）
-- `description` (string, default null) — 规则描述。
-- `job_date_time` (list(object), default []) — 定时配置详情。
-  - `cron` (list(object)) — 定时执行时间参数
-    - `days` (set(number)) — 每月执行的天数
-    - `end_time` (string) — 结束时间
-    - `start_time` (string) — 开始时间
-    - `w_days` (set(number)) — 每周执行的天数
-  - `time_t_zone` (string) — 时区
-  - `timed` (list(object)) — 定时执行时间参数
-    - `end_date_time` (number) — 结束时间戳（秒）
-    - `start_date_time` (number) — 开始时间戳（秒）
-- `job_type` (string, default null) — 定时配置类型。
-- `note` (string, default null) — 备注。
+### Optional variables (with defaults)
+- `description` (string, default null) — Rule description.
+- `job_date_time` (list(object), default []) — Scheduled configuration details.
+  - `cron` (list(object)) — Time parameters for periodic execution
+    - `days` (set(number)) — Days in each month for execution
+    - `end_time` (string) — End time
+    - `start_time` (string) — Start time
+    - `w_days` (set(number)) — Days of each week for execution
+  - `time_t_zone` (string) — Time zone
+  - `timed` (list(object)) — Time parameters for scheduled execution
+    - `end_date_time` (number) — End timestamp (seconds)
+    - `start_date_time` (number) — Start timestamp (seconds)
+- `job_type` (string, default null) — Scheduled configuration type.
+- `note` (string, default null) — Remarks.
 
-## 输出（Outputs）
+## Outputs
 
-该模块导出以下输出值：
+The module exports the following output values:
 
-- `id` — 资源 ID
-- `rule_id` — IP 访问控制规则 ID
+- `id` — Resource ID
+- `rule_id` — IP access control rule ID
 
-## 基本用法示例
+## Examples
 
-下面给出若干常见场景的示例配置，供参考：
+Below are example configurations for common scenarios:
 
-### 1) 基本 IP 黑名单配置
+### 1) Basic IP Blocklist Configuration
 
 ```hcl
 module "waf_ip_access_control_blacklist" {
@@ -64,14 +64,14 @@ module "waf_ip_access_control_blacklist" {
   instance_id = "waf-instance-xxxx"
   domain      = "example.com"
   ip_list     = ["192.168.1.100", "10.0.0.0/24"]
-  action_type = 42  # 黑名单
-  description = "阻止恶意 IP 访问"
+  action_type = 42  # blocklist
+  description = "Block malicious IP addresses"
 }
 ```
 
-适用于阻止特定 IP 或 IP 段访问网站的场景。
+Use case: Block specific IPs or IP ranges from accessing your website.
 
-### 2) IP 白名单配置
+### 2) IP Allowlist Configuration
 
 ```hcl
 module "waf_ip_access_control_whitelist" {
@@ -79,14 +79,14 @@ module "waf_ip_access_control_whitelist" {
   instance_id = "waf-instance-xxxx"
   domain      = "api.example.com"
   ip_list     = ["203.0.113.10", "203.0.113.20"]
-  action_type = 40  # 白名单
-  description = "仅允许内部 API 调用 IP 访问"
+  action_type = 40  # allowlist
+  description = "Allow only internal API calling IPs"
 }
 ```
 
-适用于仅允许特定 IP 访问敏感接口的场景。
+Use case: Restrict API access to specific IP addresses only.
 
-### 3) 定时黑名单配置
+### 3) Scheduled Blocklist Configuration
 
 ```hcl
 module "waf_ip_access_control_scheduled" {
@@ -94,25 +94,25 @@ module "waf_ip_access_control_scheduled" {
   instance_id = "waf-instance-xxxx"
   domain      = "example.com"
   ip_list     = ["198.51.100.50", "198.51.100.51"]
-  action_type = 42  # 黑名单
-  description = "工作时间封禁异常访问 IP"
+  action_type = 42  # blocklist
+  description = "Block abnormal access IPs during working hours"
   job_type    = "cron"
   
   job_date_time = [{
     cron = [{
-      days      = [1, 15, 30]  # 每月1号、15号、30号执行
+      days      = [1, 15, 30]  # Execute on 1st, 15th, 30th of each month
       end_time  = "18:00:00"
       start_time = "09:00:00"
-      w_days    = [1, 2, 3, 4, 5]  # 周一到周五
+      w_days    = [1, 2, 3, 4, 5]  # Monday to Friday
     }]
     time_t_zone = "Asia/Shanghai"
   }]
 }
 ```
 
-适用于需要在特定时间段内封禁 IP 的场景。
+Use case: Block IPs during specific time periods.
 
-### 4) 多 IP 段控制
+### 4) Multiple IP Range Control
 
 ```hcl
 module "waf_ip_access_control_multiple" {
@@ -120,37 +120,37 @@ module "waf_ip_access_control_multiple" {
   instance_id = "waf-instance-xxxx"
   domain      = "example.com"
   ip_list     = ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"]
-  action_type = 40  # 白名单
-  description = "允许内部网络访问"
+  action_type = 40  # allowlist
+  description = "Allow internal network access"
 }
 ```
 
-适用于控制整个 IP 段的访问权限。
+Use case: Control access permissions for entire IP ranges.
 
-## 定时配置详解
+## Scheduled Configuration Details
 
-### cron 定时配置
-- `days`: 指定每月执行的天数（1-31）
-- `w_days`: 指定每周执行的天数（1-7，1=周日，7=周六）
-- `start_time`: 规则生效的开始时间（HH:MM:SS格式）
-- `end_time`: 规则生效的结束时间（HH:MM:SS格式）
+### cron Scheduled Configuration
+- `days`: Specify days of the month for execution (1-31)
+- `w_days`: Specify days of the week for execution (1-7, 1=Sunday, 7=Saturday)
+- `start_time`: Rule activation start time (HH:MM:SS format)
+- `end_time`: Rule activation end time (HH:MM:SS format)
 
-### timed 定时配置
-- `start_date_time`: 规则生效的开始时间戳（秒）
-- `end_date_time`: 规则生效的结束时间戳（秒）
+### timed Scheduled Configuration
+- `start_date_time`: Rule activation start timestamp (seconds)
+- `end_date_time`: Rule activation end timestamp (seconds)
 
-## 常见场景与建议
+## Common Scenarios & Recommendations
 
-- **安全防护**：使用 `action_type = 42`（黑名单）阻止已知恶意 IP 访问网站。
-- **API 保护**：使用 `action_type = 40`（白名单）限制 API 接口仅能被特定 IP 访问。
-- **工作时间控制**：结合定时配置，在工作时间段内启用特定的访问控制规则。
-- **IP 段管理**：支持 CIDR 表示法，便于管理整个 IP 段的访问权限。
-- **临时封禁**：通过定时配置实现临时封禁功能。
+- **Security Protection**: Use `action_type = 42` (blocklist) to block known malicious IPs from accessing your website.
+- **API Protection**: Use `action_type = 40` (allowlist) to restrict API access to specific IP addresses only.
+- **Working Hours Control**: Combine with scheduled configuration to enable access control rules during specific time periods.
+- **IP Range Management**: Support CIDR notation for managing access permissions for entire IP ranges.
+- **Temporary Blocking**: Use scheduled configuration for temporary IP blocking.
 
-## 注意事项
+## Notes
 
-- 确保 `instance_id` 对应的 WAF 实例有权限管理指定域名的 IP 访问控制规则。
-- `ip_list` 支持单个 IP 地址（如 `192.168.1.1`）和 CIDR 表示法（如 `192.168.1.0/24`）。
-- 同一个域名可以配置多个 IP 访问控制规则，规则按创建顺序生效。
-- 定时配置需要确保时间参数的准确性，避免规则生效时间错误。
-- 使用定时配置时，建议先在测试环境验证配置效果。
+- Ensure the WAF instance specified by `instance_id` has permission to manage IP access control rules for the target domain.
+- `ip_list` supports both single IP addresses (e.g., `192.168.1.1`) and CIDR notation (e.g., `192.168.1.0/24`).
+- Multiple IP access control rules can be configured for the same domain, with rules taking effect in creation order.
+- Scheduled configurations require accurate time parameters to avoid incorrect rule activation times.
+- Test scheduled configurations in a test environment before deploying to production.

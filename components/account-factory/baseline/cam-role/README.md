@@ -1,107 +1,123 @@
-# 腾讯云CAM角色（CAM Role）管理模块
+# Tencent Cloud CAM Role Management Component
 
-## 模块概述
+Terraform component under `components/account-factory/baseline/cam-role` for creating and managing CAM (Cloud Access Management) roles in Tencent Cloud. It is part of the `account-factory` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中创建和管理CAM（Cloud Access Management）角色，支持以下核心功能：
+## Overview
 
-- **角色创建** - 创建自定义CAM角色，支持控制台登录和临时密钥有效期配置
-- **主体配置** - 支持账户主体和服务主体两种类型的角色信任关系
-- **策略管理** - 支持预定义策略和自定义策略的关联
-- **批量关联** - 自动将策略关联到创建的角色
-- **标签管理** - 支持为角色和策略添加标签
+This component creates and manages custom CAM roles, with support for:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudCamFullAccess` | CAM权限管理全权限 |
-| `QcloudOrganizationReadOnlyAccess` | 组织只读权限（用于查询成员信息） |
-
-### 其他要求
-
-- 当前账号需要具有CAM管理权限
-- 如需使用组织成员信息，需要是腾讯云组织成员
+- **Role creation** – create custom CAM roles with console-login and temporary-key validity configuration.
+- **Principal configuration** – support both account principals and service principals for the role trust relationship.
+- **Policy management** – attach both preset policies and custom policies.
+- **Batch attachment** – automatically attach policies to the created role.
+- **Tag management** – attach tags to the role and to custom policies.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 必填变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 说明 | 示例值 |
-|--------|------|------|--------|
-| `role_name` | `string` | CAM角色名称，全局唯一 | `"readonly-role"` |
-| `principal` | `object` | 角色信任主体配置 | 见下方详细说明 |
+## Providers
 
-### 可选变量
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.125 |
 
-#### 角色基础配置
+### IAM Permissions
 
-| 变量名 | 类型 | 默认值 | 说明 |
-|--------|------|--------|------|
-| `description` | `string` | `null` | 角色描述信息 |
-| `console_login` | `bool` | `false` | 是否允许控制台登录 |
-| `session_duration` | `number` | `7200` | 临时密钥最大有效期（秒） |
-| `tags` | `map(string)` | `null` | 角色标签键值对 |
+The executing principal needs the following Tencent Cloud permissions:
 
-#### 主体配置 (`principal`)
+| Permission | Description |
+|------------|-------------|
+| `QcloudCamFullAccess` | Full access to CAM management |
+| `QcloudOrganizationReadOnlyAccess` | Organization read-only access (to query member info) |
 
-| 变量名 | 类型 | 默认值 | 说明 |
-|--------|------|--------|------|
-| `type` | `number` | - | 主体类型：1-账户，2-服务 |
-| `account_uin` | `string` | - | 账户UIN（与account_name二选一） |
-| `account_name` | `string` | - | 账户名称（组织成员名或CAM用户名） |
-| `service_name` | `string` | - | 服务名称（type=2时必填） |
+### Prerequisites
 
-#### 策略配置 (`cam_policy`)
-
-| 变量名 | 类型 | 默认值 | 说明 |
-|--------|------|--------|------|
-| `pre_policies` | `list(string)` | `[]` | 预定义策略名称列表 |
-| `custom_policies` | `list(object)` | `[]` | 自定义策略配置列表 |
-| `↳ name` | `string` | - | 自定义策略名称 |
-| `↳ document` | `string` | - | 策略文档（JSON格式） |
-| `↳ description` | `string` | - | 策略描述 |
-| `↳ tags` | `map(string)` | - | 策略标签 |
+- The current account must have CAM management permissions.
+- To use organization member info, the current account must be a member of the Tencent Cloud Organization.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### Required variables
+
+| Name | Type | Description | Example |
+|------|------|-------------|---------|
+| <a name="input_role_name"></a> [role\_name](#input\_role\_name) | `string` | CAM role name (globally unique within the account). | `"readonly-role"` |
+| <a name="input_principal"></a> [principal](#input\_principal) | `object` | Role trust principal configuration. See fields below. | see below |
+
+### Optional variables
+
+#### Role base configuration
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| <a name="input_description"></a> [description](#input\_description) | `string` | `null` | Description of the CAM role. |
+| <a name="input_console_login"></a> [console\_login](#input\_console\_login) | `bool` | `false` | Whether the CAM role is allowed to log in to the console. |
+| <a name="input_session_duration"></a> [session\_duration](#input\_session\_duration) | `number` | `7200` | Maximum validity period of the temporary key (seconds). |
+| <a name="input_tags"></a> [tags](#input\_tags) | `map(string)` | `null` | Tag key/value pairs for the role. |
+
+#### Principal configuration (`principal`)
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `type` | `number` | - (required) | Principal type: `1` = Account, `2` = Service. |
+| `account_uin` | `string` | - | Account UIN. Used when `type = 1`. |
+| `service_name` | `string` | - | Service name (required when `type = 2`). |
+
+> When `type = 1` and both `account_uin` and the owner resolution are empty, the role uses the owner UIN of the current account.
+
+#### Policy configuration (`cam_policy`)
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `preset_policies` | `list(string)` | `[]` | List of preset (predefined) policy names. |
+| `custom_policies` | `list(object)` | `[]` | List of custom policy configurations. |
+| `↳ name` | `string` | - | Custom policy name. |
+| `↳ document` | `string` | - | Policy document (JSON format). |
+| `↳ description` | `string` | - | Policy description. |
+| `↳ tags` | `map(string)` | - | Policy tags. |
+
+---
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_role_arn"></a> [role\_arn](#output\_role\_arn) | CAM role ARN. |
+| <a name="output_policy_ids"></a> [policy\_ids](#output\_policy\_ids) | Map of CAM policy name to policy ID, keyed by policy name. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` example
 
 ```hcl
-# 必填配置
+# Required
 role_name = "readonly-role"
 
-# 主体配置 - 账户类型
+# Principal - account type
 principal = {
-  type        = 1  # 账户类型
-  account_uin = "1000000000"  # 使用UIN
-  # account_name = "member-account"  # 或使用账户名称
+  type        = 1  # account type
+  account_uin = "1000000000"  # use UIN
+  # service_name is not used for account type
 }
 
-# 主体配置 - 服务类型  
+# Principal - service type
 # principal = {
-#   type        = 2  # 服务类型
-#   service_name = "cloudaudit"  # 服务名称
+#   type         = 2  # service type
+#   service_name = "cloudaudit"  # service name
 # }
 
-# 角色基础配置
-description      = "只读访问角色"
+# Role base configuration
+description      = "Read-only access role"
 console_login    = false
 session_duration = 3600
 tags = {
@@ -109,15 +125,15 @@ tags = {
   Team        = "Platform"
 }
 
-# 策略配置
+# Policy configuration
 cam_policy = {
-  # 预定义策略
-  pre_policies = [
+  # Preset policies
+  preset_policies = [
     "QcloudCamReadOnlyAccess",
     "QcloudCVMReadOnlyAccess"
   ]
-  
-  # 自定义策略
+
+  # Custom policies
   custom_policies = [
     {
       name        = "custom-readonly-policy"
@@ -136,7 +152,7 @@ cam_policy = {
           ]
         }
       EOT
-      description = "自定义只读策略"
+      description = "Custom read-only policy"
       tags = {
         Category = "Custom"
       }
@@ -147,68 +163,68 @@ cam_policy = {
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：基础只读角色
+### Example 1: Basic read-only role
 
 ```hcl
 module "cam_role_basic" {
   source = "./modules/cam-role"
 
   role_name = "basic-readonly-role"
-  
+
   principal = {
     type        = 1
     account_uin = "1000000000"
   }
-  
-  description = "基础只读访问角色"
-  
+
+  description = "Basic read-only access role"
+
   cam_policy = {
-    pre_policies = ["QcloudCamReadOnlyAccess"]
+    preset_policies = ["QcloudCamReadOnlyAccess"]
   }
 }
 ```
 
-### 示例二：服务角色
+### Example 2: Service role
 
 ```hcl
 module "cam_role_service" {
   source = "./modules/cam-role"
 
   role_name = "cloudaudit-service-role"
-  
+
   principal = {
     type         = 2
     service_name = "cloudaudit"
   }
-  
-  description = "云审计服务角色"
-  
+
+  description = "CloudAudit service role"
+
   cam_policy = {
-    pre_policies = ["QcloudAuditFullAccess"]
+    preset_policies = ["QcloudAuditFullAccess"]
   }
 }
 ```
 
-### 示例三：带自定义策略的角色
+### Example 3: Role with custom policy
 
 ```hcl
 module "cam_role_custom" {
   source = "./modules/cam-role"
 
   role_name = "custom-database-role"
-  
+
   principal = {
     type        = 1
-    account_name = "database-admin"
+    account_uin = "1000000000"
   }
-  
-  description = "数据库管理自定义角色"
-  
+
+  description = "Custom database admin role"
+
   cam_policy = {
-    pre_policies = ["QcloudCamReadOnlyAccess"]
-    
+    preset_policies = ["QcloudCamReadOnlyAccess"]
+
     custom_policies = [
       {
         name        = "database-admin-policy"
@@ -228,181 +244,185 @@ module "cam_role_custom" {
             ]
           }
         EOT
-        description = "数据库全权限策略"
+        description = "Database full-access policy"
       }
     ]
   }
 }
 ```
 
-### 示例四：允许控制台登录的角色
+### Example 4: Console-login role
 
 ```hcl
 module "cam_role_console" {
   source = "./modules/cam-role"
 
   role_name = "console-admin-role"
-  
+
   principal = {
     type        = 1
     account_uin = "1000000000"
   }
-  
-  description      = "控制台管理角色"
+
+  description      = "Console admin role"
   console_login    = true
-  session_duration = 14400  # 4小时
-  
+  session_duration = 14400  # 4 hours
+
   cam_policy = {
-    pre_policies = ["QcloudResourceFullAccess"]
+    preset_policies = ["QcloudResourceFullAccess"]
   }
 }
 ```
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 主体识别逻辑
+### Principal resolution
 
 ```
-主体识别流程：
-┌─────────────────────────────────────┐
-│  var.principal 配置检查             │
-│         │                           │
-│   提供 account_uin    → 使用指定UIN  │
-│   提供 account_name   → 查询组织或CAM │
-│   两者都未提供        → 使用当前账号  │
-│   type=2             → 使用服务名称  │
-└─────────────────────────────────────┘
+Principal resolution:
+┌─────────────────────────────────────────────┐
+│  Check var.principal                         │
+│         │                                     │
+│  account_uin provided   → use the given UIN   │
+│  type = 2               → use service_name    │
+│  neither provided       → use owner UIN of    │
+│                            the current account │
+└─────────────────────────────────────────────┘
 ```
 
-### 策略关联逻辑
+### Policy attachment logic
 
 ```hcl
-# 策略关联包含预定义策略和自定义策略
+# Policies include both preset and custom policies
 user_policies = concat(
-  [预定义策略配置],
-  [自定义策略配置]
+  [preset policy configs],
+  [custom policy configs]
 )
 
-# 自动创建策略关联
+# Auto-create the attachments
 resource "tencentcloud_cam_role_policy_attachment" "role_policy_attachment" {
-  for_each = { for policy in local.user_policies : policy.policy_name => policy}
-  
+  for_each = { for policy in local.user_policies : policy.policy_name => policy }
+
   role_id   = tencentcloud_cam_role.role.id
   policy_id = each.value.policy_id
 }
 ```
 
-### 资源依赖关系
+### Resource dependencies
 
 ```
-tencentcloud_cam_role.role (角色创建)
+tencentcloud_cam_role.role (create role)
           │
-tencentcloud_cam_policy.policies (自定义策略创建，可选)
+tencentcloud_cam_policy.policies (create custom policies, optional)
           │
           │ depends_on
           ▼
-tencentcloud_cam_role_policy_attachment.role_policy_attachment (策略关联)
+tencentcloud_cam_role_policy_attachment.role_policy_attachment (attach policies)
 ```
 
 ---
 
-## 注意事项
+## Important Notes
 
-> ⚠️ **重要提示，操作前请仔细阅读**
+> ⚠️ **Important: read carefully before making changes**
 
-1. **角色名称唯一性**
-   - CAM角色名称在腾讯云账号内必须全局唯一
-   - 建议使用有意义的命名规范
+1. **Role name uniqueness**
+   - A CAM role name must be globally unique within the Tencent Cloud account.
+   - Use a meaningful naming convention.
 
-2. **主体配置要求**
-   - `type=1`（账户类型）时，必须提供`account_uin`或`account_name`
-   - `type=2`（服务类型）时，必须提供`service_name`
-   - 两者都未提供时，默认使用当前账号UIN
+2. **Principal requirements**
+   - When `type = 1` (account), provide `account_uin`.
+   - When `type = 2` (service), provide `service_name`.
+   - If neither is provided, the role uses the owner UIN of the current account.
 
-3. **控制台登录限制**
-   - `console_login=true`时，角色可以登录控制台
-   - 生产环境建议设置为`false`以增强安全性
+3. **Console login limits**
+   - With `console_login = true`, the role can log in to the console.
+   - In production, prefer `false` for stronger security.
 
-4. **会话有效期**
-   - `session_duration`设置临时密钥的最大有效期（秒）
-   - 默认7200秒（2小时），最大43200秒（12小时）
+4. **Session duration**
+   - `session_duration` sets the maximum validity period of the temporary key (seconds).
+   - Default `7200` (2 hours); maximum `43200` (12 hours).
 
-5. **策略文档格式**
-   - 自定义策略的`document`必须是有效的JSON格式
-   - 必须符合腾讯云CAM策略文档规范
+5. **Policy document format**
+   - The custom policy `document` must be valid JSON.
+   - It must comply with the Tencent Cloud CAM policy document specification.
 
-6. **权限要求**
-   - 执行模块需要CAM管理权限
-   - 查询组织成员需要组织只读权限
+6. **Permissions**
+   - The module requires CAM management permissions.
+   - Querying organization members requires organization read-only permissions.
 
 ---
 
-## 故障排除
+## Troubleshooting
 
-### 常见错误及解决方案
+### Common errors and solutions
 
-#### 错误一：权限不足
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=UnauthorizedOperation
 Message=You are not authorized to perform the operation
 ```
 
-**原因**：执行账号缺少CAM管理权限
-**解决方案**：
-- 确认Provider配置的密钥具有CAM管理权限
-- 检查CAM策略是否包含所需权限
+**Cause**: The executing account lacks CAM management permissions.
+**Solution**:
+- Confirm the provider credentials have CAM management permissions.
+- Check that the CAM policy includes the required permissions.
 
-#### 错误二：角色已存在
+#### Error 2: Role already exists
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceInUse
 Message=Role already exists
 ```
 
-**原因**：角色名称已被使用
-**解决方案**：
-- 修改`role_name`为唯一名称
-- 删除已存在的同名角色
+**Cause**: The role name is already in use.
+**Solution**:
+- Change `role_name` to a unique name.
+- Delete the existing role with the same name.
 
-#### 错误三：策略不存在
+#### Error 3: Policy not found
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=Policy not found
 ```
 
-**原因**：指定的预定义策略不存在
-**解决方案**：
+**Cause**: The specified preset policy does not exist.
+**Solution**:
 ```bash
-# 查询可用的预定义策略
+# List available preset policies
 terraform console
 > data.tencentcloud_cam_policies.all.policy_list
 ```
 
-#### 错误四：账户不存在
+#### Error 4: Account not found
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=Account not found
 ```
 
-**原因**：指定的账户UIN或名称不存在
-**解决方案**：
-- 确认账户UIN或名称正确
-- 检查账户是否已加入组织（如果是组织成员）
+**Cause**: The specified account UIN does not exist.
+**Solution**:
+- Confirm the account UIN is correct.
+- Check that the account has joined the organization (if it is a member).
 
-#### 错误五：策略文档格式错误
+#### Error 5: Invalid policy document
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid policy document
 ```
 
-**原因**：自定义策略文档格式不正确
-**解决方案**：
-- 检查JSON格式是否正确
-- 验证策略语法是否符合腾讯云规范
-- 使用在线JSON验证工具检查
+**Cause**: The custom policy document format is incorrect.
+**Solution**:
+- Check that the JSON is well-formed.
+- Validate the policy syntax against the Tencent Cloud specification.
+- Use an online JSON validator to verify.
+
+## License
+
+See [LICENSE](../../../../LICENSE) for full details.

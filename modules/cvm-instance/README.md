@@ -1,91 +1,188 @@
-# terraform-tencentcloud-cvm
+# TencentCloud CVM Instance Module for Terraform
 
-## Getting started
+## terraform-tencentcloud-cvm-instance
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+A terraform module that creates a TencentCloud CVM (Cloud Virtual Machine) instance (`tencentcloud_instance`). It can optionally:
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/mango-engineering/tencent-poc/mango-infra-components/terraform-tencentcloud-cos.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/mango-engineering/tencent-poc/mango-infra-components/terraform-tencentcloud-cos/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+- Attach newly created CBS cloud disks (`tencentcloud_cbs_storage` + attachment) and/or existing CBS disks by ID.
+- Attach existing ENIs (`tencentcloud_eni_attachment`).
+- Create a placement group (`tencentcloud_placement_group`) when `placement_group_name` is provided, or join an existing one via `placement_group_id`.
+- Auto-resolve the instance type from `cpu_core_count`/`memory_size` and the image ID from `image_os_name` when not explicitly set, and generate a random login password when neither `key_ids` nor `password` is supplied.
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```hcl
+module "cvm_instance" {
+  source = "terraform-tencentcloud-modules/cvm-instance/tencentcloud"
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+  # basic
+  instance_name     = "my-cvm"
+  availability_zone = "ap-guangzhou-3"
+  instance_type     = "S5.MEDIUM4"        # optional: auto-resolved from cpu/memory if omitted
+  image_id          = "img-xxxxxxxx"      # optional: auto-resolved from image_os_name if omitted
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+  # network
+  vpc_id    = "vpc-xxxxxxxx"
+  subnet_id = "subnet-xxxxxxxx"
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+  # login
+  password = "MyP@ssw0rd123"              # optional: a random password is generated if both key_ids and password are empty
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+  # system disk
+  system_disk_type = "CLOUD_PREMIUM"
+  system_disk_size = 50
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+  # data disks (newly created CBS)
+  data_disks = [
+    {
+      data_disk_type = "CLOUD_SSD"
+      data_disk_size = 100
+    }
+  ]
+
+  # attach existing CBS / ENI (optional)
+  cbs_block_device_ids = []
+  eni_ids              = []
+
+  tags = {
+    created_by = "terraform"
+  }
+}
+```
+
+## Inputs
+
+### Data source (instance type / image)
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| exclude_sold_out | Indicate to filter instance types that is sold out or not. | bool | false | no |
+| cpu_core_count | The number of CPU cores of the instance. Used to resolve `instance_type` when not set. | number | 2 | no |
+| memory_size | Instance memory capacity, unit in GB. Used to resolve `instance_type` when not set. | number | 2 | no |
+| image_os_name | A string to apply with fuzzy match to the os_name attribute on the image list returned by TencentCloud. | string | null | no |
+
+### Basic instance config
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| project_id | Project id. | number | 0 | no |
+| instance_name | The name of instance to create. | string | null | no |
+| availability_zone | The available zone for the instance. | string | null | no |
+| instance_type | Instance type of instance. Auto-resolved from `cpu_core_count`/`memory_size` when null. | string | null | no |
+| image_id | The image to use for the instance. Changing image_id will cause the instance reset. | string | null | no |
+| host_name | The hostname of the instance. Changing the `hostname` will cause the instance system to restart. | string | null | no |
+
+### Storage
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| system_disk_id | System disk snapshot ID used to initialize the system disk. Not supported when type is LOCAL_BASIC/LOCAL_SSD. | string | null | no |
+| system_disk_name | Name of the system disk. | string | null | no |
+| system_disk_type | System disk type. Valid values: LOCAL_BASIC, LOCAL_SSD, CLOUD_BASIC, CLOUD_SSD, CLOUD_PREMIUM, CLOUD_BSSD, CLOUD_HSSD, CLOUD_TSSD. | string | "CLOUD_PREMIUM" | no |
+| system_disk_size | Size of the system disk, unit is GB. | number | 50 | no |
+| system_disk_resize_online | Resize online. | bool | null | no |
+| data_disks | Settings for data disks (list of objects: data_disk_type, data_disk_size, data_disk_name, data_disk_snapshot_id, data_disk_id, delete_with_instance, delete_with_instance_prepaid, kms_key_id, encrypt, throughput_performance). | list(object) | [] | no |
+
+### VPC & network
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| vpc_id | The ID of a VPC network. If not set, the default VPC will be used. | string | null | no |
+| subnet_id | The ID of a VPC subnet. If not set, the default subnet will be used. | string | null | no |
+| private_ip | Private IP address to associate with the instance in a VPC. Must be within the subnet specified by subnet_id. | string | null | no |
+| security_group_ids | A list of orderly security group IDs to associate with. | list(string) | null | no |
+| allocate_public_ip | Associate a public IP address with an instance in a VPC or Classic. | bool | false | no |
+| internet_charge_type | Internet charge type of the instance. Valid values: BANDWIDTH_PREPAID, TRAFFIC_POSTPAID_BY_HOUR, BANDWIDTH_POSTPAID_BY_HOUR, BANDWIDTH_PACKAGE. | string | null | no |
+| bandwidth_package_id | Bandwidth package id. | string | null | no |
+| internet_max_bandwidth_out | Maximum outgoing bandwidth to the public network, in Mbps. | number | 10 | no |
+| ipv4_address_type | IPv4 AddressType. Default: WanIP. Valid values: WanIP, HighQualityEIP, AntiDDoSEIP. | string | null | no |
+| ipv6_address_type | IPv6 AddressType. Default: WanIP. Valid values: EIPv6, HighQualityEIPv6. | string | null | no |
+| ipv6_address_count | Specify the number of randomly generated IPv6 addresses for the ENI. | number | null | no |
+| anti_ddos_package_id | Anti-DDoS service package ID. Required when requesting an AntiDDoS IP. | string | null | no |
+
+### Enhanced services
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| enable_security_service | Enable enhanced security service (security agent). Default is enabled. | bool | true | no |
+| enable_monitor_service | Enable enhanced monitor service (monitor agent). Default is enabled. | bool | true | no |
+| enable_automation_service | Enable enhanced automation service. Default is enabled. | bool | true | no |
+
+### Login, role & HPC
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| key_ids | The key pair IDs to use for the instance, e.g. `skey-16jig7tx`. | list(string) | null | no |
+| password | Login password of the instance (sensitive). A random password is generated when both key_ids and password are empty. | string | null | no |
+| keep_image_login | Whether to keep image login. Default is false. | bool | null | no |
+| user_data | Base64-encoded binary user data. Use instead of user_data_raw for non-UTF-8 content. | string | null | no |
+| user_data_raw | The user data to provide when launching the instance. | string | null | no |
+| user_data_replace_on_change | Whether to replace user data on change. Default is false. | bool | false | no |
+| cam_role_name | CAM role name authorized to access. | string | null | no |
+| hpc_cluster_id | High-performance computing cluster ID. Required only for HPC instances. | string | null | no |
+
+### Payment config
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| instance_charge_type | The charge type of instance. Valid values: PREPAID, POSTPAID_BY_HOUR, SPOTPAID, CDHPAID, CDCPAID, UNDERWRITE. | string | "POSTPAID_BY_HOUR" | no |
+| instance_charge_type_prepaid_period | The tenancy (month) of the prepaid instance. Only works when PREPAID. Valid values: 1-12, 24, 36, 48, 60. | string | "1" | no |
+| instance_charge_type_prepaid_renew_flag | Auto renewal flag for prepaid instances. Valid values: NOTIFY_AND_AUTO_RENEW, NOTIFY_AND_MANUAL_RENEW, DISABLE_NOTIFY_AND_MANUAL_RENEW. | string | "NOTIFY_AND_MANUAL_RENEW" | no |
+| spot_instance_type | Type of spot instance, only `ONE-TIME` supported. Only works when SPOTPAID. | string | null | no |
+| spot_max_price | Max price of a spot instance, decimal string e.g. "0.50". Only works when SPOTPAID. | string | null | no |
+| cdh_instance_type | Type of instance created on CDH, format CDH_XCXG. Only works when CDHPAID. | string | null | no |
+| cdh_host_id | Id of CDH instance. Only works when CDHPAID. | string | null | no |
+
+### Disaster recovery, stop & delete
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| disaster_recover_group_ids | Disaster recover group IDs. | list | null | no |
+| stop_type | Instance shutdown mode. Valid values: SOFT_FIRST, HARD, SOFT. | string | "SOFT" | no |
+| stopped_mode | Billing method after shutdown for pay-as-you-go instances. Valid values: KEEP_CHARGING, STOP_CHARGING. | string | "KEEP_CHARGING" | no |
+| force_delete | Force delete the instance (skip recycle bin). Only works for PREPAID. | bool | false | no |
+| disable_api_termination | Whether termination protection is enabled. | bool | false | no |
+
+### Placement group
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| placement_group_id | The Placement Group Id to start the instance in. | string | null | no |
+| placement_group_name | The Placement group name to create and start the instance in. Ignored if placement_group_id is passed. | string | null | no |
+| placement_group_type | Type of the placement group. Valid values: HOST, SW, RACK. | string | null | no |
+| force_replace_placement_group_id | Whether to force the instance host to be replaced. Only useful when changing placement_group_id. | bool | false | no |
+
+### CBS & ENI attachments
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| cbs_block_devices | Additional CBS block devices to create and attach (list of objects, see `tencentcloud_cbs_storage`). | list(object) | [] | no |
+| cbs_block_device_ids | Attach existing CBS block devices to the instance by id. | list(string) | [] | no |
+| cbs_tags | Additional tags to assign to the created CBS resources. | map(string) | {} | no |
+| eni_ids | A list of ENI IDs to bind with the instance. | list(string) | [] | no |
+
+### Tags
+
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| tags | A mapping of tags to assign to the resource. | map(string) | {} | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| instance_id | The id of the instance. |
+| instance_uuid | The uuid of the instance. |
+| instance_status | The state of the instance. |
+| public_ip | The public ip of the instance. |
+| private_ip | The private ip of the instance. |
+| placement_group_id | The Placement Group Id to start the instance in. |
+| password | The password of the instance (sensitive). |
+
+## Authors
+
+Created and maintained by [TencentCloud](https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-cvm-instance)
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Mozilla Public License Version 2.0. See LICENSE for full details.

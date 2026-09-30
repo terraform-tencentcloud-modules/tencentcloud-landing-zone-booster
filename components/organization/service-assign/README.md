@@ -1,623 +1,646 @@
-# 腾讯云服务委派管理模块
+# Tencent Cloud Organization Service Delegation Component
 
-## 模块概述
+Terraform component under `components/organization/service-assign` for delegating the administration of specific Tencent Cloud services to Organization members (enabling a member account as a delegated administrator), supporting batch delegation of multiple services to multiple members, as part of the `organization` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中为组织成员委派服务管理权限，支持批量服务权限分配和统一管理，主要功能包括：
+## Overview
 
-- **服务委派管理** - 为组织成员委派特定云服务的管理权限
-- **成员识别** - 支持通过成员UIN或成员名称识别目标成员
-- **批量操作** - 支持批量委派多个服务和多个成员
-- **自动映射** - 自动处理成员名称到UIN的映射关系
-- **权限统一** - 实现组织内服务权限的统一管理
-- **服务覆盖** - 支持多种腾讯云核心服务的委派
-- **依赖处理** - 自动处理成员信息依赖关系
-- **灵活配置** - 支持多种配置方式满足不同场景需求
+This component delegates service management permissions to Organization members. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudOrganizationFullAccess` | 组织管理全权限 |
-| `QcloudCamFullAccess` | 访问管理全权限 |
-| `QcloudFinanceFullAccess` | 财务管理全权限 |
-| 相关服务的管理权限 | 需要委派的服务对应权限 |
-
-### 其他要求
-
-- 需要了解腾讯云组织架构和成员结构
-- 需要规划好服务委派策略
-- 需要确定委派范围和权限级别
-- 需要收集成员UIN或准确名称
-- 需要了解各服务的功能特性
-- 需要准备服务委派清单
+- **Service delegation management** – delegate administration of specific cloud services to Organization members.
+- **Member identification** – identify the target member by member UIN or member name.
+- **Batch operations** – delegate multiple services to multiple members in one batch.
+- **Automatic mapping** – member name → UIN mapping is resolved automatically.
+- **Unified permission** – centrally manage service delegation across the Organization.
+- **Service coverage** – supports multiple core Tencent Cloud services (see supported service list below).
+- **Dependency handling** – member information dependencies are handled automatically.
+- **Flexible configuration** – multiple configuration styles for different scenarios.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 主要配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `service_assign_list` | `list(object)` | 是 | - | 服务委派配置列表 |
+## Providers
 
-### 服务委派对象字段说明
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.125 |
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `member_uin` | `number` | 条件 | `null` | 成员UIN（与member_name二选一） |
-| `member_name` | `string` | 条件 | `null` | 成员名称（与member_uin二选一） |
-| `service_name` | `string` | 是 | - | 服务名称 |
+### IAM Permissions
 
-### 支持的服务列表及说明
+The executing principal needs the following Tencent Cloud permissions:
 
-| 服务ID | 服务名称 | 中文名称 | 功能说明 |
-|--------|----------|----------|----------|
-| **22** | ICP | ICP备案 | 统一管理组织成员的ICP备案资源 |
-| **24** | Web Application Firewall | Web应用防火墙 | 统一管理组织成员的WAF资源 |
-| **15** | Cloud Security Center | 云安全中心 | 统一管理组织成员的CSC资源 |
-| **23** | Cloud Virtual Machine | 云虚拟机 | 查看成员CVM配额并代申请配额提升 |
-| **25** | Key Management Service | 密钥管理服务 | 统一管理组织成员的KMS密钥资源 |
-| **17** | Control Center | 控制中心 | 统一管理和配置多账号环境 |
-| **12** | CloudAudit | 云审计 | 统一管理组织成员的审计日志 |
-| **20** | tandon | 安顿服务 | 统一管理组织成员的安顿资源 |
-| **13** | Billing Center | 计费中心 | 查看成员账单、余额和合并报表 |
-| **18** | Config | 配置管理 | 统一管理组织成员的配置资源 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudOrganizationFullAccess` | Full access to Organization management |
+| `QcloudCamFullAccess` | Full access to CAM (access management) |
+| `QcloudFinanceFullAccess` | Full access to finance management |
+| Management permission for the delegated service | The corresponding permission for each service being delegated |
+
+### Prerequisites
+
+- Understand the Organization structure and member structure.
+- Plan the service delegation strategy.
+- Define the delegation scope and permission level.
+- Collect member UINs or exact member names.
+- Understand the capabilities of each target service.
+- Prepare the service delegation list.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_management_scope"></a> [management\_scope](#input\_management\_scope) | `number` | no | `1` | Management scope of the delegated administrator. `1` = all members, `2` = partial members. |
+| <a name="input_service_assign_list"></a> [service\_assign\_list](#input\_service\_assign\_list) | `list(object)` | yes | – | A list of member-and-service maps. Either `member_uin` or `member_name` must be set (exactly one). |
+
+### `service_assign_list` object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `member_uin` | `number` | conditional | `null` | Member UIN (set one of `member_uin` / `member_name`). |
+| `member_name` | `string` | conditional | `null` | Member name (set one of `member_uin` / `member_name`). |
+| `service_name` | `string` | yes | – | Service name to delegate (see supported service list). |
+
+> Exactly one of `member_uin` and `member_name` must be provided; do not set both or neither.
+
+### Supported services
+
+| Service ID | Service Name (use this value for `service_name`) | Description |
+|------------|--------------------------------------------------|-------------|
+| **28** | WAF (Web Application Firewall) | The Organization management account or the delegated administrator can manage WAF resources for all Organization members. |
+| **23** | CSIP (Cloud Security Center) | Centralized management of security risks across multiple accounts within an enterprise. |
+| **29** | KMS (Key Management Service) | The group management account or delegated administrator can manage KMS for group members, enable KMS, and view/manage other members' key resources. |
+| **24** | Control Center | Unified management and configuration of an enterprise multi-account environment; manage account usage standards. |
+| **12** | CloudAudit | Cloud audit administrators can use tracking-set delivery to track the audit logs of all members. |
+| **13** | Billing Center | Lets financial administrators access members' billing statements, account balances, and bill consolidation. |
+| **18** | Config | Configuration auditing (Config) helps centrally audit and manage cloud resources; continuously records and evaluates configuration. |
+| **27** | Quota Center | Centralized management of cloud service quotas. |
+| **30** | Firewall Manager (FWM) | Unified policy management, control, and analysis across multiple products and accounts, plus resource sharing across account specifications. |
+| **25** | Identity Center Management | Identity Center provides unified identity and permission management for multi-account based on the Group/Account organizational structure; configure enterprise IdP, SSO, and multi-account user access in one place. |
+
+> Pass the exact **Service Name** string (e.g. `"WAF (Web Application Firewall)"`, `"CSIP (Cloud Security Center)"`) as `service_name`. The numeric ID is shown for reference only.
+
+### Outputs
+
+This component declares **no outputs** (the resource is managed entirely via the `service_assign_list`/inputs).
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` – basic
 
 ```hcl
-# 基础服务委派配置示例
+# Basic service delegation configuration example
 service_assign_list = [
-  # 为技术部门成员委派开发相关服务
+  # Delegate development-related services to a tech member
   {
     member_name  = "developer_zhangsan"
-    service_name = "Cloud Virtual Machine"     # ID: 23 - 云虚拟机管理
+    service_name = "CSIP (Cloud Security Center)"  # ID: 23
   },
   {
     member_name  = "developer_zhangsan"
-    service_name = "Key Management Service"    # ID: 25 - 密钥管理
+    service_name = "KMS (Key Management Service)" # ID: 29
   },
   {
     member_name  = "developer_lisi"
-    service_name = "Web Application Firewall"  # ID: 24 - WAF管理
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
-  
-  # 为安全团队委派安全相关服务
+
+  # Delegate security services to the security team
   {
     member_name  = "security_wangwu"
-    service_name = "Cloud Security Center"     # ID: 15 - 云安全中心
+    service_name = "CSIP (Cloud Security Center)"  # ID: 23
   },
   {
     member_name  = "security_wangwu"
-    service_name = "Web Application Firewall"  # ID: 24 - WAF管理
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
-  
-  # 为财务人员委派财务相关服务
+
+  # Delegate finance services to a finance member
   {
     member_name  = "finance_zhaoliu"
-    service_name = "Billing Center"            # ID: 13 - 计费中心
+    service_name = "Billing Center"               # ID: 13
   },
-  
-  # 为管理员委派管理相关服务
+
+  # Delegate management services to an admin
   {
     member_name  = "admin_liqi"
-    service_name = "Control Center"            # ID: 17 - 控制中心
-  },
-  {
-    member_name  = "admin_liqi"
-    service_name = "CloudAudit"                # ID: 12 - 云审计
+    service_name = "Control Center"               # ID: 24
   },
   {
     member_name  = "admin_liqi"
-    service_name = "Config"                    # ID: 18 - 配置管理
+    service_name = "CloudAudit"                   # ID: 12
+  },
+  {
+    member_name  = "admin_liqi"
+    service_name = "Config"                       # ID: 18
   }
 ]
 ```
 
-### 使用成员UIN配置示例
+### Using member UIN
 
 ```hcl
-# 使用成员UIN进行服务委派
+# Delegate services using member UIN
 service_assign_list = [
   {
-    member_uin    = 1000000001                 # 技术总监UIN
-    service_name  = "Cloud Virtual Machine"    # 云虚拟机管理
+    member_uin    = 1000000001                   # tech director UIN
+    service_name  = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_uin    = 1000000001
-    service_name  = "Key Management Service"   # 密钥管理
+    service_name  = "KMS (Key Management Service)" # ID: 29
   },
   {
-    member_uin    = 1000000002                 # 安全主管UIN
-    service_name  = "Cloud Security Center"    # 云安全中心
+    member_uin    = 1000000002                   # security lead UIN
+    service_name  = "WAF (Web Application Firewall)" # ID: 28
   },
   {
     member_uin    = 1000000002
-    service_name  = "Web Application Firewall" # WAF管理
+    service_name  = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
-    member_uin    = 1000000003                 # 财务总监UIN
-    service_name  = "Billing Center"           # 计费中心
+    member_uin    = 1000000003                   # finance director UIN
+    service_name  = "Billing Center"             # ID: 13
   },
   {
-    member_uin    = 1000000004                 # 系统管理员UIN
-    service_name  = "Control Center"           # 控制中心
+    member_uin    = 1000000004                   # system admin UIN
+    service_name  = "Control Center"             # ID: 24
   },
   {
     member_uin    = 1000000004
-    service_name  = "CloudAudit"               # 云审计
+    service_name  = "CloudAudit"                 # ID: 12
   }
 ]
 ```
 
-### 混合配置示例
+### Mixed configuration (name + UIN)
 
 ```hcl
-# 混合使用成员名称和UIN进行配置
+# Mix member name and UIN configuration
 service_assign_list = [
-  # 使用成员名称配置
+  # By member name
   {
     member_name  = "tech_director"
-    service_name = "Cloud Virtual Machine"     # 云虚拟机管理
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "tech_director"
-    service_name = "Key Management Service"    # 密钥管理
+    service_name = "KMS (Key Management Service)" # ID: 29
   },
-  
-  # 使用成员UIN配置
+
+  # By member UIN
   {
-    member_uin   = 1000000005                  # 安全专家UIN
-    service_name = "Cloud Security Center"     # 云安全中心
+    member_uin   = 1000000005                    # security expert UIN
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
   {
     member_uin   = 1000000005
-    service_name = "Web Application Firewall"  # WAF管理
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
-  
-  # 为整个团队委派服务
+
+  # Delegate to team leads
   {
     member_name  = "dev_team_lead"
-    service_name = "Cloud Virtual Machine"     # 开发团队云虚拟机
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "sec_team_lead"
-    service_name = "Cloud Security Center"     # 安全团队云安全
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
   {
     member_name  = "fin_team_lead"
-    service_name = "Billing Center"            # 财务团队计费
+    service_name = "Billing Center"               # ID: 13
   }
 ]
 ```
 
-### 企业级服务委派配置
+### Enterprise-grade delegation
 
 ```hcl
-# 企业级精细化服务权限管理
+# Enterprise-grade fine-grained service permission management
 service_assign_list = [
-  # 基础设施团队
+  # Infrastructure team
   {
     member_name  = "infra_manager"
-    service_name = "Cloud Virtual Machine"     # 虚拟机管理
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "infra_manager"
-    service_name = "Key Management Service"    # 密钥管理
+    service_name = "KMS (Key Management Service)" # ID: 29
   },
   {
     member_name  = "infra_engineer"
-    service_name = "Cloud Virtual Machine"     # 虚拟机操作
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
-  
-  # 安全运维团队
+
+  # Security operations team
   {
     member_name  = "secops_manager"
-    service_name = "Cloud Security Center"     # 安全中心管理
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "secops_manager"
-    service_name = "Web Application Firewall"  # WAF管理
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
   {
     member_name  = "secops_analyst"
-    service_name = "Cloud Security Center"     # 安全分析
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
-  
-  # 网络团队
+
+  # Network team
   {
     member_name  = "network_admin"
-    service_name = "Web Application Firewall"  # WAF配置
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
-  
-  # 财务团队
+
+  # Finance team
   {
     member_name  = "finance_director"
-    service_name = "Billing Center"            # 财务总监计费权限
+    service_name = "Billing Center"               # ID: 13
   },
   {
     member_name  = "finance_manager"
-    service_name = "Billing Center"            # 财务经理计费权限
+    service_name = "Billing Center"               # ID: 13
   },
-  
-  # 合规审计团队
+
+  # Compliance & audit team
   {
     member_name  = "compliance_auditor"
-    service_name = "CloudAudit"                # 审计权限
+    service_name = "CloudAudit"                   # ID: 12
   },
   {
     member_name  = "compliance_auditor"
-    service_name = "Config"                    # 配置审计
+    service_name = "Config"                       # ID: 18
   },
-  
-  # 管理团队
+
+  # Management team
   {
     member_name  = "it_director"
-    service_name = "Control Center"            # 控制中心管理
+    service_name = "Control Center"               # ID: 24
   },
   {
     member_name  = "it_director"
-    service_name = "CloudAudit"                # 审计管理
+    service_name = "CloudAudit"                   # ID: 12
   }
 ]
 ```
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：开发团队服务委派
+### Example 1: Development team delegation
 
 ```hcl
-# 开发团队服务权限配置
+# Development team service permission configuration
 service_assign_list = [
-  # 开发总监 - 全开发服务权限
+  # Dev director - full dev service permissions
   {
     member_name  = "dev_director"
-    service_name = "Cloud Virtual Machine"     # 虚拟机资源管理
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "dev_director"
-    service_name = "Key Management Service"    # 密钥安全管理
+    service_name = "KMS (Key Management Service)" # ID: 29
   },
   {
     member_name  = "dev_director"
-    service_name = "Web Application Firewall"  # WAF配置管理
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
-  
-  # 后端开发团队 - 虚拟机权限
+
+  # Backend team - VM/security center permissions
   {
     member_name  = "backend_team_lead"
-    service_name = "Cloud Virtual Machine"     # 团队虚拟机管理
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "backend_senior_dev"
-    service_name = "Cloud Virtual Machine"     # 高级开发虚拟机
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "backend_junior_dev"
-    service_name = "Cloud Virtual Machine"     # 初级开发虚拟机
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
-  
-  # 前端开发团队 - WAF权限
+
+  # Frontend team - WAF permissions
   {
     member_name  = "frontend_team_lead"
-    service_name = "Web Application Firewall"  # 团队WAF管理
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
   {
     member_name  = "frontend_dev"
-    service_name = "Web Application Firewall"  # 前端WAF配置
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   }
 ]
 ```
 
-### 示例二：安全团队服务委派
+### Example 2: Security team delegation
 
 ```hcl
-# 安全团队服务权限配置
+# Security team service permission configuration
 service_assign_list = [
-  # 安全总监 - 全安全服务权限
+  # Security director - full security service permissions
   {
     member_name  = "security_director"
-    service_name = "Cloud Security Center"     # 云安全中心管理
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "security_director"
-    service_name = "Web Application Firewall"  # WAF全局管理
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
   {
     member_name  = "security_director"
-    service_name = "Key Management Service"    # 密钥安全管理
+    service_name = "KMS (Key Management Service)" # ID: 29
   },
-  
-  # 安全分析师 - 监控分析权限
+
+  # Security analyst - monitoring & analysis
   {
     member_name  = "security_analyst"
-    service_name = "Cloud Security Center"     # 安全事件分析
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "security_analyst"
-    service_name = "Web Application Firewall"  # WAF日志分析
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
-  
-  # 安全工程师 - 实施配置权限
+
+  # Security engineer - implementation & configuration
   {
     member_name  = "security_engineer"
-    service_name = "Web Application Firewall"  # WAF规则配置
+    service_name = "WAF (Web Application Firewall)" # ID: 28
   },
   {
     member_name  = "security_engineer"
-    service_name = "Key Management Service"    # 密钥轮换配置
+    service_name = "KMS (Key Management Service)" # ID: 29
   }
 ]
 ```
 
-### 示例三：混合团队服务委派
+### Example 3: Cross-team delegation
 
 ```hcl
-# 跨团队服务权限配置
+# Cross-team service permission configuration
 service_assign_list = [
-  # 项目管理办公室 - 全局监控权限
+  # PMO - global monitoring
   {
     member_name  = "pmo_director"
-    service_name = "Control Center"            # 控制中心查看
+    service_name = "Control Center"   # ID: 24
   },
   {
     member_name  = "pmo_director"
-    service_name = "Billing Center"            # 项目成本监控
+    service_name = "Billing Center"   # ID: 13
   },
   {
     member_name  = "pmo_manager"
-    service_name = "Billing Center"            # 项目费用管理
+    service_name = "Billing Center"   # ID: 13
   },
-  
-  # 基础设施团队 - 资源管理权限
+
+  # Infrastructure team - resource management
   {
     member_name  = "infra_team_lead"
-    service_name = "Cloud Virtual Machine"     # 虚拟机配额管理
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
   {
     member_name  = "infra_engineer"
-    service_name = "Cloud Virtual Machine"     # 虚拟机日常操作
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   },
-  
-  # 合规团队 - 审计监控权限
+
+  # Compliance team - audit monitoring
   {
     member_name  = "compliance_officer"
-    service_name = "CloudAudit"                # 操作审计
+    service_name = "CloudAudit"       # ID: 12
   },
   {
     member_name  = "compliance_officer"
-    service_name = "Config"                    # 配置合规检查
+    service_name = "Config"           # ID: 18
   },
-  
-  # 客户支持团队 - 有限权限
+
+  # Customer support team - limited permissions
   {
     member_name  = "support_team_lead"
-    service_name = "Billing Center"            # 客户账单查询
+    service_name = "Billing Center"   # ID: 13
   },
   {
     member_name  = "support_engineer"
-    service_name = "Cloud Virtual Machine"     # 客户资源查看
+    service_name = "CSIP (Cloud Security Center)" # ID: 23
   }
 ]
 ```
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 成员识别方式
+### Member identification
 
-模块支持两种成员识别方式：
+The module supports two identification methods:
 
-1. **通过成员名称识别**
-   - 使用`member_name`字段指定成员名称
-   - 模块自动查询并映射到对应的成员UIN
-   - 适合名称已知但UIN未知的场景
-   - 需要确保成员名称在组织中唯一
+1. **By member name**
+   - Use `member_name` to specify the member name.
+   - The module queries and maps it to the corresponding member UIN automatically.
+   - Suitable when the name is known but the UIN is not.
+   - The member name must be unique in the Organization.
 
-2. **通过成员UIN识别**
-   - 使用`member_uin`字段指定成员UIN
-   - 直接使用指定的UIN进行委派
-   - 适合UIN已知且需要精确控制的场景
-   - 需要确保UIN正确且成员存在
+2. **By member UIN**
+   - Use `member_uin` to specify the member UIN.
+   - The given UIN is used directly for delegation.
+   - Suitable when the UIN is known and precise control is required.
+   - The UIN must be correct and the member must exist.
 
-### 服务权限说明
+### Management scope
 
-| 服务类型 | 权限级别 | 适用角色 | 管理范围 |
-|----------|----------|----------|----------|
-| **资源管理类** | 操作权限 | 运维工程师 | 虚拟机、密钥等资源 |
-| **安全防护类** | 安全权限 | 安全工程师 | WAF、安全中心等 |
-| **财务成本类** | 财务权限 | 财务人员 | 账单、成本等 |
-| **审计合规类** | 审计权限 | 合规人员 | 审计日志、配置等 |
-| **管理控制类** | 管理权限 | 管理人员 | 控制中心、配置等 |
+`management_scope` controls the scope of the delegated administrator:
+- `1` (default) – the delegated administrator manages **all** Organization members.
+- `2` – the delegated administrator manages **partial** members (requires the relevant members to be specified through the delegation mechanism).
 
-### 自动映射机制
+### Service permission categories
 
-模块内置自动映射功能：
-- 自动查询组织中所有成员信息
-- 建立成员名称到UIN的映射表
-- 支持动态解析成员名称
-- 处理成员不存在的情况
-- 确保委派操作的准确性
+| Category | Permission level | Role | Managed scope |
+|----------|------------------|------|---------------|
+| Resource management | Operational | Ops engineer | VM, KMS, etc. |
+| Security protection | Security | Security engineer | WAF, CSIP, etc. |
+| Finance & cost | Finance | Finance staff | Billing, cost, etc. |
+| Audit & compliance | Audit | Compliance staff | Audit logs, Config, etc. |
+| Management & control | Management | Administrators | Control Center, Config, etc. |
 
-### 最佳实践建议
+### Automatic mapping
 
-1. **权限分离原则**
-   - 按职责分配最小必要权限
-   - 避免过度委派
-   - 定期审计权限分配
+The module has a built-in automatic mapping:
+- Queries all member information in the Organization.
+- Builds a member name → UIN mapping table.
+- Dynamically resolves member names.
+- Handles the case where a member does not exist.
+- Ensures the accuracy of delegation operations.
 
-2. **命名规范**
-   - 制定统一的成员命名规范
-   - 确保成员名称唯一性
-   - 便于权限管理和审计
+### Best practices
 
-3. **服务分组**
-   - 按功能分组委派服务
-   - 同类服务集中管理
-   - 避免权限碎片化
+1. **Separation of duties**
+   - Grant the minimum necessary permissions per responsibility.
+   - Avoid over-delegation.
+   - Periodically audit permission assignments.
 
-4. **监控审计**
-   - 启用操作日志记录
-   - 定期检查权限使用情况
-   - 及时调整不必要的权限
+2. **Naming convention**
+   - Define a consistent member naming convention.
+   - Ensure member name uniqueness.
+   - Facilitate permission management and auditing.
 
----
+3. **Service grouping**
+   - Delegate services grouped by function.
+   - Manage similar services centrally.
+   - Avoid permission fragmentation.
 
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **成员识别**
-   - `member_uin`和`member_name`必须二选一
-   - 不能同时为空或同时设置
-   - 确保指定的成员存在
-
-2. **服务可用性**
-   - 确保要委派的服务已开通
-   - 检查服务状态是否正常
-   - 确认服务兼容性
-
-3. **权限验证**
-   - 委派前验证目标成员权限
-   - 确保不会造成权限冲突
-   - 测试权限生效情况
-
-4. **名称准确性**
-   - 成员名称必须精确匹配
-   - 大小写敏感
-   - 避免使用易混淆名称
-
-5. **UIN准确性**
-   - UIN必须准确无误
-   - 避免使用错误的UIN
-   - 定期核对UIN信息
-
-6. **服务限制**
-   - 了解各服务的功能限制
-   - 注意服务之间的依赖关系
-   - 避免冲突配置
-
-7. **操作顺序**
-   - 先创建成员再委派服务
-   - 按依赖关系顺序操作
-   - 避免循环依赖
-
-8. **备份恢复**
-   - 定期备份权限配置
-   - 准备恢复方案
-   - 测试恢复流程
-
-9. **变更管理**
-   - 记录所有权限变更
-   - 通知相关受影响方
-   - 评估变更影响
-
-10. **合规要求**
-    - 遵守企业内部合规要求
-    - 满足行业监管要求
-    - 定期进行合规检查
+4. **Monitoring & audit**
+   - Enable operation logs.
+   - Periodically check permission usage.
+   - Revoke unnecessary permissions promptly.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：成员不存在
+1. **Member identification**
+   - `member_uin` and `member_name` are mutually exclusive (set exactly one).
+   - Do not leave both empty or set both at once.
+   - Ensure the identified member exists.
+
+2. **Service availability**
+   - Ensure the service to be delegated is enabled.
+   - Check that the service status is normal.
+   - Confirm service compatibility.
+
+3. **Permission verification**
+   - Verify the target member's permissions before delegation.
+   - Ensure no permission conflicts are introduced.
+   - Test that the permission takes effect.
+
+4. **Name accuracy**
+   - The member name must match exactly.
+   - Name matching is case-sensitive.
+   - Avoid ambiguous names.
+
+5. **UIN accuracy**
+   - The UIN must be accurate.
+   - Avoid using wrong UINs.
+   - Periodically verify UINs.
+
+6. **Service limits**
+   - Understand each service's functional limits.
+   - Note dependencies between services.
+   - Avoid conflicting configuration.
+
+7. **Operation order**
+   - Create the member before delegating services.
+   - Operate following dependency order.
+   - Avoid circular dependencies.
+
+8. **Backup & recovery**
+   - Periodically back up permission configuration.
+   - Prepare a recovery plan.
+   - Test the recovery process.
+
+9. **Change management**
+   - Record all permission changes.
+   - Notify affected parties.
+   - Evaluate change impact.
+
+10. **Compliance**
+    - Comply with internal compliance requirements.
+    - Meet industry regulatory requirements.
+    - Perform periodic compliance checks.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Member not found
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Member not found
 ```
 
-**原因**：指定的成员名称或UIN不存在
-**解决方案**：
-- 检查成员名称拼写是否正确
-- 确认成员UIN是否正确
-- 确保成员已在组织中创建
+**Cause**: The specified member name or UIN does not exist.
+**Solution**:
+- Check the member name spelling.
+- Confirm the member UIN is correct.
+- Ensure the member is created in the Organization.
 
-#### 错误二：服务不存在
+#### Error 2: Service not found
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Service not found
 ```
 
-**原因**：指定的服务名称不存在或未开通
-**解决方案**：
-- 检查服务名称是否正确
-- 确认服务是否已开通
-- 查看支持的服务列表
+**Cause**: The specified `service_name` does not exist or is not enabled.
+**Solution**:
+- Check the `service_name` string matches a supported service exactly (including the `(...)` suffix where applicable).
+- Confirm the service is enabled.
+- Refer to the supported service list above.
 
-#### 错误三：权限不足
+#### Error 3: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查当前账号权限
-- 确认是否有委派权限
-- 申请必要的权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check the current account's permissions.
+- Confirm it has delegation permission.
+- Request the necessary permissions.
 
-#### 错误四：重复委派
+#### Error 4: Duplicate delegation
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Service already assigned
 ```
 
-**原因**：相同的服务已委派给该成员
-**解决方案**：
-- 检查是否重复配置
-- 移除重复的委派配置
-- 确认是否需要重复委派
+**Cause**: The same service is already delegated to that member.
+**Solution**:
+- Check for duplicate configuration.
+- Remove the duplicate delegation entry.
+- Confirm whether re-delegation is needed.
 
-#### 错误五：参数冲突
+#### Error 5: Parameter conflict
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Parameter conflict
 ```
 
-**原因**：同时设置了member_uin和member_name
-**解决方案**：
-- 只使用一种识别方式
-- 移除冲突的参数
-- 选择优先使用的方式
+**Cause**: Both `member_uin` and `member_name` are set.
+**Solution**:
+- Use only one identification method.
+- Remove the conflicting parameter.
+- Choose the preferred method.
 
-#### 错误六：服务限制
+#### Error 6: Service limit exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=LimitExceeded
 Message=Service limit exceeded
 ```
 
-**原因**：达到服务委派数量限制
-**解决方案**：
-- 检查服务委派限制
-- 减少委派数量
-- 申请提高限额
+**Cause**: The service delegation count limit has been reached.
+**Solution**:
+- Check the service delegation limit.
+- Reduce the number of delegations.
+- Request a quota increase.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

@@ -1,12 +1,12 @@
-# tencentcloud-private-dns-zone-service-subscribe
+# tencentcloud-private-dns-zone-subscribe-service
 
-This Terraform module subscribes to the Tencent Cloud Private DNS service.
+A Terraform module that subscribes to (enables) the Tencent Cloud Private DNS zone service (`tencentcloud_subscribe_private_zone_service`). This must be enabled before you can create Private DNS zones and related resources.
 
 ## Usage
 
 ```hcl
 module "private_dns_zone_service_subscribe" {
-  source = "./tc-modules/modules/private-dns-zone-service-subscribe"
+  source = "terraform-tencentcloud-modules/private-dns-zone-subscribe-service/tencentcloud"
 
   enable_private_zone_service = true
 }
@@ -35,10 +35,18 @@ module "private_dns_zone_service_subscribe" {
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| enable_private_zone_service | Whether to enable private zone service subscription | bool | false | no |
+| enable_private_zone_service | Whether to enable private zone service subscription. | bool | false | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| private_zone_service_enabled | Whether private zone service is enabled |
+| private_zone_service_enabled | Whether private zone service is enabled. |
+
+## Authors
+
+Created and maintained by [TencentCloud](https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-private-dns-zone-subscribe-service)
+
+## License
+
+Mozilla Public License Version 2.0. See LICENSE for full details.

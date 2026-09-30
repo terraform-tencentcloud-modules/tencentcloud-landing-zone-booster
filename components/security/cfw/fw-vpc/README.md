@@ -1,113 +1,121 @@
-# 腾讯云云防火墙（CFW）VPC防火墙模块
+# Tencent Cloud Cloud Firewall (CFW) VPC Firewall Component
 
-## 模块概述
+Terraform component under `components/security/cfw/fw-vpc` for configuring and managing the VPC Firewall capability of Tencent Cloud Cloud Firewall (CFW) — as part of the `security` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中配置和管理云防火墙（Cloud Firewall，CFW）的VPC防火墙功能，主要提供以下核心能力：
+## Overview
 
-- **VPC防火墙实例管理** - 创建和管理VPC防火墙实例组
-- **网络模式支持** - 支持私有网络模式和云联网模式
-- **交换机模式** - 支持单点互通、多点通信、自定义路由三种交换机模式
-- **多地域部署** - 支持跨地域防火墙实例部署
-- **策略控制** - 定义和管理VPC间访问控制策略
-- **自动网络规划** - 自动或手动配置防火墙网络段
-- **云联网集成** - 支持云联网环境下的防火墙部署
+This component configures and manages the Cloud Firewall (CFW) VPC firewall feature. Main capabilities:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudCFWFullAccess` | 云防火墙全权限 |
-| `QcloudVPCFullAccess` | VPC网络权限 |
-| `QcloudCCNFullAccess` | 云联网权限（云联网模式） |
-
-### 其他要求
-
-- 需要规划VPC防火墙的工作模式（私有网络/云联网）
-- 需要确定交换机模式（单点/多点/自定义路由）
-- 需要准备VPC ID列表
-- 需要规划防火墙实例的地域部署
-- 需要准备访问控制策略规则
-- 云联网模式需要准备CCN ID
+- **VPC firewall instance management** – create and manage VPC firewall instance groups.
+- **Network mode support** – private network mode and CCN (Cloud Connect Network) mode.
+- **Switch mode** – single-point intercommunication, multi-point communication, and custom routing.
+- **Multi-region deployment** – deploy firewall instances across regions.
+- **Policy control** – define and manage inter-VPC access-control policies.
+- **Automatic network planning** – auto or manually configured firewall network segment.
+- **CCN integration** – deploy the firewall in a CCN environment.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 必需配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.1.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `name` | `string` | 是 | - | VPC防火墙（组）名称 |
-| `mode` | `number` | 是 | - | 工作模式：0-私有网络模式，1-云联网模式 |
-| `switch_mode` | `number` | 是 | - | 交换机模式：1-单点互通，2-多点通信，4-自定义路由 |
-| `fw_instances` | `list(object)` | 是 | - | 防火墙实例列表 |
+## Providers
 
-### 可选配置变量
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `fw_cidr` | `string` | 否 | `auto` | 防火墙网络段：auto-自动选择，或用户指定CIDR |
-| `ccn_id` | `string` | 否 | `null` | 云联网ID（云联网模式） |
-| `vpc_fw_group_id` | `string` | 否 | `null` | 防火墙实例组ID |
-| `vpc_fw_policies` | `list(object)` | 否 | `[]` | VPC防火墙策略列表 |
+### IAM Permissions
 
-### 详细变量说明
+The executing principal needs the following Tencent Cloud permissions:
 
-#### 防火墙实例对象字段
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `name` | `string` | 是 | - | 防火墙实例名称 |
-| `fw_deploy` | `list(object)` | 是 | - | 防火墙部署配置 |
-| `vpc_ids` | `set(string)` | 否 | - | VPC ID集合 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudCFWFullAccess` | Full access to Cloud Firewall |
+| `QcloudVPCFullAccess` | Access to VPC |
+| `QcloudCCNFullAccess` | Access to CCN (CCN mode) |
 
-#### 防火墙部署对象字段
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `deploy_region` | `string` | 是 | - | 部署地域 |
-| `width` | `number` | 是 | - | 带宽规格（Mbps） |
-| `zone_set` | `set(string)` | 是 | - | 可用区集合 |
-| `cross_a_zone` | `number` | 否 | - | 跨可用区部署：0-不启用，1-启用 |
+### Prerequisites
 
-#### 策略对象字段
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `description` | `string` | 是 | - | 策略描述 |
-| `source_type` | `string` | 是 | - | 源类型：net, template |
-| `source_content` | `string` | 是 | - | 源内容 |
-| `dest_type` | `string` | 是 | - | 目标类型：net, template, domain |
-| `dest_content` | `string` | 是 | - | 目标内容 |
-| `protocol` | `string` | 是 | - | 协议：TCP, UDP, ICMP, ANY, HTTP, HTTPS等 |
-| `port` | `string` | 是 | - | 端口 |
-| `rule_action` | `string` | 是 | - | 动作：accept-允许，drop-拒绝，log-记录 |
-| `enable` | `string` | 否 | `true` | 启用状态：true-启用，false-禁用 |
+- Plan the VPC firewall working mode (private network / CCN).
+- Decide the switch mode (single point / multi-point / custom routing).
+- Prepare the VPC ID list.
+- Plan the firewall instances' regional deployment.
+- Prepare the access-control policy rules.
+- For CCN mode, prepare the CCN ID.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### Required configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_name"></a> [name](#input\_name) | `string` | yes | – | VPC firewall (group) name. |
+| <a name="input_mode"></a> [mode](#input\_mode) | `number` | yes | – | Working mode: `0` = private network mode; `1` = CCN (cloud networking) mode. (Must be `0` or `1`.) |
+| <a name="input_switch_mode"></a> [switch\_mode](#input\_switch\_mode) | `number` | yes | – | Switch mode: `1` = single-point intercommunication; `2` = multi-point communication; `4` = custom routing. (Must be `1`, `2`, or `4`.) |
+| <a name="input_fw_instances"></a> [fw\_instances](#input\_fw\_instances) | `list(object)` | yes | – | List of firewall instances under the firewall (group). |
+
+### Optional configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_fw_vpc_cidr"></a> [fw\_vpc\_cidr](#input\_fw\_vpc\_cidr) | `string` | no | `auto` | Firewall network segment: `auto` = automatically select; or a user-specified CIDR (e.g. `10.10.10.0/24`). |
+| <a name="input_ccn_id"></a> [ccn\_id](#input\_ccn\_id) | `string` | no | `null` | Cloud networking ID (CCN mode). |
+| <a name="input_ccn_name"></a> [ccn\_name](#input\_ccn\_name) | `string` | no | `null` | Cloud networking name (CCN mode). |
+| <a name="input_vpc_fw_group_id"></a> [vpc\_fw\_group\_id](#input\_vpc\_fw\_group\_id) | `string` | no | `null` | Firewall instance group ID where the rule takes effect. Default is `ALL`. |
+| <a name="input_vpc_fw_policies"></a> [vpc\_fw\_policies](#input\_vpc\_fw\_policies) | `list(object)` | no | `[]` | VPC firewall policy list. |
+
+#### Firewall instance object (`fw_instances`)
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `string` | yes | – | Firewall instance name. |
+| `fw_deploy` | `list(object)` | yes | – | Firewall deployment configuration. |
+| `vpc_ids` | `set(string)` | no | – | Set of VPC IDs. |
+
+#### Firewall deployment object (`fw_deploy`)
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `deploy_region` | `string` | yes | – | Deployment region. |
+| `width` | `number` | yes | – | Bandwidth (Mbps). |
+| `zone_set` | `set(string)` | yes | – | Availability-zone set. |
+| `cross_a_zone` | `number` | no | – | Cross-AZ deployment: `0` = disable, `1` = enable. |
+
+#### Policy object (`vpc_fw_policies`)
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `description` | `string` | yes | – | Policy description. |
+| `source_type` | `string` | yes | – | Source type: `net`, `template`. |
+| `source_content` | `string` | yes | – | Source content. |
+| `dest_type` | `string` | yes | – | Destination type: `net`, `template`, `domain`. |
+| `dest_content` | `string` | yes | – | Destination content. |
+| `protocol` | `string` | yes | – | Protocol: `TCP`, `UDP`, `ICMP`, `ANY`, `HTTP`, `HTTPS`, `HTTP/HTTPS`, `SMTP`, `SMTPS`, `SMTP/SMTPS`, `FTP`, `DNS`, `TLS/SSL`. |
+| `port` | `string` | yes | – | Port. |
+| `rule_action` | `string` | yes | – | Action: `accept` (allow), `drop` (deny), `log` (record). |
+| `enable` | `string` | no | `true` | Enable status: `true` = enabled, `false` = disabled. |
+
+---
+
+## Configuration Examples
+
+### Basic configuration (private network mode)
 
 ```hcl
-# 基本配置
+# Basic configuration
 name        = "prod-vpc-fw"
-mode        = 0  # 私有网络模式
-switch_mode = 1  # 单点互通
-fw_cidr     = "auto"  # 自动选择网络段
+mode        = 0  # private network mode
+switch_mode = 1  # single-point intercommunication
+fw_vpc_cidr = "auto"  # auto-select the network segment
 
-# 防火墙实例配置
+# Firewall instance configuration
 fw_instances = [
   {
     name = "vpc-fw-instance-1"
@@ -116,17 +124,17 @@ fw_instances = [
         deploy_region = "ap-beijing"
         width         = 1000  # 1Gbps
         zone_set      = ["ap-beijing-1", "ap-beijing-2"]
-        cross_a_zone  = 0  # 不启用跨可用区
+        cross_a_zone  = 0  # disable cross-AZ
       }
     ]
     vpc_ids = ["vpc-123456", "vpc-789012"]
   }
 ]
 
-# VPC防火墙策略
+# VPC firewall policies
 vpc_fw_policies = [
   {
-    description    = "允许VPC间HTTP访问"
+    description    = "Allow inter-VPC HTTP access"
     source_type    = "net"
     source_content = "vpc:10.1.0.0/16"
     dest_type      = "net"
@@ -137,7 +145,7 @@ vpc_fw_policies = [
     enable         = "true"
   },
   {
-    description    = "禁止VPC间数据库访问"
+    description    = "Block inter-VPC database access"
     source_type    = "net"
     source_content = "vpc:10.1.0.0/16"
     dest_type      = "net"
@@ -150,17 +158,18 @@ vpc_fw_policies = [
 ]
 ```
 
-### 云联网模式配置示例
+### CCN mode configuration
 
 ```hcl
-# 云联网模式配置
+# CCN mode configuration
 name        = "ccn-vpc-fw"
-mode        = 1  # 云联网模式
-switch_mode = 2  # 多点通信
-fw_cidr     = "10.10.10.0/24"  # 手动指定网络段
-ccn_id      = "ccn-abcdef"  # 云联网ID
+mode        = 1  # CCN mode
+switch_mode = 2  # multi-point communication
+fw_vpc_cidr = "10.10.10.0/24"  # manually specified network segment
+ccn_id      = "ccn-abcdef"  # CCN ID
+ccn_name    = "ccn-demo"  # CCN name
 
-# 多地域防火墙实例
+# Multi-region firewall instances
 fw_instances = [
   {
     name = "ccn-fw-beijing"
@@ -169,7 +178,7 @@ fw_instances = [
         deploy_region = "ap-beijing"
         width         = 2000  # 2Gbps
         zone_set      = ["ap-beijing-1", "ap-beijing-2"]
-        cross_a_zone  = 1  # 启用跨可用区
+        cross_a_zone  = 1  # enable cross-AZ
       }
     ]
   },
@@ -180,16 +189,16 @@ fw_instances = [
         deploy_region = "ap-shanghai"
         width         = 2000  # 2Gbps
         zone_set      = ["ap-shanghai-1", "ap-shanghai-2"]
-        cross_a_zone  = 1  # 启用跨可用区
+        cross_a_zone  = 1  # enable cross-AZ
       }
     ]
   }
 ]
 
-# 云联网策略配置
+# CCN policy configuration
 vpc_fw_policies = [
   {
-    description    = "允许云联网内HTTPS访问"
+    description    = "Allow HTTPS access within CCN"
     source_type    = "net"
     source_content = "ccn:0.0.0.0/0"
     dest_type      = "net"
@@ -202,16 +211,16 @@ vpc_fw_policies = [
 ]
 ```
 
-### 自定义路由模式配置示例
+### Custom routing mode configuration
 
 ```hcl
-# 自定义路由模式
+# Custom routing mode
 name        = "custom-route-fw"
-mode        = 0  # 私有网络模式
-switch_mode = 4  # 自定义路由
-fw_cidr     = "auto"
+mode        = 0  # private network mode
+switch_mode = 4  # custom routing
+fw_vpc_cidr = "auto"
 
-# 防火墙实例配置
+# Firewall instance configuration
 fw_instances = [
   {
     name = "custom-fw-instance"
@@ -227,10 +236,10 @@ fw_instances = [
   }
 ]
 
-# 精细化策略配置
+# Fine-grained policy configuration
 vpc_fw_policies = [
   {
-    description    = "Web层到应用层访问"
+    description    = "Web tier to app tier access"
     source_type    = "net"
     source_content = "vpc:10.1.0.0/16"
     dest_type      = "net"
@@ -240,7 +249,7 @@ vpc_fw_policies = [
     rule_action    = "accept"
   },
   {
-    description    = "应用层到数据库访问"
+    description    = "App tier to database access"
     source_type    = "net"
     source_content = "vpc:10.2.0.0/16"
     dest_type      = "net"
@@ -254,18 +263,18 @@ vpc_fw_policies = [
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：企业多VPC互通
+### Example 1: Enterprise multi-VPC interconnection
 
 ```hcl
-# 企业多VPC环境
+# Enterprise multi-VPC environment
 name        = "enterprise-vpc-fw"
 mode        = 0
-switch_mode = 2  # 多点通信
-fw_cidr     = "auto"
+switch_mode = 2  # multi-point communication
+fw_vpc_cidr = "auto"
 
-# 多VPC防火墙实例
+# Multi-VPC firewall instance
 fw_instances = [
   {
     name = "enterprise-fw"
@@ -281,11 +290,11 @@ fw_instances = [
   }
 ]
 
-# 企业级策略
+# Enterprise-grade policies
 vpc_fw_policies = [
-  # 生产环境访问控制
+  # Strict isolation for production
   {
-    description    = "生产环境严格隔离"
+    description    = "Strict isolation for production environment"
     source_type    = "net"
     source_content = "vpc:10.10.0.0/16"
     dest_type      = "net"
@@ -294,9 +303,9 @@ vpc_fw_policies = [
     port           = "-1/-1"
     rule_action    = "drop"
   },
-  # 开发测试环境互通
+  # Dev/test interconnection
   {
-    description    = "开发测试环境互通"
+    description    = "Dev/test environment interconnection"
     source_type    = "net"
     source_content = "vpc:10.30.0.0/16"
     dest_type      = "net"
@@ -308,17 +317,18 @@ vpc_fw_policies = [
 ]
 ```
 
-### 示例二：云联网多地域部署
+### Example 2: CCN multi-region deployment
 
 ```hcl
-# 云联网多地域部署
+# CCN multi-region deployment
 name        = "multi-region-ccn-fw"
 mode        = 1
-switch_mode = 1  # 单点互通
-fw_cidr     = "10.20.30.0/24"
+switch_mode = 1  # single-point intercommunication
+fw_vpc_cidr = "10.20.30.0/24"
 ccn_id      = "ccn-global"
+ccn_name    = "ccn-global-demo"
 
-# 多地域防火墙部署
+# Multi-region firewall deployment
 fw_instances = [
   {
     name = "fw-beijing"
@@ -355,10 +365,10 @@ fw_instances = [
   }
 ]
 
-# 全局策略配置
+# Global policy configuration
 vpc_fw_policies = [
   {
-    description    = "全局HTTPS访问"
+    description    = "Global HTTPS access"
     source_type    = "net"
     source_content = "ccn:0.0.0.0/0"
     dest_type      = "net"
@@ -372,179 +382,188 @@ vpc_fw_policies = [
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 工作模式说明
+### Working mode
 
-#### 私有网络模式（Mode 0）
-- **特点**：在私有网络内部部署防火墙
-- **优势**：VPC内部流量精细控制
-- **适用**：单一VPC或多VPC互通场景
-- **网络拓扑**：VPC内部流量 → VPC防火墙 → 目标VPC
+#### Private network mode (mode = 0)
+- **Characteristic**: the firewall is deployed inside a private network.
+- **Advantage**: fine-grained control of intra-VPC traffic.
+- **Use case**: single-VPC or multi-VPC interconnection.
+- **Topology**: intra-VPC traffic → VPC firewall → target VPC.
 
-#### 云联网模式（Mode 1）
-- **特点**：在云联网环境中部署防火墙
-- **优势**：跨地域、跨账号流量控制
-- **适用**：多云联网环境，跨地域访问控制
-- **要求**：需要配置云联网ID
-- **网络拓扑**：云联网流量 → VPC防火墙 → 目标网络
+#### CCN mode (mode = 1)
+- **Characteristic**: the firewall is deployed in a CCN environment.
+- **Advantage**: control of cross-region, cross-account traffic.
+- **Use case**: multi-CCN environment, cross-region access control.
+- **Requirement**: CCN ID must be configured.
+- **Topology**: CCN traffic → VPC firewall → target network.
 
-### 交换机模式说明
+### Switch mode
 
-#### 单点互通（Switch Mode 1）
-- **特点**：所有流量通过单一防火墙实例
-- **优势**：配置简单，管理方便
-- **适用**：中小规模环境
-- **限制**：单点故障风险
+#### Single-point intercommunication (switch_mode = 1)
+- **Characteristic**: all traffic passes through a single firewall instance.
+- **Advantage**: simple configuration, easy management.
+- **Use case**: small- and medium-scale environments.
+- **Limitation**: single point of failure risk.
 
-#### 多点通信（Switch Mode 2）
-- **特点**：流量通过多个防火墙实例负载均衡
-- **优势**：高可用性，性能更好
-- **适用**：大规模环境，高可用要求
-- **部署**：多实例部署
+#### Multi-point communication (switch_mode = 2)
+- **Characteristic**: traffic is load-balanced across multiple firewall instances.
+- **Advantage**: high availability, better performance.
+- **Use case**: large-scale environments, high-availability requirements.
+- **Deployment**: multi-instance deployment.
 
-#### 自定义路由（Switch Mode 4）
-- **特点**：根据路由策略选择防火墙路径
-- **优势**：灵活的路由控制
-- **适用**：复杂网络拓扑
-- **要求**：需要配置路由策略
+#### Custom routing (switch_mode = 4)
+- **Characteristic**: the firewall path is chosen per routing policy.
+- **Advantage**: flexible routing control.
+- **Use case**: complex network topology.
+- **Requirement**: routing policies must be configured.
 
-### 网络段配置
+### Network segment configuration
 
-- **自动选择（auto）**：系统自动分配防火墙网络段
-- **手动指定**：用户自定义CIDR块（如：10.10.10.0/24）
-- **注意事项**：确保网络段不与现有VPC冲突
+- **Automatic (`auto`)**: the system automatically allocates the firewall network segment.
+- **Manual**: a user-defined CIDR block (e.g. `10.10.10.0/24`).
+- **Caution**: ensure the network segment does not conflict with existing VPCs.
 
-### 策略配置指南
+### Policy configuration guide
 
-#### 协议支持
-- **基础协议**：TCP, UDP, ICMP, ANY
-- **应用协议**：HTTP, HTTPS, SMTP, FTP, DNS等
-- **协议组合**：HTTP/HTTPS, SMTP/SMTPS
+#### Protocols
+- **Basic**: TCP, UDP, ICMP, ANY.
+- **Application**: HTTP, HTTPS, SMTP, FTP, DNS, and more.
+- **Combinations**: HTTP/HTTPS, SMTP/SMTPS, TLS/SSL.
 
-#### 地址类型
-- **网络地址（net）**：IP/CIDR格式，vpc:10.0.0.0/8
-- **模板（template）**：参数模板
-- **域名（domain）**：域名规则（仅目标类型）
+#### Address type
+- **net**: IP/CIDR format, e.g. `vpc:10.0.0.0/8`.
+- **template**: parameter template.
+- **domain**: domain rule (destination type only).
 
-#### 动作类型
-- **允许（accept）**：允许流量通过
-- **拒绝（drop）**：静默丢弃流量
-- **记录（log）**：记录流量但不阻止
+#### Action
+- **accept**: allow traffic.
+- **drop**: silently discard traffic.
+- **log**: record traffic without blocking.
 
-### 最佳实践
+### Best practices
 
-1. **模式选择**：根据网络架构选择合适模式
-2. **高可用设计**：多可用区、多地域部署
-3. **带宽规划**：按业务流量峰值规划
-4. **策略最小化**：按需配置最小必要权限
-5. **网络隔离**：合理规划VPC和网络段
-6. **监控告警**：配置流量监控和异常检测
-7. **定期审计**：定期审查策略和访问日志
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **模式兼容性**
-   - 私有网络模式需要VPC ID列表
-   - 云联网模式需要CCN ID
-   - 模式选择后不能修改
-
-2. **网络配置错误**
-   - 确认VPC ID是否正确
-   - 验证CCN ID配置
-   - 检查网络段是否冲突
-
-3. **交换机模式**
-   - 单点模式有单点故障风险
-   - 多点模式需要多实例部署
-   - 自定义模式需要路由配置
-
-4. **防火墙实例**
-   - 确保地域部署符合业务需求
-   - 按业务需求选择合适带宽
-   - 考虑跨可用区高可用
-
-5. **策略配置**
-   - 避免过于宽松的策略
-   - 按业务需求最小化开放
-   - 测试策略避免业务中断
-
-6. **依赖关系**
-   - 策略配置依赖防火墙实例创建
-   - 确保网络资源权限充足
-   - 检查依赖资源状态
-
-7. **性能影响**
-   - 复杂策略可能影响性能
-   - 监控防火墙性能指标
-   - 按需调整带宽规格
+1. **Mode selection**: choose the appropriate mode per network architecture.
+2. **High-availability design**: multi-AZ, multi-region deployment.
+3. **Bandwidth planning**: plan per business traffic peak.
+4. **Policy minimization**: configure the minimum necessary permissions on demand.
+5. **Network isolation**: plan VPCs and network segments reasonably.
+6. **Monitoring & alerting**: configure traffic monitoring and anomaly detection.
+7. **Periodic audit**: review policies and access logs regularly.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：权限不足
+1. **Mode compatibility**
+   - Private network mode requires a VPC ID list.
+   - CCN mode requires a CCN ID.
+   - The mode cannot be changed after selection.
+
+2. **Network configuration**
+   - Confirm VPC IDs are correct.
+   - Verify CCN ID configuration.
+   - Check for network-segment conflicts.
+
+3. **Switch mode**
+   - Single-point mode has a single-point-of-failure risk.
+   - Multi-point mode requires multi-instance deployment.
+   - Custom mode requires routing configuration.
+
+4. **Firewall instance**
+   - Ensure the regional deployment meets business needs.
+   - Choose bandwidth per business needs.
+   - Consider cross-AZ high availability.
+
+5. **Policy configuration**
+   - Avoid overly permissive policies.
+   - Minimize openings per business needs.
+   - Test policies to avoid service interruption.
+
+6. **Dependencies**
+   - Policy configuration depends on the firewall instance being created.
+   - Ensure sufficient network resource permissions.
+   - Check the status of dependent resources.
+
+7. **Performance impact**
+   - Complex policies may affect performance.
+   - Monitor firewall performance metrics.
+   - Adjust the bandwidth spec as needed.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Insufficient permissions
+
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查CFW、VPC、CCN相关权限
-- 申请必要权限
-- 验证资源操作权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check CFW, VPC, and CCN related permissions.
+- Request the necessary permissions.
+- Verify resource operation permissions.
 
-#### 错误二：网络配置错误
+#### Error 2: Network configuration error
+
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Network configuration error
 ```
 
-**原因**：VPC、CCN或网络段配置错误
-**解决方案**：
-- 检查VPC ID是否正确
-- 验证CCN ID配置
-- 检查网络段是否冲突
+**Cause**: VPC, CCN, or network-segment configuration error.
+**Solution**:
+- Check whether VPC IDs are correct.
+- Verify CCN ID configuration.
+- Check for network-segment conflicts.
 
-#### 错误三：模式配置错误
+#### Error 3: Mode configuration error
+
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Mode configuration error
 ```
 
-**原因**：工作模式或交换机模式参数错误
-**解决方案**：
-- 检查mode值（0或1）
-- 检查switch_mode值（1,2,4）
-- 确认模式对应的参数已配置
+**Cause**: Wrong working mode or switch mode parameter.
+**Solution**:
+- Check the `mode` value (0 or 1).
+- Check the `switch_mode` value (1, 2, 4).
+- Confirm the parameters required by the mode are configured.
 
-#### 错误四：资源不存在
+#### Error 4: Resource not found
+
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=Resource not found
 ```
 
-**原因**：引用的资源不存在
-**解决方案**：
-- 检查VPC、CCN是否存在
-- 确认地域配置正确
-- 验证资源ID格式
+**Cause**: The referenced resource does not exist.
+**Solution**:
+- Check whether VPC / CCN exist.
+- Confirm region configuration is correct.
+- Verify resource ID format.
 
-#### 错误五：策略配置错误
+#### Error 5: Policy configuration error
+
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Policy configuration error
 ```
 
-**原因**：策略参数格式或值错误
-**解决方案**：
-- 检查策略对象格式
-- 确认参数值符合要求
-- 验证协议和地址类型
+**Cause**: Wrong policy parameter format or value.
+**Solution**:
+- Check the policy object format.
+- Confirm parameter values meet requirements.
+- Validate protocol and address types.
+
+## License
+
+See [LICENSE](../../../../LICENSE) for full details.

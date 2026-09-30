@@ -1,129 +1,143 @@
-# 腾讯云组织身份管理模块
+# Tencent Cloud Organization Assume-Role Component
 
-## 模块概述
+Terraform component under `components/organization/assume-role` for creating and managing Organization Identities (Org Identity) and granting those identities to organization members, implementing role-based access control (RBAC) for Tencent Cloud Organization, as part of the `organization` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中创建和管理组织身份（Org Identity）以及成员身份授权，实现基于角色的访问控制（RBAC），主要功能包括：
+## Overview
 
-- **组织身份创建** - 批量创建组织身份（Org Identity）
-- **策略管理** - 支持预设策略和自定义策略配置
-- **成员授权** - 为组织成员分配身份权限
-- **自动成员识别** - 支持通过成员UIN或名称进行成员识别
-- **身份ID映射** - 输出身份名称到ID的映射关系
-- **依赖管理** - 自动处理模块间的依赖关系
-- **批量操作** - 支持一次性配置多个身份策略
+This component creates Organization Identities and authorizes members to assume them. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudOrganizationFullAccess` | 组织管理全权限 |
-| `QcloudCamFullAccess` | 访问管理全权限 |
-| `QcloudOrganizationReadOnlyAccess` | 组织只读访问权限 |
-
-### 其他要求
-
-- 需要了解腾讯云组织架构
-- 需要规划好身份命名规范
-- 需要确定成员访问控制策略
-- 需要了解预设策略和自定义策略的区别
-- 需要收集成员UIN或名称信息
+- **Org identity creation** – create multiple Organization Identities (Org Identity) in one batch.
+- **Policy management** – support both preset policies and custom (JSON document) policies.
+- **Member authorization** – grant identity permissions to organization members.
+- **Automatic member resolution** – identify members by either UIN or member name.
+- **Identity ID mapping** – output a map of identity name → identity ID.
+- **Dependency management** – the module internally handles creation/authorization ordering.
+- **Batch operations** – configure multiple identities and their policies at once.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 主要配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `assume_role_policies` | `list(object)` | 是 | - | 身份策略配置列表 |
+## Providers
 
-### 身份策略对象字段说明
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.125 |
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `assume_role_name` | `string` | 是 | - | 身份别名名称 |
-| `description` | `string` | 否 | - | 身份描述信息 |
-| `policies` | `list(object)` | 是 | - | 策略配置列表 |
-| `members` | `list(object)` | 是 | - | 成员配置列表 |
+### IAM Permissions
 
-### 策略对象字段说明
+The executing principal needs the following Tencent Cloud permissions:
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `policy_id` | `number` | 条件必填 | - | CAM预设策略ID（PolicyType=2时必填） |
-| `policy_name` | `string` | 条件必填 | - | CAM预设策略名称（PolicyType=2时必填） |
-| `policy_type` | `number` | 否 | `2` | 策略类型：`1`-自定义策略，`2`-预设策略 |
-| `policy_document` | `string` | 条件必填 | - | 自定义策略内容（PolicyType=1时必填） |
+| Permission | Description |
+|------------|-------------|
+| `QcloudOrganizationFullAccess` | Full access to Organization management |
+| `QcloudCamFullAccess` | Full access to CAM (access management) |
+| `QcloudOrganizationReadOnlyAccess` | Read-only access to Organization |
 
-### 成员对象字段说明
+### Prerequisites
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `member_uin` | `number` | 条件必填 | - | 成员UIN（与member_name二选一） |
-| `member_name` | `string` | 条件必填 | - | 成员名称（与member_uin二选一） |
+- Understand the Tencent Cloud Organization structure.
+- Plan an identity naming convention.
+- Decide member access-control policies.
+- Understand the difference between preset and custom policies.
+- Collect member UINs or member names.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_assume_role_policies"></a> [assume\_role\_policies](#input\_assume\_role\_policies) | `list(object)` | yes | – | List of identity policy configurations. |
+
+### `assume_role_policies` object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `assume_role_name` | `string` | yes | – | Identity alias name. |
+| `description` | `string` | no | – | Identity description. |
+| `policies` | `list(object)` | yes | – | List of policy configurations. |
+| `members` | `list(object)` | yes | – | List of member configurations. |
+
+### `policies` object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `policy_id` | `number` | conditional | – | CAM preset policy ID. Required when `policy_type = 2`. |
+| `policy_name` | `string` | conditional | – | CAM preset policy name. Required when `policy_type = 2`. |
+| `policy_type` | `number` | no | `2` | Policy type: `1` (custom policy), `2` (preset policy). |
+| `policy_document` | `string` | conditional | – | Custom policy content (CAM policy JSON). Required when `policy_type = 1`. |
+
+### `members` object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `member_uin` | `number` | conditional | – | Member UIN. Provide either this or `member_name`. |
+| `member_name` | `string` | conditional | – | Member name. The module resolves it to the corresponding UIN automatically. Provide either this or `member_uin`. |
+
+> **Note**: Within a single `members` entry, use **either** `member_uin` **or** `member_name` — do not set both.
+
+---
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_identity_ids"></a> [identity\_ids](#output\_identity\_ids) | A map of identity name → identity ID. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` – basic identities
 
 ```hcl
-# 基础身份策略配置
+# Basic identity policy configuration
 assume_role_policies = [
   {
     assume_role_name = "admin-role"
     description      = "Administrator role with full access"
-    
-    # 策略配置 - 使用预设策略
+
+    # Policies - using preset policies
     policies = [
       {
-        policy_type = 2  # 预设策略
-        policy_name = "QcloudCamFullAccess"  # 访问管理全权限
+        policy_type = 2 # preset policy
+        policy_name = "QcloudCamFullAccess" # full CAM access
       },
       {
-        policy_type = 2  # 预设策略
-        policy_name = "QcloudOrganizationFullAccess"  # 组织管理全权限
+        policy_type = 2 # preset policy
+        policy_name = "QcloudOrganizationFullAccess" # full Organization access
       }
     ]
-    
-    # 成员配置 - 使用成员UIN
+
+    # Members - using member UIN
     members = [
       {
-        member_uin = 100000000001  # 管理员用户UIN
+        member_uin = 100000000001 # admin user UIN
       },
       {
-        member_uin = 100000000002  # 备份管理员UIN
+        member_uin = 100000000002 # backup admin UIN
       }
     ]
   },
-  
+
   {
     assume_role_name = "developer-role"
     description      = "Developer role with limited access"
-    
-    # 策略配置 - 混合使用预设和自定义策略
+
+    # Policies - mixing preset and custom policies
     policies = [
       {
-        policy_type = 2  # 预设策略
-        policy_name = "QcloudCamReadOnlyAccess"  # 访问管理只读权限
+        policy_type = 2 # preset policy
+        policy_name = "QcloudCamReadOnlyAccess" # CAM read-only
       },
       {
-        policy_type = 1  # 自定义策略
+        policy_type = 1 # custom policy
         policy_document = <<-EOT
         {
           "version": "2.0",
@@ -142,57 +156,57 @@ assume_role_policies = [
         EOT
       }
     ]
-    
-    # 成员配置 - 使用成员名称
+
+    # Members - using member name
     members = [
       {
-        member_name = "developer-user1"  # 开发用户1
+        member_name = "developer-user1"
       },
       {
-        member_name = "developer-user2"  # 开发用户2
+        member_name = "developer-user2"
       }
     ]
   },
-  
+
   {
     assume_role_name = "audit-role"
     description      = "Audit role with read-only access"
-    
-    # 策略配置 - 只读权限
+
+    # Policies - read-only permissions
     policies = [
       {
-        policy_type = 2  # 预设策略
-        policy_name = "QcloudCamReadOnlyAccess"  # 访问管理只读权限
+        policy_type = 2
+        policy_name = "QcloudCamReadOnlyAccess"
       },
       {
-        policy_type = 2  # 预设策略
-        policy_name = "QcloudOrganizationReadOnlyAccess"  # 组织只读权限
+        policy_type = 2
+        policy_name = "QcloudOrganizationReadOnlyAccess"
       }
     ]
-    
-    # 成员配置 - 混合使用UIN和名称
+
+    # Members - mixing UIN and name
     members = [
       {
-        member_uin = 100000000003  # 审计员UIN
+        member_uin = 100000000003 # auditor UIN
       },
       {
-        member_name = "audit-user"  # 审计用户
+        member_name = "audit-user"
       }
     ]
   }
 ]
 ```
 
-### 多环境配置示例
+### Multi-environment configuration
 
 ```hcl
-# 多环境身份策略配置
+# Multi-environment identity policy configuration
 assume_role_policies = [
-  # 开发环境角色
+  # Development environment role
   {
     assume_role_name = "dev-developer"
     description      = "Developer role for development environment"
-    
+
     policies = [
       {
         policy_type = 2
@@ -222,7 +236,7 @@ assume_role_policies = [
         EOT
       }
     ]
-    
+
     members = [
       {
         member_name = "dev-user1"
@@ -232,12 +246,12 @@ assume_role_policies = [
       }
     ]
   },
-  
-  # 测试环境角色
+
+  # Testing environment role
   {
     assume_role_name = "test-tester"
     description      = "Tester role for testing environment"
-    
+
     policies = [
       {
         policy_type = 2
@@ -271,7 +285,7 @@ assume_role_policies = [
         EOT
       }
     ]
-    
+
     members = [
       {
         member_name = "test-user1"
@@ -281,12 +295,12 @@ assume_role_policies = [
       }
     ]
   },
-  
-  # 生产环境角色
+
+  # Production environment role
   {
     assume_role_name = "prod-operator"
     description      = "Operator role for production environment"
-    
+
     policies = [
       {
         policy_type = 2
@@ -326,88 +340,88 @@ assume_role_policies = [
         EOT
       }
     ]
-    
+
     members = [
       {
-        member_uin = 100000000004  # 生产操作员UIN
+        member_uin = 100000000004 # production operator UIN
       },
       {
-        member_name = "prod-backup"  # 生产备份用户
+        member_name = "prod-backup" # production backup user
       }
     ]
   }
 ]
 ```
 
-### 精细权限配置示例
+### Fine-grained permission configuration
 
 ```hcl
-# 精细权限身份策略配置
+# Fine-grained identity policy configuration
 assume_role_policies = [
   {
     assume_role_name = "network-admin"
     description      = "Network administrator role"
-    
+
     policies = [
       {
         policy_type = 2
-        policy_name = "QcloudVPCFullAccess"  # VPC全权限
+        policy_name = "QcloudVPCFullAccess"
       },
       {
         policy_type = 2
-        policy_name = "QcloudEIPFullAccess"   # 弹性公网IP全权限
+        policy_name = "QcloudEIPFullAccess"
       },
       {
         policy_type = 2
-        policy_name = "QcloudCLBFullAccess"   # 负载均衡全权限
+        policy_name = "QcloudCLBFullAccess"
       }
     ]
-    
+
     members = [
       {
         member_name = "network-admin1"
       }
     ]
   },
-  
+
   {
     assume_role_name = "database-admin"
     description      = "Database administrator role"
-    
+
     policies = [
       {
         policy_type = 2
-        policy_name = "QcloudCDBFullAccess"    # 云数据库全权限
+        policy_name = "QcloudCDBFullAccess"
       },
       {
         policy_type = 2
-        policy_name = "QcloudRedisFullAccess"   # Redis全权限
+        policy_name = "QcloudRedisFullAccess"
       },
       {
         policy_type = 2
-        policy_name = "QcloudMongoDBFullAccess" # MongoDB全权限
+        policy_name = "QcloudMongoDBFullAccess"
       }
     ]
-    
+
     members = [
       {
         member_name = "db-admin1"
       }
     ]
   },
-  
+
   {
     assume_role_name = "security-auditor"
     description      = "Security auditor role"
-    
+
     policies = [
       {
         policy_type = 2
-        policy_name = "QcloudCamReadOnlyAccess"       # 访问管理只读
+        policy_name = "QcloudCamReadOnlyAccess"
       },
       {
         policy_type = 2
-        policy_name = "QcloudOrganizationReadOnlyAccess" # 组织只读
+        policy_name = "QcloudOrganizationReadOnlyAccess"
       },
       {
         policy_type = 1
@@ -430,7 +444,7 @@ assume_role_policies = [
         EOT
       }
     ]
-    
+
     members = [
       {
         member_name = "security-auditor1"
@@ -442,17 +456,16 @@ assume_role_policies = [
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：基础管理角色
+### Example 1: Basic administrator role
 
 ```hcl
-# 基础管理角色配置
 assume_role_policies = [
   {
     assume_role_name = "system-administrator"
     description      = "System administrator with full organization access"
-    
+
     policies = [
       {
         policy_type = 2
@@ -467,25 +480,24 @@ assume_role_policies = [
         policy_name = "QcloudFinanceFullAccess"
       }
     ]
-    
+
     members = [
       {
-        member_uin = 100000000001  # 系统管理员
+        member_uin = 100000000001 # system administrator
       }
     ]
   }
 ]
 ```
 
-### 示例二：项目开发角色
+### Example 2: Project developer role
 
 ```hcl
-# 项目开发角色配置
 assume_role_policies = [
   {
     assume_role_name = "project-developer"
     description      = "Developer role for specific project access"
-    
+
     policies = [
       {
         policy_type = 2
@@ -520,7 +532,7 @@ assume_role_policies = [
         EOT
       }
     ]
-    
+
     members = [
       {
         member_name = "dev-john"
@@ -533,15 +545,14 @@ assume_role_policies = [
 ]
 ```
 
-### 示例三：财务审计角色
+### Example 3: Finance auditor role
 
 ```hcl
-# 财务审计角色配置
 assume_role_policies = [
   {
     assume_role_name = "finance-auditor"
     description      = "Finance auditor with billing and cost access"
-    
+
     policies = [
       {
         policy_type = 2
@@ -570,10 +581,10 @@ assume_role_policies = [
         EOT
       }
     ]
-    
+
     members = [
       {
-        member_uin = 100000000005  # 财务审计员
+        member_uin = 100000000005 # finance auditor
       }
     ]
   }
@@ -582,39 +593,40 @@ assume_role_policies = [
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 策略类型说明
+### Policy type reference
 
-| 策略类型 | 值 | 说明 | 必填字段 |
-|----------|----|------|----------|
-| **预设策略** | `2` | 腾讯云预定义的策略模板 | `policy_name` 或 `policy_id` |
-| **自定义策略** | `1` | 用户自定义的JSON策略文档 | `policy_document` |
+| Policy type | Value | Description | Required fields |
+|-------------|-------|-------------|-----------------|
+| **Preset policy** | `2` | Tencent Cloud predefined policy template | `policy_name` or `policy_id` |
+| **Custom policy** | `1` | User-defined JSON policy document | `policy_document` |
 
-### 成员识别说明
+### Member identification
 
-成员可以通过以下两种方式识别：
-- **member_uin** - 成员的用户唯一标识符（UIN）
-- **member_name** - 成员的名称（模块会自动查询对应的UIN）
+Members can be identified in two ways:
+- **`member_uin`** – the member's unique UIN.
+- **`member_name`** – the member's name (the module resolves the corresponding UIN automatically).
 
-**注意**：两种方式只能选择一种，不能同时设置。
+**Note**: Only one of the two methods may be used per member entry; do not set both.
 
-### 预设策略参考
+### Preset policy reference
 
-常用预设策略名称：
-- `QcloudOrganizationFullAccess` - 组织管理全权限
-- `QcloudOrganizationReadOnlyAccess` - 组织只读权限
-- `QcloudCamFullAccess` - 访问管理全权限
-- `QcloudCamReadOnlyAccess` - 访问管理只读权限
-- `QcloudVPCFullAccess` - VPC全权限
-- `QcloudCVMFullAccess` - 云服务器全权限
-- `QcloudCDBFullAccess` - 云数据库全权限
-- `QcloudFinanceFullAccess` - 财务管理全权限
-- `QcloudFinanceReadOnlyAccess` - 财务只读权限
+Common preset policy names:
+- `QcloudOrganizationFullAccess` – full Organization management access.
+- `QcloudOrganizationReadOnlyAccess` – Organization read-only access.
+- `QcloudCamFullAccess` – full CAM access.
+- `QcloudCamReadOnlyAccess` – CAM read-only access.
+- `QcloudVPCFullAccess` – full VPC access.
+- `QcloudCVMFullAccess` – full CVM access.
+- `QcloudCDBFullAccess` – full TencentDB (MySQL) access.
+- `QcloudFinanceFullAccess` – full finance management access.
+- `QcloudFinanceReadOnlyAccess` – finance read-only access.
 
-### 输出说明
+### Output
 
-模块输出身份名称到ID的映射关系：
+The module outputs the identity name → ID mapping:
+
 ```hcl
 identity_ids = {
   "admin-role"       = "org-identity-12345678"
@@ -623,140 +635,144 @@ identity_ids = {
 }
 ```
 
-### 依赖关系说明
+### Internal dependency order
 
-模块内部自动处理以下依赖关系：
-1. 首先查询组织成员信息
-2. 然后创建组织身份
-3. 最后进行成员身份授权
-4. 确保身份创建完成后才进行授权操作
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **权限规划**
-   - 遵循最小权限原则
-   - 仔细规划身份和策略配置
-   - 避免过度授权
-
-2. **成员识别**
-   - 确保成员UIN或名称正确
-   - 成员必须存在于组织中
-   - 建议使用UIN进行精确识别
-
-3. **策略配置**
-   - 预设策略和自定义策略不能混用同一策略对象
-   - 自定义策略必须符合CAM策略语法
-   - 验证策略文档的JSON格式正确性
-
-4. **依赖管理**
-   - 模块自动处理创建和授权的依赖关系
-   - 确保组织成员数据可正常获取
-   - 监控创建过程中的依赖错误
-
-5. **命名规范**
-   - 使用有意义的身份名称
-   - 遵循统一的命名约定
-   - 避免使用特殊字符
-
-6. **测试验证**
-   - 在非生产环境测试配置
-   - 验证权限是否按预期工作
-   - 测试成员能否正常担任身份
-
-7. **变更管理**
-   - 记录所有身份策略变更
-   - 制定回滚计划
-   - 通知受影响成员
-
-8. **监控审计**
-   - 启用组织操作日志
-   - 定期审计身份使用情况
-   - 监控异常权限使用
+The module internally handles the following dependency order:
+1. First query organization member information.
+2. Then create the Organization Identities.
+3. Finally authorize members to the identities.
+4. Ensure identities are fully created before authorization is applied.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：成员不存在
+1. **Permission planning**
+   - Follow the principle of least privilege.
+   - Plan identity and policy configuration carefully.
+   - Avoid over-granting permissions.
+
+2. **Member identification**
+   - Ensure the member UIN or name is correct.
+   - The member must exist in the Organization.
+   - Prefer UIN for precise identification.
+
+3. **Policy configuration**
+   - Preset and custom policies cannot be mixed within a single policy object.
+   - Custom policies must comply with CAM policy syntax.
+   - Validate the JSON format of the policy document.
+
+4. **Dependency management**
+   - The module auto-handles creation/authorization dependencies.
+   - Ensure organization member data is retrievable.
+   - Monitor dependency errors during creation.
+
+5. **Naming convention**
+   - Use meaningful identity names.
+   - Follow a consistent naming convention.
+   - Avoid special characters.
+
+6. **Testing & verification**
+   - Test the configuration in a non-production environment.
+   - Verify permissions work as expected.
+   - Test that members can assume the identity.
+
+7. **Change management**
+   - Record all identity/policy changes.
+   - Prepare a rollback plan.
+   - Notify affected members.
+
+8. **Monitoring & auditing**
+   - Enable Organization operation logs.
+   - Periodically audit identity usage.
+   - Monitor for abnormal permission usage.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Member not found
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Member not found
 ```
 
-**原因**：指定的成员UIN或名称不存在
-**解决方案**：
-- 确认成员UIN正确
-- 检查成员名称拼写
-- 验证成员是否在组织中
+**Cause**: The specified member UIN or name does not exist.
+**Solution**:
+- Confirm the member UIN is correct.
+- Check the spelling of the member name.
+- Verify the member belongs to the Organization.
 
-#### 错误二：策略不存在
+#### Error 2: Policy not found
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Policy not found
 ```
 
-**原因**：指定的预设策略不存在
-**解决方案**：
-- 确认策略名称正确
-- 检查策略是否可用
-- 验证权限是否包含策略访问
+**Cause**: The specified preset policy does not exist.
+**Solution**:
+- Confirm the policy name is correct.
+- Check the policy is available.
+- Verify the permission includes policy access.
 
-#### 错误三：策略语法错误
+#### Error 3: Policy syntax error
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid policy document
 ```
 
-**原因**：自定义策略文档格式错误
-**解决方案**：
-- 验证JSON格式正确性
-- 检查策略语法是否符合CAM要求
-- 使用在线JSON验证工具
+**Cause**: The custom policy document format is wrong.
+**Solution**:
+- Validate the JSON format.
+- Check the syntax complies with CAM requirements.
+- Use an online JSON validator.
 
-#### 错误四：权限不足
+#### Error 4: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=UnauthorizedOperation
 Message=You are not authorized to perform the operation
 ```
 
-**原因**：执行账号缺少组织管理权限
-**解决方案**：
-- 确认Provider配置的密钥具有所需权限
-- 检查是否包含组织管理权限
-- 验证项目权限
+**Cause**: The executing account lacks Organization management permission.
+**Solution**:
+- Confirm the provider credentials have the required permissions.
+- Check Organization management permission is included.
+- Verify project permissions.
 
-#### 错误五：配额限制
+#### Error 5: Quota exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=QuotaExceeded
 Message=Identity quota exceeded
 ```
 
-**原因**：达到身份或策略配额限制
-**解决方案**：
-- 检查身份和策略配额
-- 申请提高配额或删除无用资源
-- 合并相似的身份配置
+**Cause**: An identity or policy quota limit has been reached.
+**Solution**:
+- Check identity and policy quotas.
+- Request a quota increase or delete unused resources.
+- Merge similar identity configurations.
 
-#### 错误六：依赖错误
+#### Error 6: Dependency error
 
 ```
 Error: [TencentCloudSDKError] Code=DependencyViolation
 Message=Cannot authorize before identity creation
 ```
 
-**原因**：授权操作在身份创建之前执行
-**解决方案**：
-- 确保依赖关系正确配置
-- 检查depends_on设置
-- 重新运行terraform apply
+**Cause**: The authorization operation ran before the identity was created.
+**Solution**:
+- Ensure the dependency relationships are correctly configured.
+- Check `depends_on` settings.
+- Re-run `terraform apply`.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

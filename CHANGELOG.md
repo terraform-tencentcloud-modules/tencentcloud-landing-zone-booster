@@ -1,3 +1,193 @@
+## September 30, 2026
+
+## Summary
+
+This release delivers a repository-wide documentation refresh across Tencent Cloud components and modules, introduces a standalone CKafka module, and updates Redis and TDMQ Pulsar resource implementations. It also begins consolidating bilingual documentation by removing legacy `README_EN.md` files and adding dedicated `README_CN.md` files for selected security modules.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Documentation details and the exact Redis, TDMQ Pulsar, and CKafka resource behavior should be verified against the complete `git diff` before release.
+
+## Added
+
+### CKafka module
+
+Added a new standalone module:
+
+```text
+modules/ckafka/
+```
+
+The module provides a reusable Terraform boundary for Tencent Cloud CKafka provisioning and is expected to include resource definitions, variables, outputs, provider constraints, and usage documentation.
+
+### Network component documentation
+
+Added README documentation for:
+
+- `components/network/clb`
+- `components/network/nat-gateway`
+
+### Chinese documentation
+
+Added dedicated `README_CN.md` files for selected modules:
+
+#### Cloud Firewall
+
+- `cfw-nat-firewall-switch`
+- `cfw-nat-instance`
+- `cfw-nat-policy`
+- `cfw-vpc-firewall-switch`
+- `cfw-vpc-instance`
+- `cfw-vpc-policy`
+
+#### Secrets Manager
+
+- `ssm-secret`
+
+#### Web Application Firewall
+
+- `waf-instance-attack-log-post-config`
+- `waf-log-post-ckafka-flow`
+- `waf-log-post-cls-flow`
+- `waf-saas-domain`
+- `waf-saas-instance`
+- `waf-saas-ip-access-control`
+
+## Changed
+
+### Repository-wide component documentation
+
+Updated README documentation across the following component domains:
+
+- Account Factory baselines, CAM roles, and CAM users
+- CloudAudit, Config, and event alerting
+- Preventive compliance policies
+- ACL, CCN, CCN-VPC, CCN-VPN, DMZ, and security groups
+- Organization AssumeRole, CIC roles, departments, members, service assignments, and tag policies
+- Anti-DDoS, Bastion Host, Cloud Firewall, CSC, KMS, and WAF
+
+These updates improve documentation consistency and align component usage guidance with the current Terraform interfaces and module architecture.
+
+### Repository-wide module documentation
+
+Updated README documentation for modules covering:
+
+- CCN attachments, bandwidth limits, and route tables
+- TencentDB for MySQL
+- Cloud Firewall resources, policies, switches, synchronization, and address templates
+- CloudAudit tracks and event tracks
+- CLS resources, alarms, and notice content
+- Control Center account baseline configuration and batch application
+- COS, CVM, NAT Gateway, SSL, SSM, and tagging
+- Private DNS endpoints, forwarding, records, zones, subscriptions, and VPC attachments
+- Tencent Cloud Organization and Identity Center resources
+- TKE add-ons, endpoints, and node pools
+- VPC ACLs, route tables, subnets, and security groups
+- VPN gateways, connections, routes, SSL clients, and certificates
+- WAF domains, instances, rules, and log-delivery flows
+
+### Redis module
+
+Updated:
+
+- `modules/redis/main.tf`
+- `modules/redis/variables.tf`
+
+The changes affect Redis resource configuration and its input interface. Review the complete diff for new, renamed, removed, or retyped variables and for arguments that may force instance replacement.
+
+### TDMQ Pulsar module
+
+Updated:
+
+- `modules/tdmq-pulsar/main.tf`
+
+The change refines TDMQ Pulsar provisioning or lifecycle behavior. Review the complete diff for cluster, networking, storage, environment, namespace, or permission changes.
+
+## Documentation Standardization
+
+Legacy `README_EN.md` files were removed from selected Cloud Firewall, Secrets Manager, and WAF modules. Corresponding `README.md` files were updated, while dedicated `README_CN.md` files were added for a subset of modules.
+
+Removed legacy English documentation includes:
+
+### Cloud Firewall
+
+- `cfw-address-template/README_EN.md`
+- `cfw-edge-firewall-switch/README_EN.md`
+- `cfw-edge-policy/README_EN.md`
+- `cfw-nat-firewall-switch/README_EN.md`
+- `cfw-nat-instance/README_EN.md`
+- `cfw-nat-policy/README_EN.md`
+- `cfw-sync-asset/README_EN.md`
+- `cfw-sync-route/README_EN.md`
+- `cfw-vpc-firewall-switch/README_EN.md`
+- `cfw-vpc-instance/README_EN.md`
+- `cfw-vpc-policy/README_EN.md`
+
+### Secrets Manager
+
+- `ssm-secret/README_EN.md`
+
+### Web Application Firewall
+
+- `waf-instance-attack-log-post-config/README_EN.md`
+- `waf-log-post-ckafka-flow/README_EN.md`
+- `waf-log-post-cls-flow/README_EN.md`
+- `waf-saas-domain/README_EN.md`
+- `waf-saas-instance/README_EN.md`
+- `waf-saas-ip-access-control/README_EN.md`
+
+This structure appears to standardize the primary documentation filename as `README.md` and use `README_CN.md` where a separate Chinese version is maintained.
+
+## Compatibility
+
+Documentation-only changes do not affect Terraform-managed resources. However, consumers that link directly to removed `README_EN.md` paths must update those references.
+
+The following changes require functional review:
+
+- New CKafka resources and module interface
+- Redis resource and variable updates
+- TDMQ Pulsar resource updates
+
+Potential risks include:
+
+- Redis or Pulsar arguments that trigger resource replacement
+- Changed Redis defaults affecting existing plans
+- New CKafka provider or CAM requirements
+- Broken documentation links following `README_EN.md` removal
+- Inconsistent language navigation between `README.md` and `README_CN.md`
+
+## Migration Notes
+
+1. Update links that reference removed `README_EN.md` files to the corresponding `README.md` files.
+2. Add reciprocal language links between `README.md` and `README_CN.md` where both are present.
+3. Verify all README examples against current variables, outputs, and module source paths.
+4. Review the Redis and TDMQ Pulsar diffs before upgrading existing deployments.
+5. Run `terraform init -upgrade` if CKafka introduces newer provider constraints.
+6. Import existing CKafka resources before managing them with the new module.
+7. Test Redis, TDMQ Pulsar, and CKafka plans in non-production environments.
+
+## Validation Checklist
+
+### Documentation
+
+- [ ] Check all relative links and anchors.
+- [ ] Confirm removed `README_EN.md` files have valid replacements.
+- [ ] Confirm `README.md` and `README_CN.md` language links are reciprocal.
+- [ ] Verify Terraform examples match current input variables and outputs.
+- [ ] Verify module source paths and directory names.
+- [ ] Check Markdown tables and code blocks render correctly on GitHub.
+- [ ] Confirm no documentation references removed or renamed resources.
+
+### Terraform
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform init -backend=false` for CKafka, Redis, and TDMQ Pulsar.
+- [ ] Run `terraform validate` for all three modules.
+- [ ] Verify CKafka networking, specifications, outputs, and CAM requirements.
+- [ ] Verify Redis plans contain no unintended replacement or data loss.
+- [ ] Verify TDMQ Pulsar plans contain no unintended replacement or retention impact.
+- [ ] Review the final plans before applying to production.
+
+
 ## September 22, 2026
 
 ## Summary

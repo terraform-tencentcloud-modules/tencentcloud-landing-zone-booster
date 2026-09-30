@@ -1,112 +1,132 @@
-# 腾讯云CCN-VPC关联管理模块
+# Tencent Cloud CCN-VPC Component
 
-## 模块概述
+Terraform component under `components/network/ccn-vpc` for creating a VPC (Virtual Private Cloud) in Tencent Cloud and attaching it to a CCN (Cloud Connect Network) instance, enabling VPC-to-CCN interconnection as part of the `network` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中创建VPC（Virtual Private Cloud）并将其关联到CCN（Cloud Connect Network，云联网），实现VPC与云联网的互联互通，主要功能包括：
+## Overview
 
-- **VPC创建与管理** - 创建新的VPC网络或使用现有VPC
-- **子网配置** - 支持多子网创建和配置
-- **CCN关联** - 将VPC关联到指定的云联网实例
-- **路由表关联** - 支持CCN路由表与VPC的关联配置
-- **跨账号支持** - 支持关联其他账号的CCN实例
-- **标签管理** - 支持为VPC和子网添加标签进行资源管理
+This component creates (or references) a VPC, configures its subnets, and attaches the VPC to a CCN instance. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudVPCFullAccess` | VPC管理全权限 |
-| `QcloudCCNFullAccess` | CCN管理全权限 |
-| `QcloudTagFullAccess` | 标签管理全权限 |
-
-### 其他要求
-
-- 需要提前规划好VPC的CIDR地址块
-- 需要了解CCN实例的ID或名称
-- 需要确定VPC所在的区域
-- 需要规划好子网的划分策略
-- 需要了解网络互联的需求和拓扑
+- **VPC creation** – create a new VPC (CIDR, multicast, custom DNS servers, tags).
+- **Subnet configuration** – create multiple subnets with AZ, multicast and per-subnet tags.
+- **CCN attachment** – attach the VPC to a specified CCN instance (toggleable via `attach_ccn`).
+- **Route table association** – associate the VPC attachment with a specific CCN route table.
+- **Cross-account support** – attach to a CCN owned by another account via `ccn_uin`.
+- **Tag management** – attach tags to the VPC and subnets.
 
 ---
 
-## 变量说明
+## Requirements
 
-### VPC基础配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `region` | `string` | 是 | - | VPC所在区域 |
-| `name` | `string` | 否 | `my-vpc` | VPC名称 |
-| `cidr` | `string` | 否 | `172.16.0.0/16` | VPC CIDR地址块 |
-| `is_multicast` | `bool` | 否 | `true` | 是否启用组播 |
-| `default_subnet_name` | `string` | 否 | `default_subnet` | 默认子网名称 |
-| `availability_zones` | `list(string)` | 否 | `[]` | 可用区列表 |
+## Providers
 
-### 子网配置变量
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `subnet_cidrs` | `list(object)` | 否 | - | 子网配置列表 |
-| `↳ subnet_name` | `string` | 是 | - | 子网名称（最大60字节） |
-| `↳ subnet_cidr` | `string` | 是 | - | 子网CIDR地址块 |
-| `↳ subnet_is_multicast` | `bool` | 否 | `true` | 子网是否启用组播 |
-| `↳ availability_zone` | `string` | 否 | - | 子网所在可用区 |
-| `subnet_tags` | `map(string)` | 否 | `{}` | 子网标签 |
+### IAM Permissions
 
-### 标签配置变量
+The executing principal needs the following Tencent Cloud permissions:
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `common_tags` | `map(string)` | 否 | `{}` | 所有资源的通用标签 |
-| `tags` | `map(string)` | 否 | `{}` | VPC额外标签 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudVPCFullAccess` | Full access to VPC management |
+| `QcloudCCNFullAccess` | Full access to CCN management |
+| `QcloudTagFullAccess` | Full access to Tag management |
 
-### CCN关联配置变量
+### Prerequisites
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `ccn_id` | `string` | 否 | `null` | CCN实例ID |
-| `ccn_name` | `string` | 否 | `null` | CCN实例名称 |
-| `attachment_desc` | `string` | 否 | `null` | CCN关联描述（最大100字节） |
-| `ccn_uin` | `string` | 否 | `null` | CCN所属账号UIN（跨账号关联时使用） |
-
-### CCN路由表关联配置变量
-
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `route_table_id` | `string` | 否 | `null` | CCN路由表ID |
+- Plan the VPC CIDR block in advance and avoid overlapping with other VPCs.
+- Obtain the target CCN instance ID (`ccn_id`).
+- For cross-account attachments, obtain the CCN owner account UIN (`ccn_uin`).
+- Plan the subnet division strategy and AZ placement.
+- Understand the network interconnection topology and routing requirements.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### VPC configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_vpc_name"></a> [vpc\_name](#input\_vpc\_name) | `string` | yes | – | The VPC name, used to launch a new VPC. |
+| <a name="input_vpc_cidr"></a> [vpc\_cidr](#input\_vpc\_cidr) | `string` | yes | – | The CIDR block of the new VPC. |
+| <a name="input_vpc_is_multicast"></a> [vpc\_is\_multicast](#input\_vpc\_is\_multicast) | `bool` | no | `null` | Whether to enable multicast for the VPC. |
+| <a name="input_vpc_dns_servers"></a> [vpc\_dns\_servers](#input\_vpc\_dns\_servers) | `list(string)` | no | `null` | Custom DNS servers for the VPC. |
+| <a name="input_vpc_tags"></a> [vpc\_tags](#input\_vpc\_tags) | `map(string)` | no | `{}` | Tags added to all resources. |
+| <a name="input_tags"></a> [tags](#input\_tags) | `map(string)` | no | `{}` | Additional tags for the VPC. |
+
+### Subnet configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_subnet_cidrs"></a> [subnet\_cidrs](#input\_subnet\_cidrs) | `list(object)` | no | – | Subnet definitions for the new VPC. |
+| `↳ subnet_name` | `string` | yes | – | Subnet name (max 60 bytes). |
+| `↳ subnet_cidr` | `string` | yes | – | Subnet CIDR block. |
+| `↳ availability_zone` | `string` | no | – | Availability zone; if not set, randomly chosen from all. |
+| `↳ subnet_is_multicast` | `bool` | no | `false` | Whether to enable multicast for the subnet. |
+| `↳ tags` | `map(string)` | no | `{}` | Additional tags for the subnet. |
+
+### CCN attachment configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_attach_ccn"></a> [attach\_ccn](#input\_attach\_ccn) | `bool` | no | `true` | Whether to attach this VPC to CCN. Set to `false` to skip attachment. |
+| <a name="input_ccn_id"></a> [ccn\_id](#input\_ccn\_id) | `string` | no | `null` | The ID of the CCN instance to attach. |
+| <a name="input_ccn_uin"></a> [ccn\_uin](#input\_ccn\_uin) | `string` | no | `null` | UIN of the CCN owner. If not set, uses the current account's UIN. Used for attaching a CCN of another account (only `VPC` instance type supported for now). |
+| <a name="input_instance_region"></a> [instance\_region](#input\_instance\_region) | `string` | yes | – | The region of the VPC. |
+| <a name="input_attachment_desc"></a> [attachment\_desc](#input\_attachment\_desc) | `string` | no | `null` | Description of the CCN attachment (max 100 bytes). |
+| <a name="input_route_table_id"></a> [route\_table\_id](#input\_route\_table\_id) | `string` | no | `null` | The ID of the CCN route table to associate the attachment with. |
+
+> **Note**: CCN attachment is identified by `ccn_id` only (there is no `ccn_name` lookup). If `attach_ccn = true`, `ccn_id` and `instance_region` are required.
+
+---
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_vpc_id"></a> [vpc\_id](#output\_vpc\_id) | The ID of the VPC. |
+| <a name="output_vpc_subnets"></a> [vpc\_subnets](#output\_vpc\_subnets) | The map of subnet definitions (name/CIDR/AZ/id, etc.). |
+| <a name="output_default_route_table_id"></a> [default\_route\_table\_id](#output\_default\_route\_table\_id) | The ID of the VPC's default route table. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` – basic VPC and CCN attachment
 
 ```hcl
-# VPC基础配置
-region = "ap-beijing"
-name   = "production-vpc"
-cidr   = "10.0.0.0/16"
+# VPC basic configuration
+vpc_name        = "production-vpc"
+vpc_cidr        = "10.0.0.0/16"
+vpc_is_multicast = true
+vpc_dns_servers = ["183.60.83.19", "183.60.82.98"]
 
-# 子网配置
+vpc_tags = {
+  Environment = "production"
+  Project     = "ecommerce"
+  ManagedBy   = "terraform"
+}
+
+tags = {
+  NetworkTier = "core"
+  SLA         = "99.9%"
+}
+
+# Subnet configuration
 subnet_cidrs = [
   {
     subnet_name         = "web-subnet"
     subnet_cidr         = "10.0.1.0/24"
     subnet_is_multicast = true
     availability_zone   = "ap-beijing-3"
+    tags                = { Tier = "web" }
   },
   {
     subnet_name         = "app-subnet"
@@ -122,36 +142,21 @@ subnet_cidrs = [
   }
 ]
 
-# 标签配置
-common_tags = {
-  Environment = "production"
-  Project     = "ecommerce"
-  ManagedBy   = "terraform"
-}
-
-tags = {
-  NetworkTier = "core"
-  SLA         = "99.9%"
-}
-
-# CCN关联配置
-ccn_name        = "production-ccn"
-attachment_desc = "生产环境VPC关联到CCN"
-ccn_uin         = null
-
-# CCN路由表关联
-route_table_id = "ccn-rtb-xxxxxx"
+# CCN attachment configuration
+attach_ccn      = true
+ccn_id          = "ccn-abcdef"
+instance_region = "ap-beijing"
+attachment_desc = "Production VPC attached to CCN"
+route_table_id  = "ccn-rtb-xxxxxx"
 ```
 
-### 简单配置示例
+### Simple configuration (without routing table)
 
 ```hcl
-# 基础VPC配置
-region = "ap-shanghai"
-name   = "development-vpc"
-cidr   = "192.168.0.0/16"
+# Basic VPC configuration
+vpc_name = "development-vpc"
+vpc_cidr = "192.168.0.0/16"
 
-# 默认子网配置
 subnet_cidrs = [
   {
     subnet_name = "default-subnet"
@@ -159,20 +164,20 @@ subnet_cidrs = [
   }
 ]
 
-# CCN关联（使用CCN ID）
-ccn_id        = "ccn-abcdef"
-attachment_desc = "开发环境VPC关联"
+# Attach to CCN using CCN ID only (default route table)
+attach_ccn      = true
+ccn_id          = "ccn-abcdef"
+instance_region = "ap-shanghai"
+attachment_desc = "Dev VPC attachment"
 ```
 
-### 跨账号关联配置示例
+### Cross-account attachment
 
 ```hcl
-# VPC配置
-region = "ap-guangzhou"
-name   = "shared-services-vpc"
-cidr   = "172.16.0.0/16"
+# VPC configuration
+vpc_name = "shared-services-vpc"
+vpc_cidr = "172.16.0.0/16"
 
-# 多可用区子网配置
 subnet_cidrs = [
   {
     subnet_name       = "shared-subnet-1"
@@ -186,82 +191,63 @@ subnet_cidrs = [
   }
 ]
 
-# 跨账号CCN关联
-ccn_id        = "ccn-123456"
-ccn_uin       = "123456789"  # 其他账号的UIN
-attachment_desc = "跨账号共享服务VPC关联"
+# Cross-account CCN attachment
+attach_ccn      = true
+ccn_id          = "ccn-123456"
+ccn_uin         = "123456789" # UIN of the other account owning the CCN
+instance_region = "ap-guangzhou"
+attachment_desc = "Cross-account shared services VPC attachment"
+route_table_id  = "ccn-rtb-yyyyyy"
 
-# 路由表关联
-route_table_id = "ccn-rtb-yyyyyy"
-
-# 标签配置
-common_tags = {
-  Environment   = "shared"
-  BusinessUnit  = "infrastructure"
-  CostCenter    = "shared-services"
+vpc_tags = {
+  Environment  = "shared"
+  BusinessUnit = "infrastructure"
+  CostCenter   = "shared-services"
 }
 ```
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：生产环境多子网VPC关联CCN
+### Example 1: Production multi-subnet VPC attached to CCN
 
 ```hcl
-# 生产环境北京区域VPC
-region = "ap-beijing"
-name   = "prod-ecommerce-vpc"
-cidr   = "10.100.0.0/16"
-
-# 多可用区子网配置
-availability_zones = ["ap-beijing-3", "ap-beijing-4", "ap-beijing-5"]
+vpc_name        = "prod-ecommerce-vpc"
+vpc_cidr        = "10.100.0.0/16"
+vpc_is_multicast = true
 
 subnet_cidrs = [
-  # Web层子网
   {
     subnet_name         = "prod-web-subnet"
     subnet_cidr         = "10.100.1.0/24"
     availability_zone   = "ap-beijing-3"
     subnet_is_multicast = true
+    tags                = { Tier = "web" }
   },
-  # App层子网
   {
     subnet_name         = "prod-app-subnet"
     subnet_cidr         = "10.100.2.0/24"
     availability_zone   = "ap-beijing-4"
     subnet_is_multicast = true
+    tags                = { Tier = "app" }
   },
-  # DB层子网
   {
     subnet_name         = "prod-db-subnet"
     subnet_cidr         = "10.100.3.0/24"
     availability_zone   = "ap-beijing-5"
-    subnet_is_multicast = false  # 数据库层禁用组播
-  },
-  # 管理子网
-  {
-    subnet_name         = "prod-mgmt-subnet"
-    subnet_cidr         = "10.100.254.0/24"
-    availability_zone   = "ap-beijing-3"
-    subnet_is_multicast = true
+    subnet_is_multicast = false # multicast disabled for DB tier
+    tags                = { Tier = "db" }
   }
 ]
 
-# 子网标签
-subnet_tags = {
-  ManagedBy = "terraform"
-}
+attach_ccn      = true
+ccn_id          = "ccn-prod-cross-region"
+instance_region = "ap-beijing"
+attachment_desc = "Production ecommerce VPC attached to cross-region CCN"
+route_table_id  = "ccn-rtb-prod-main"
 
-# CCN关联
-ccn_name        = "prod-cross-region-ccn"
-attachment_desc = "生产环境电商VPC关联到跨地域CCN"
-
-# 路由表关联
-route_table_id = "ccn-rtb-prod-main"
-
-# 生产环境标签
-common_tags = {
+vpc_tags = {
   Environment = "production"
   Project     = "ecommerce"
   Tier        = "core"
@@ -274,15 +260,12 @@ tags = {
 }
 ```
 
-### 示例二：开发环境简单VPC关联
+### Example 2: Development simple VPC
 
 ```hcl
-# 开发环境简单配置
-region = "ap-shanghai"
-name   = "dev-test-vpc"
-cidr   = "192.168.100.0/24"
+vpc_name = "dev-test-vpc"
+vpc_cidr = "192.168.100.0/24"
 
-# 单子网配置
 subnet_cidrs = [
   {
     subnet_name = "dev-default-subnet"
@@ -290,27 +273,24 @@ subnet_cidrs = [
   }
 ]
 
-# CCN关联（使用CCN ID）
-ccn_id        = "ccn-dev-test"
-attachment_desc = "开发测试VPC关联"
+attach_ccn      = true
+ccn_id          = "ccn-dev-test"
+instance_region = "ap-shanghai"
+attachment_desc = "Dev test VPC attachment"
 
-# 开发环境标签
-common_tags = {
+vpc_tags = {
   Environment = "development"
   Purpose     = "testing"
   CostCenter  = "rd"
 }
 ```
 
-### 示例三：共享服务VPC跨账号关联
+### Example 3: Shared-services cross-account VPC
 
 ```hcl
-# 共享服务VPC配置
-region = "ap-guangzhou"
-name   = "shared-infra-vpc"
-cidr   = "172.20.0.0/16"
+vpc_name = "shared-infra-vpc"
+vpc_cidr = "172.20.0.0/16"
 
-# 多可用区子网
 subnet_cidrs = [
   {
     subnet_name       = "shared-networking-1"
@@ -324,185 +304,173 @@ subnet_cidrs = [
   }
 ]
 
-# 跨账号CCN关联
-ccn_id        = "ccn-shared-services"
-ccn_uin       = "987654321"  # 其他账号UIN
-attachment_desc = "共享基础设施VPC跨账号关联"
+attach_ccn      = true
+ccn_id          = "ccn-shared-services"
+ccn_uin         = "987654321" # UIN of the CCN owner account
+instance_region = "ap-guangzhou"
+attachment_desc = "Shared infrastructure VPC cross-account attachment"
+route_table_id  = "ccn-rtb-shared"
 
-# 路由表关联
-route_table_id = "ccn-rtb-shared"
-
-# 共享服务标签
-common_tags = {
-  Environment   = "shared"
-  BusinessUnit  = "infrastructure"
-  ServiceType   = "networking"
-  CostModel     = "chargeback"
+vpc_tags = {
+  Environment  = "shared"
+  BusinessUnit = "infrastructure"
+  ServiceType  = "networking"
+  CostModel    = "chargeback"
 }
 ```
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### CCN关联优先级
+### CCN attachment identification
 
-CCN关联支持两种方式指定CCN实例：
-- **CCN ID优先** - 如果同时提供`ccn_id`和`ccn_name`，优先使用`ccn_id`
-- **名称查找** - 如果只提供`ccn_name`，会自动查找对应的CCN实例ID
+- The CCN instance is identified by `ccn_id` only. There is **no** `ccn_name` lookup — always provide `ccn_id`.
+- When `attach_ccn = true`, both `ccn_id` and `instance_region` are required.
+- Set `attach_ccn = false` to create the VPC without attaching it to any CCN.
 
-### 跨账号关联说明
+### Cross-account attachment
 
-支持关联其他腾讯云账号的CCN实例：
-- 需要提供目标账号的UIN（`ccn_uin`参数）
-- 当前账号需要具有关联权限
-- 目标账号的CCN需要允许跨账号关联
+- To attach to a CCN owned by another account, set `ccn_uin` to that account's UIN.
+- If `ccn_uin` is not set, the current account's UIN is used (same-account attachment).
+- Only the `VPC` instance type is supported for cross-account attachment for now.
+- The other account must have granted the attachment permission.
 
-### 路由表关联说明
+### Route table association
 
-- 可选功能，通过`route_table_id`参数启用
-- 用于将VPC关联到特定的CCN路由表
-- 如果不设置，使用CCN默认路由表
+- Optional, enabled via `route_table_id`.
+- Associates the VPC attachment with a specific CCN route table.
+- If not set, the CCN default route table is used.
 
-### 输出说明
+### Internal dependency order
 
-模块输出VPC ID：
-```hcl
-vpc_id = "vpc-xxxxxx"
-```
-
-### 依赖关系
-
-模块内部依赖关系：
-1. 先创建VPC和子网
-2. 然后进行CCN关联
-3. 最后进行路由表关联（如果配置）
+1. The VPC and its subnets are created first.
+2. CCN attachment is performed next (if `attach_ccn = true`).
+3. Route table association is applied last (if `route_table_id` is set).
 
 ---
 
-## 注意事项
+## Important Notes
 
-> ⚠️ **重要提示，操作前请仔细阅读**
+> ⚠️ **Important: read carefully before making changes**
 
-1. **权限配置**
-   - 确保执行账号具有VPC和CCN管理权限
-   - 需要`QcloudVPCFullAccess`和`QcloudCCNFullAccess`权限
-   - 跨账号关联需要额外权限
+1. **Permissions**
+   - Ensure the executing account has VPC and CCN management permissions (`QcloudVPCFullAccess`, `QcloudCCNFullAccess`).
+   - Cross-account attachment requires additional permissions and the other account's authorization.
 
-2. **区域一致性**
-   - VPC区域和CCN区域需要匹配
-   - 确保区域代码正确（如ap-beijing）
-   - 跨地域关联需要通过CCN实现
+2. **Region consistency**
+   - The VPC region (`instance_region`) must match the region of the attachment.
+   - Use correct region codes such as `ap-beijing`.
+   - Cross-region interconnection is achieved through CCN.
 
-3. **CIDR规划**
-   - 合理规划VPC和子网的CIDR地址块
-   - 避免CIDR冲突
-   - 预留足够的IP地址空间
+3. **CIDR planning**
+   - Plan VPC and subnet CIDR blocks carefully to avoid conflicts.
+   - Reserve enough IP address space.
+   - Use standard CIDR notation.
 
-4. **CCN标识**
-   - CCN ID和CCN名称至少提供一个
-   - CCN ID优先于CCN名称
-   - 确保CCN实例存在且状态正常
+4. **CCN identification**
+   - Provide `ccn_id` (there is no `ccn_name` lookup).
+   - Ensure the CCN instance exists and is in an available state.
 
-5. **跨账号关联**
-   - 需要目标账号的UIN
-   - 需要目标账号授权关联权限
-   - 确认网络连通性需求
+5. **Cross-account attachment**
+   - Provide the target account UIN via `ccn_uin`.
+   - Confirm the other account has authorized the attachment.
+   - Verify the network connectivity requirements.
 
-6. **路由表关联**
-   - 路由表ID可选配置
-   - 确保路由表存在且可用
-   - 了解路由策略影响
+6. **Route table association**
+   - `route_table_id` is optional; ensure the route table exists and belongs to the target CCN.
+   - Understand the impact of the route policy.
 
-7. **名称长度限制**
-   - VPC名称无特殊长度限制
-   - 子网名称最大60字节
-   - CCN关联描述最大100字节
+7. **Name length limits**
+   - Subnet name ≤ 60 bytes.
+   - CCN attachment description ≤ 100 bytes.
 
-8. **组播配置**
-   - 默认启用VPC和子网组播
-   - 可根据安全需求禁用组播
-   - 数据库等敏感子网建议禁用组播
+8. **Multicast configuration**
+   - Multicast is enabled by default for the VPC (when `vpc_is_multicast = true`).
+   - It can be disabled per subnet for security-sensitive tiers (e.g. databases).
 
 ---
 
-## 故障排除
+## Troubleshooting
 
-### 常见错误及解决方案
+### Common errors and solutions
 
-#### 错误一：权限不足
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=UnauthorizedOperation
 Message=You are not authorized to perform the operation
 ```
 
-**原因**：执行账号缺少VPC或CCN管理权限
-**解决方案**：
-- 确认Provider配置的密钥具有所需权限
-- 检查是否包含`QcloudVPCFullAccess`和`QcloudCCNFullAccess`权限
+**Cause**: The executing account lacks VPC or CCN management permissions.
+**Solution**:
+- Confirm the provider credentials have the required permissions.
+- Check `QcloudVPCFullAccess` and `QcloudCCNFullAccess` are included.
 
-#### 错误二：CCN不存在
+#### Error 2: CCN not found
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=CCN not found
 ```
 
-**原因**：指定的CCN ID或名称不存在
-**解决方案**：
-- 确认CCN ID或名称正确
-- 检查CCN是否已被删除
-- 确认CCN处于可用状态
+**Cause**: The specified `ccn_id` does not exist.
+**Solution**:
+- Confirm the `ccn_id` is correct.
+- Check whether the CCN has been deleted.
+- Confirm the CCN is in an available state.
 
-#### 错误三：区域不匹配
+#### Error 3: Region mismatch
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Region mismatch
 ```
 
-**原因**：VPC区域和操作区域不匹配
-**解决方案**：
-- 确认VPC所在区域正确
-- 检查region参数配置
-- 确保区域代码格式正确
+**Cause**: The VPC region and the attachment region do not match.
+**Solution**:
+- Confirm `instance_region` is correct.
+- Ensure the region code format is correct.
 
-#### 错误四：CIDR冲突
+#### Error 4: CIDR conflict
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=CIDR conflict
 ```
 
-**原因**：CIDR地址块冲突或格式错误
-**解决方案**：
-- 检查CIDR格式是否正确
-- 确认CIDR地址块不冲突
-- 使用标准的CIDR表示法
+**Cause**: The CIDR block conflicts or is malformed.
+**Solution**:
+- Check the CIDR format.
+- Ensure CIDR blocks do not overlap.
+- Use standard CIDR notation.
 
-#### 错误五：跨账号权限不足
+#### Error 5: Cross-account operation not allowed
 
 ```
 Error: [TencentCloudSDKError] Code=UnauthorizedOperation
 Message=Cross account operation not allowed
 ```
 
-**原因**：跨账号操作权限不足
-**解决方案**：
-- 确认目标账号已授权
-- 检查ccn_uin参数是否正确
-- 确认当前账号有关联权限
+**Cause**: Insufficient cross-account operation permission.
+**Solution**:
+- Confirm the target account has authorized the operation.
+- Check the `ccn_uin` parameter is correct.
+- Confirm the current account has attachment permission.
 
-#### 错误六：路由表不存在
+#### Error 6: Route table not found
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=Route table not found
 ```
 
-**原因**：指定的路由表不存在
-**解决方案**：
-- 确认路由表ID正确
-- 检查路由表是否属于指定的CCN
-- 确认路由表处于可用状态
+**Cause**: The specified route table does not exist.
+**Solution**:
+- Confirm the `route_table_id` is correct.
+- Check the route table belongs to the specified CCN.
+- Confirm the route table is available.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

@@ -1,133 +1,160 @@
-# 腾讯云Web应用防火墙（WAF）模块
+# Tencent Cloud Web Application Firewall (WAF) Component
 
-## 模块概述
+Terraform component under `components/security/waf` for deploying and managing the Web Application Firewall (WAF) service in Tencent Cloud — as part of the `security` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中部署和管理Web应用防火墙（WAF）服务，提供全面的Web应用安全防护，主要功能包括：
+## Overview
 
-- **WAF实例管理** - 创建和管理CLB型WAF实例，支持多种版本（基础版、企业版、旗舰版）
-- **域名防护配置** - 配置域名级别的WAF防护策略和负载均衡绑定
-- **弹性计费模式** - 支持弹性QPS计费，按需扩展防护能力
-- **API安全防护** - 提供API接口级别的安全防护能力
-- **Bot管理** - 智能识别和防护恶意机器人流量
-- **日志投递** - 支持访问日志和攻击日志投递到CLS日志服务
-- **攻击日志配置** - 配置攻击日志的投递和管理
-- **多负载均衡支持** - 支持CLB、APISIX、TSEGW等多种负载均衡器
-- **流量模式选择** - 支持清洗模式和镜像模式两种流量处理方式
+This component deploys and manages the Web Application Firewall (WAF) service, providing comprehensive web application security protection. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudFinanceFullAccess` | 财务管理权限 |
-| `QcloudBillingReadOnlyAccess` | 账单只读权限 |
-| `QcloudWAFReadOnlyAccess` | WAF只读权限 |
-| `QcloudWAFFullAccess` | WAF全权限 |
-| `QcloudCLBReadOnlyAccess` | CLB只读权限 |
-| `QcloudCLSFullAccess` | CLS日志服务权限 |
-
-### 其他要求
-
-- 需要确定WAF实例版本（基础版、企业版、旗舰版）
-- 需要规划域名防护配置和负载均衡绑定
-- 需要确定QPS限制和弹性计费模式
-- 需要配置API安全和Bot管理功能
-- 需要规划日志投递到CLS的配置
-- 需要确定攻击日志投递策略
-- 需要准备负载均衡器相关信息
-- 需要确定地域和可用区配置
+- **WAF instance management** – create and manage CLB-type WAF instances, supporting multiple editions (Premium, Enterprise, Ultimate).
+- **Domain protection** – configure domain-level WAF protection policies and load-balancer binding.
+- **Elastic billing** – elastic QPS billing that scales on demand.
+- **API security** – protect API endpoints at the interface level.
+- **Bot management** – intelligently identify and block malicious bot traffic.
+- **Log delivery** – deliver access logs and attack logs to the CLS service.
+- **Attack log config** – configure attack-log delivery and management.
+- **Multi-LB support** – CLB, APISIX, TSEGW, and other load balancers.
+- **Traffic mode** – cleaning mode and mirroring mode for traffic handling.
 
 ---
 
-## 变量说明
+## Requirements
 
-### WAF实例配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.1.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `goods_category` | `string` | 否 | `premium_clb` | 计费类型：premium_clb(基础版), enterprise_clb(企业版), ultimate_clb(旗舰版) |
-| `instance_name` | `string` | 否 | `""` | WAF实例名称 |
-| `time_span` | `number` | 否 | `1` | 购买时长 |
-| `time_unit` | `string` | 否 | `m` | 时间单位：d(天), m(月), y(年) |
-| `auto_renew_flag` | `number` | 否 | `1` | 自动续费标识：1(启用), 0(禁用) |
-| `elastic_mode` | `number` | 否 | `1` | 弹性计费模式：1(启用), 0(禁用) |
-| `qps_limit` | `number` | 否 | `200000` | QPS限制，最小10000，仅弹性模式可设置 |
-| `api_security` | `number` | 否 | `0` | API安全防护：1(启用), 0(禁用) |
-| `bot_management` | `number` | 否 | `0` | Bot管理：1(启用), 0(禁用) |
+## Providers
 
-### 域名配置变量
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `domain_configs` | `list(object)` | 否 | `[]` | 域名配置对象列表 |
+### IAM Permissions
 
-### 域名配置对象字段说明
+The executing principal needs the following Tencent Cloud permissions:
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `instance_id` | `string` | 否 | `null` | WAF实例ID |
-| `domain` | `string` | 是 | - | 域名名称 |
-| `region` | `string` | 是 | - | 负载均衡器地域 |
-| `is_cdn` | `number` | 否 | `0` | 是否已启用代理：1(是), 0(否) |
-| `status` | `number` | 否 | `1` | 绑定状态：0(未绑定), 1(绑定中) |
-| `engine` | `number` | 否 | `20` | 防护状态 |
-| `flow_mode` | `number` | 否 | `1` | 流量模式：0(镜像模式), 1(清洗模式) |
-| `alb_type` | `string` | 否 | `clb` | 负载均衡类型：clb, apisix, tsegw |
-| `bot_status` | `number` | 否 | `0` | Bot防护：1(启用), 0(禁用) |
-| `api_safe_status` | `number` | 否 | `0` | API安全：1(启用), 0(禁用) |
-| `ip_headers` | `list(string)` | 否 | `[]` | 自定义IP头（当is_cdn=3时需填写） |
-| `load_balancer_set` | `list(object)` | 否 | `[]` | 绑定的负载均衡器列表 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudFinanceFullAccess` | Financial management access |
+| `QcloudBillingReadOnlyAccess` | Billing read-only access |
+| `QcloudWAFReadOnlyAccess` | WAF read-only access |
+| `QcloudWAFFullAccess` | Full access to WAF |
+| `QcloudCLBReadOnlyAccess` | CLB read-only access |
+| `QcloudCLSFullAccess` | CLS log service access |
 
-### 负载均衡器配置字段说明
+### Prerequisites
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `load_balancer_id` | `string` | 是 | - | 负载均衡器ID |
-| `load_balancer_name` | `string` | 是 | - | 负载均衡器名称 |
-| `listener_id` | `string` | 是 | - | 监听器ID |
-| `listener_name` | `string` | 是 | - | 监听器名称 |
-| `vport` | `number` | 是 | - | 负载均衡器端口 |
-| `protocol` | `string` | 是 | - | 协议：http, https |
-| `region` | `string` | 是 | - | 负载均衡器地域 |
-| `zone` | `string` | 是 | - | 负载均衡器可用区 |
-| `vip` | `string` | 否 | - | 负载均衡器IP |
-| `load_balancer_type` | `string` | 否 | - | 负载均衡器网络类型 |
-
-### 日志投递配置变量
-
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `cls_region` | `string` | 否 | `ap-shanghai` | CLS投递地域 |
-| `log_topic_name` | `string` | 否 | `waf_post_logtopic` | CLS日志主题名称 |
-| `log_type` | `number` | 否 | `1` | 日志类型：1(访问日志), 2(攻击日志) |
-| `logset_name` | `string` | 否 | `waf_post_logset` | CLS日志集名称 |
-
-### 攻击日志配置变量
-
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `attack_log_post` | `number` | 否 | `0` | 攻击日志投递：0(禁用), 1(启用) |
+- Decide the WAF instance edition (Premium / Enterprise / Ultimate).
+- Plan domain protection config and load-balancer binding.
+- Decide the QPS limit and elastic billing mode.
+- Configure API security and Bot management.
+- Plan CLS log delivery configuration.
+- Decide the attack-log delivery strategy.
+- Prepare load-balancer related info.
+- Decide region and availability zone configuration.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### WAF instance configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_goods_category"></a> [goods\_category](#input\_goods\_category) | `string` | no | `premium_clb` | Billing order parameter: `premium_clb` (Premium), `enterprise_clb` (Enterprise), `ultimate_clb` (Ultimate). |
+| <a name="input_instance_name"></a> [instance\_name](#input\_instance\_name) | `string` | no | `""` | WAF instance name. |
+| <a name="input_time_span"></a> [time\_span](#input\_time\_span) | `number` | no | `1` | Purchase duration. |
+| <a name="input_time_unit"></a> [time\_unit](#input\_time\_unit) | `string` | no | `m` | Time unit: `d` (day), `m` (month), `y` (year). |
+| <a name="input_auto_renew_flag"></a> [auto\_renew\_flag](#input\_auto\_renew\_flag) | `number` | no | `1` | Auto-renewal flag: `1` enable, `0` disable. |
+| <a name="input_elastic_mode"></a> [elastic\_mode](#input\_elastic\_mode) | `number` | no | `1` | Elastic billing mode: `1` enable, `0` disable. |
+| <a name="input_qps_limit"></a> [qps\_limit](#input\_qps\_limit) | `number` | no | `200000` | QPS limit, min `10000`. Only settable when `elastic_mode = 1`. |
+| <a name="input_api_security"></a> [api\_security](#input\_api\_security) | `number` | no | `0` | API security: `1` enable, `0` disable. |
+| <a name="input_bot_management"></a> [bot\_management](#input\_bot\_management) | `number` | no | `0` | Bot management: `1` enable, `0` disable. |
+
+### Domain configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_domain_configs"></a> [domain\_configs](#input\_domain\_configs) | `list(object)` | no | `[]` | List of domain protection configuration objects. |
+
+#### `domain_configs` object fields
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `domain` | `string` | **yes** | – | Domain name. |
+| `region` | `string` | **yes** | – | Region of the bound load balancer. |
+| `is_cdn` | `number` | no | `0` | Whether a proxy was enabled before WAF: `1` yes, `0` no. |
+| `status` | `number` | no | `1` | Binding status between WAF and LB: `0` not bound, `1` binding. |
+| `engine` | `number` | no | `20` | Protection status. |
+| `flow_mode` | `number` | no | `1` | Traffic mode: `0` mirroring mode, `1` cleaning mode. |
+| `alb_type` | `string` | no | `clb` | Load balancer type: `clb`, `apisix`, `tsegw`. |
+| `bot_status` | `number` | no | `0` | Bot protection: `1` enable, `0` disable. |
+| `api_safe_status` | `number` | no | `0` | API security: `1` enable, `0` disable. |
+| `ip_headers` | `list(string)` | no | `[]` | Custom IP headers (required when `is_cdn = 3`). |
+| `load_balancer_set` | `list(object)` | no | `[]` | List of bound load balancers. |
+
+#### `load_balancer_set` object fields
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `load_balancer_id` | `string` | **yes** | – | Load balancer unique ID. |
+| `load_balancer_name` | `string` | **yes** | – | Load balancer name. |
+| `listener_id` | `string` | **yes** | – | Unique ID of the listener. |
+| `listener_name` | `string` | **yes** | – | Listener name. |
+| `vport` | `number` | **yes** | – | Load balancer port. |
+| `protocol` | `string` | **yes** | – | Protocol: `http`, `https`. |
+| `region` | `string` | **yes** | – | Load balancer region. |
+| `zone` | `string` | **yes** | – | Load balancer availability zone. |
+| `vip` | `string` | no | – | Load balancer IP. |
+| `load_balancer_type` | `string` | no | – | Network type of the load balancer. |
+
+### CLS log delivery configuration
+
+> ⚠️ **Important**: The CLS log delivery flow resource is created **only when `enable_cls_log = true`**. Simply setting `cls_region` / `log_type` / etc. without enabling `enable_cls_log` will not deliver any logs.
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_enable_cls_log"></a> [enable\_cls\_log](#input\_enable\_cls\_log) | `bool` | no | `false` | Enable CLS log delivery. Must be `true` for the delivery flow to be created. |
+| <a name="input_cls_region"></a> [cls\_region](#input\_cls\_region) | `string` | no | `ap-shanghai` | Region where CLS is delivered. |
+| <a name="input_logset_name"></a> [logset\_name](#input\_logset\_name) | `string` | no | `waf_post_logset` | Name of the CLS log set. |
+| <a name="input_log_topic_name"></a> [log\_topic\_name](#input\_log\_topic\_name) | `string` | no | `waf_post_logtopic` | Name of the CLS log topic. |
+| <a name="input_log_type"></a> [log\_type](#input\_log\_type) | `number` | no | `1` | Log type: `1` access log, `2` attack log. Must be `1` or `2`. |
+
+### Attack log configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_attack_log_post"></a> [attack\_log\_post](#input\_attack\_log\_post) | `number` | no | `0` | Attack-log delivery switch: `0` disable, `1` enable. Must be `0` or `1`. |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_waf_clb_id"></a> [waf\_clb\_id](#output\_waf\_clb\_id) | WAF CLB instance resource ID. |
+| <a name="output_waf_clb_instance_id"></a> [waf\_clb\_instance\_id](#output\_waf\_clb\_instance\_id) | WAF CLB instance ID. |
+| <a name="output_waf_clb_edition"></a> [waf\_clb\_edition](#output\_waf\_clb\_edition) | WAF CLB instance edition. |
+| <a name="output_waf_clb_status"></a> [waf\_clb\_status](#output\_waf\_clb\_status) | WAF CLB instance status. |
+| <a name="output_waf_clb_begin_time"></a> [waf\_clb\_begin\_time](#output\_waf\_clb\_begin\_time) | WAF CLB instance begin time. |
+| <a name="output_waf_clb_valid_time"></a> [waf\_clb\_valid\_time](#output\_waf\_clb\_valid\_time) | WAF CLB instance valid (expiry) time. |
+| <a name="output_domain_instance_ids"></a> [domain\_instance\_ids](#output\_domain\_instance\_ids) | IDs of WAF CLB domain resources. |
+| <a name="output_domain_ids"></a> [domain\_ids](#output\_domain\_ids) | Domain IDs of the WAF CLB domains. |
+| <a name="output_log_post_cls_id"></a> [log\_post\_cls\_id](#output\_log\_post\_cls\_id) | ID of the CLS log post flow resource (null when `enable_cls_log = false`). |
+| <a name="output_log_post_cls_flow_id"></a> [log\_post\_cls\_flow\_id](#output\_log\_post\_cls\_flow\_id) | Unique ID for the CLS post flow (null when `enable_cls_log = false`). |
+| <a name="output_log_post_cls_log_topic_id"></a> [log\_post\_cls\_log\_topic\_id](#output\_log\_post\_cls\_log\_topic\_id) | CLS log topic ID (null when `enable_cls_log = false`). |
+| <a name="output_log_post_cls_logset_id"></a> [log\_post\_cls\_logset\_id](#output\_log\_post\_cls\_logset\_id) | CLS logset ID (null when `enable_cls_log = false`). |
+| <a name="output_log_post_cls_status"></a> [log\_post\_cls\_status](#output\_log\_post\_cls\_status) | CLS post flow status: `0` off, `1` on (null when `enable_cls_log = false`). |
+| <a name="output_attack_log_post_config_id"></a> [attack\_log\_post\_config\_id](#output\_attack\_log\_post\_config\_id) | ID of the attack-log post config resource. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars`
 
 ```hcl
-# WAF实例基础配置
+# WAF instance base configuration
 goods_category  = "enterprise_clb"
 instance_name   = "my-waf-instance"
 time_span       = 12
@@ -138,7 +165,7 @@ qps_limit       = 100000
 api_security    = 1
 bot_management  = 1
 
-# 域名配置
+# Domain configuration
 domain_configs = [
   {
     domain      = "example.com"
@@ -168,21 +195,22 @@ domain_configs = [
   }
 ]
 
-# 日志投递配置
+# CLS log delivery (must enable enable_cls_log)
+enable_cls_log  = true
 cls_region      = "ap-shanghai"
 log_topic_name  = "waf-access-logs"
 log_type        = 1
 logset_name     = "waf-logs"
 
-# 攻击日志配置
+# Attack log configuration
 attack_log_post = 1
 ```
 
-### 生产环境配置示例
+### Production environment configuration
 
 ```hcl
-# 生产环境WAF配置
-goods_category  = "ultimate_clb"  # 旗舰版
+# Production WAF configuration
+goods_category  = "ultimate_clb"  # Ultimate edition
 instance_name   = "prod-waf-instance"
 time_span       = 12
 time_unit       = "m"
@@ -192,7 +220,7 @@ qps_limit       = 500000
 api_security    = 1
 bot_management  = 1
 
-# 生产环境域名配置
+# Production domain configuration
 domain_configs = [
   {
     domain      = "api.example.com"
@@ -229,7 +257,8 @@ domain_configs = [
   }
 ]
 
-# 生产环境日志配置
+# Production log configuration
+enable_cls_log  = true
 cls_region      = "ap-shanghai"
 log_topic_name  = "prod-waf-logs"
 log_type        = 1
@@ -237,16 +266,16 @@ logset_name     = "prod-security-logs"
 attack_log_post = 1
 ```
 
-### 多域名配置示例
+### Multi-domain configuration
 
 ```hcl
-# 多域名WAF配置
+# Multi-domain WAF configuration
 goods_category  = "enterprise_clb"
 instance_name   = "multi-domain-waf"
 
-# 多个域名配置
+# Multiple domains
 domain_configs = [
-  # 主域名
+  # Primary domain
   {
     domain      = "example.com"
     region      = "ap-beijing"
@@ -264,7 +293,7 @@ domain_configs = [
       }
     ]
   },
-  # API子域名
+  # API subdomain
   {
     domain      = "api.example.com"
     region      = "ap-beijing"
@@ -287,13 +316,13 @@ domain_configs = [
 ]
 ```
 
-### 最小化配置示例
+### Minimal configuration
 
 ```hcl
-# 最小化WAF配置
+# Minimal WAF configuration
 goods_category = "premium_clb"
 
-# 仅配置一个域名
+# Single domain only
 domain_configs = [
   {
     domain = "test.example.com"
@@ -316,29 +345,29 @@ domain_configs = [
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：电商网站防护配置
+### Example 1: E-commerce website protection
 
 ```hcl
-# 电商网站WAF配置
-goods_category  = "ultimate_clb"  # 旗舰版提供最高防护
+# E-commerce WAF configuration
+goods_category  = "ultimate_clb"  # highest protection
 instance_name   = "ecommerce-waf"
 time_span       = 12
 auto_renew_flag = 1
 elastic_mode    = 1
-qps_limit       = 1000000  # 支持高并发
+qps_limit       = 1000000  # high concurrency
 api_security    = 1
 bot_management  = 1
 
-# 电商域名配置
+# E-commerce domain configuration
 domain_configs = [
   {
     domain      = "shop.example.com"
     region      = "ap-shanghai"
-    flow_mode   = 1  # 清洗模式
-    bot_status  = 1  # 启用Bot防护
-    api_safe_status = 1  # 启用API安全
+    flow_mode   = 1  # cleaning mode
+    bot_status  = 1  # enable Bot protection
+    api_safe_status = 1  # enable API security
     load_balancer_set = [
       {
         load_balancer_id   = "lb-ecom-http"
@@ -364,7 +393,8 @@ domain_configs = [
   }
 ]
 
-# 完整的日志监控
+# Full log monitoring
+enable_cls_log  = true
 cls_region      = "ap-shanghai"
 log_topic_name  = "ecommerce-waf-logs"
 log_type        = 1
@@ -372,22 +402,22 @@ logset_name     = "ecommerce-security"
 attack_log_post = 1
 ```
 
-### 示例二：API网关防护配置
+### Example 2: API gateway protection
 
 ```hcl
-# API网关WAF配置
+# API gateway WAF configuration
 goods_category  = "enterprise_clb"
 instance_name   = "api-gateway-waf"
 
-# API网关域名配置
+# API gateway domain configuration
 domain_configs = [
   {
     domain      = "api.company.com"
     region      = "ap-beijing"
-    alb_type    = "apisix"  # API网关类型
+    alb_type    = "apisix"  # API gateway type
     flow_mode   = 1
     bot_status  = 1
-    api_safe_status = 1  # 重点保护API
+    api_safe_status = 1  # protect APIs
     load_balancer_set = [
       {
         load_balancer_id   = "lb-api-gw"
@@ -403,7 +433,8 @@ domain_configs = [
   }
 ]
 
-# API访问日志详细记录
+# Detailed API access logs
+enable_cls_log  = true
 cls_region      = "ap-beijing"
 log_topic_name  = "api-gateway-logs"
 log_type        = 1
@@ -411,19 +442,19 @@ logset_name     = "api-security"
 attack_log_post = 1
 ```
 
-### 示例三：CDN加速网站防护
+### Example 3: CDN-accelerated website protection
 
 ```hcl
-# CDN网站WAF配置
+# CDN website WAF configuration
 goods_category = "premium_clb"
 
-# CDN域名配置
+# CDN domain configuration
 domain_configs = [
   {
     domain      = "cdn.example.com"
     region      = "ap-guangzhou"
-    is_cdn      = 1  # 已启用CDN
-    flow_mode   = 0  # 镜像模式适合CDN
+    is_cdn      = 1  # CDN enabled
+    flow_mode   = 0  # mirroring mode suits CDN
     load_balancer_set = [
       {
         load_balancer_id   = "lb-cdn"
@@ -439,29 +470,30 @@ domain_configs = [
   }
 ]
 
-# 基础日志配置
-cls_region = "ap-guangzhou"
-log_type   = 1
+# Basic log configuration
+enable_cls_log  = true
+cls_region      = "ap-guangzhou"
+log_type        = 1
 ```
 
-### 示例四：高安全要求的金融应用
+### Example 4: Finance application with high security
 
 ```hcl
-# 金融应用WAF配置
-goods_category  = "ultimate_clb"  # 旗舰版
+# Finance application WAF configuration
+goods_category  = "ultimate_clb"  # Ultimate edition
 instance_name   = "finance-waf"
-time_span       = 24  # 2年订阅
+time_span       = 24  # 2-year subscription
 time_unit       = "m"
 auto_renew_flag = 1
 
-# 金融域名严格防护
+# Strict finance domain protection
 domain_configs = [
   {
     domain      = "bank.example.com"
     region      = "ap-shanghai"
-    flow_mode   = 1  # 清洗模式
-    bot_status  = 1  # Bot防护
-    api_safe_status = 1  # API安全
+    flow_mode   = 1  # cleaning mode
+    bot_status  = 1  # Bot protection
+    api_safe_status = 1  # API security
     load_balancer_set = [
       {
         load_balancer_id   = "lb-finance-https"
@@ -477,227 +509,234 @@ domain_configs = [
   }
 ]
 
-# 完整的审计日志
-cls_region      = "ap-shanghai"
-log_topic_name  = "finance-waf-audit"
-log_type        = 2  # 攻击日志
-logset_name     = "finance-security"
-attack_log_post = 1
+# Full audit logs
+enable_cls_log      = true
+cls_region          = "ap-shanghai"
+log_topic_name      = "finance-waf-audit"
+log_type            = 2  # attack log
+logset_name         = "finance-security"
+attack_log_post     = 1
 ```
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### WAF版本功能对比
+### WAF edition comparison
 
-| 版本 | 编码 | 防护能力 | 适用场景 | 价格 |
-|------|------|----------|----------|------|
-| **基础版** | premium_clb | 基础Web防护 | 小型网站、测试环境 | 低 |
-| **企业版** | enterprise_clb | 增强防护+Bot管理 | 中型企业、生产环境 | 中 |
-| **旗舰版** | ultimate_clb | 全面防护+API安全 | 大型企业、金融级 | 高 |
+| Edition | Code | Protection | Use case | Price |
+|---------|------|------------|----------|-------|
+| **Premium** | premium_clb | Basic web protection | Small sites, test env | Low |
+| **Enterprise** | enterprise_clb | Enhanced + Bot management | Medium business, production | Medium |
+| **Ultimate** | ultimate_clb | Full + API security | Large business, finance | High |
 
-### 流量模式说明
+### Traffic mode
 
-#### 清洗模式（flow_mode = 1）
-- **工作原理**：流量先经过WAF清洗再转发到后端
-- **优势**：提供实时防护，恶意流量被拦截
-- **适用**：生产环境、高安全要求场景
-- **延迟**：略有增加
+#### Cleaning mode (`flow_mode = 1`)
+- **How it works**: traffic is cleaned by WAF before being forwarded to the backend.
+- **Advantage**: real-time protection; malicious traffic is blocked.
+- **Use case**: production, high-security scenarios.
+- **Latency**: slightly increased.
 
-#### 镜像模式（flow_mode = 0）
-- **工作原理**：流量镜像到WAF进行分析，不影响正常流量
-- **优势**：零延迟，不影响业务性能
-- **适用**：监控分析、CDN加速场景
-- **防护**：仅检测不拦截
+#### Mirroring mode (`flow_mode = 0`)
+- **How it works**: traffic is mirrored to WAF for analysis without affecting normal traffic.
+- **Advantage**: zero latency, no impact on performance.
+- **Use case**: monitoring/analysis, CDN acceleration.
+- **Protection**: detect only, no blocking.
 
-### 弹性计费模式
+### Elastic billing mode
 
-- **启用（elastic_mode = 1）**：按实际QPS计费，支持动态扩容
-- **禁用（elastic_mode = 0）**：固定QPS额度，超过则被限制
-- **QPS限制**：最小10000，可根据业务峰值设置
-- **成本优化**：根据业务流量模式选择合适的QPS限制
+- **Enabled (`elastic_mode = 1`)**: billed by actual QPS, supports dynamic scaling.
+- **Disabled (`elastic_mode = 0`)**: fixed QPS quota; traffic above it is limited.
+- **QPS limit**: min `10000`, set per traffic peak.
+- **Cost optimization**: choose a suitable QPS limit per traffic pattern.
 
-### 安全功能配置
+### Security features
 
-#### API安全防护（api_security）
-- **功能**：专门防护API接口的攻击
-- **适用**：RESTful API、微服务架构
-- **防护**：API注入、越权访问、参数污染等
+#### API security (`api_security`)
+- **Feature**: specifically protect API endpoints.
+- **Use case**: RESTful APIs, microservice architecture.
+- **Protection**: API injection, unauthorized access, parameter pollution, etc.
 
-#### Bot管理（bot_management）
-- **功能**：智能识别恶意机器人流量
-- **防护**：爬虫、刷单、撞库、CC攻击等
-- **策略**：基于行为分析、指纹识别、挑战响应
+#### Bot management (`bot_management`)
+- **Feature**: intelligently identify malicious bot traffic.
+- **Protection**: crawlers, scalping, credential stuffing, CC attacks, etc.
+- **Strategy**: behavior analysis, fingerprinting, challenge-response.
 
-### 负载均衡器类型
+### Load balancer types
 
-| 类型 | 编码 | 说明 | 适用场景 |
-|------|------|------|----------|
-| **CLB** | clb | 传统负载均衡器 | 常规Web应用 |
-| **APISIX** | apisix | API网关 | 微服务架构 |
-| **TSEGW** | tsegw | 流量引擎网关 | 高性能场景 |
+| Type | Code | Description | Use case |
+|------|------|-------------|----------|
+| **CLB** | clb | Traditional load balancer | Regular web apps |
+| **APISIX** | apisix | API gateway | Microservice architecture |
+| **TSEGW** | tsegw | Traffic engine gateway | High-performance scenarios |
 
-### 日志投递配置
+### CLS log delivery
 
-#### 日志类型选择
-- **访问日志（log_type = 1）**：记录所有请求访问信息
-- **攻击日志（log_type = 2）**：只记录被拦截的攻击请求
+#### Log type
+- **Access log (`log_type = 1`)**: records all request access info.
+- **Attack log (`log_type = 2`)**: records only blocked attack requests.
 
-#### CLS配置建议
-- **地域选择**：选择离业务最近的地域减少延迟
-- **主题命名**：按业务功能命名便于检索
-- **日志集管理**：按环境或项目划分日志集
+#### CLS configuration tips
+- **Region**: choose the region closest to your business to reduce latency.
+- **Topic naming**: name by business function for easy retrieval.
+- **Logset management**: divide logsets by environment or project.
 
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **版本选择**
-   - 确认WAF版本符合业务需求和预算
-   - 旗舰版提供最全面的防护功能
-   - 基础版适合测试和小型应用
-
-2. **域名配置**
-   - 确保域名已备案且解析正常
-   - 确认负载均衡器配置正确
-   - 检查地域和可用区匹配
-
-3. **流量模式**
-   - 生产环境建议使用清洗模式
-   - CDN场景可使用镜像模式
-   - 确认流量模式符合业务需求
-
-4. **弹性计费**
-   - 弹性模式可按需扩展但成本较高
-   - 固定模式成本可控但可能限流
-   - 根据业务流量特征选择合适模式
-
-5. **安全功能**
-   - API安全防护会增加资源消耗
-   - Bot管理需要额外授权
-   - 确认已购买相关安全功能
-
-6. **日志配置**
-   - CLS服务需要额外费用
-   - 攻击日志投递需要额外配置
-   - 确认CLS地域可用性
-
-7. **权限验证**
-   - 确认有足够的WAF操作权限
-   - 检查负载均衡器访问权限
-   - 验证CLS日志服务权限
-
-8. **网络连通性**
-   - 确认WAF地域与业务地域一致
-   - 检查负载均衡器网络配置
-   - 验证域名解析正常
-
-9. **性能考虑**
-   - 合理设置QPS限制避免过度配置
-   - 考虑业务峰值流量
-   - 监控WAF性能指标
-
-10. **合规性要求**
-    - 确保配置符合安全合规标准
-    - 保留足够的日志用于审计
-    - 遵循数据安全规范
+> **Note**: To actually deliver logs, set `enable_cls_log = true`. The CLS flow outputs (`log_post_cls_*`) are `null` when it is `false`.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：权限不足
+1. **Edition selection**
+   - Confirm the WAF edition meets business needs and budget.
+   - Ultimate provides the most comprehensive protection.
+   - Premium fits testing and small apps.
+
+2. **Domain configuration**
+   - Ensure the domain is ICP-filed and resolves correctly.
+   - Confirm load-balancer config is correct.
+   - Check region/availability-zone matching.
+
+3. **Traffic mode**
+   - Use cleaning mode in production.
+   - Use mirroring mode for CDN scenarios.
+   - Confirm the mode fits business needs.
+
+4. **Elastic billing**
+   - Elastic mode scales but costs more.
+   - Fixed mode is predictable but may throttle.
+   - Choose a mode per traffic characteristics.
+
+5. **Security features**
+   - API security adds resource consumption.
+   - Bot management requires extra authorization.
+   - Confirm relevant features are purchased.
+
+6. **Log configuration**
+   - CLS incurs additional cost.
+   - Attack-log delivery needs extra config.
+   - Confirm CLS region availability and set `enable_cls_log = true`.
+
+7. **Permission verification**
+   - Confirm sufficient WAF operation permissions.
+   - Check load-balancer access permissions.
+   - Verify CLS log service permissions.
+
+8. **Network connectivity**
+   - Confirm WAF region matches the business region.
+   - Check load-balancer network config.
+   - Verify domain resolution.
+
+9. **Performance**
+   - Set a reasonable QPS limit to avoid over-provisioning.
+   - Consider peak traffic.
+   - Monitor WAF performance metrics.
+
+10. **Compliance**
+    - Ensure configuration meets security/compliance standards.
+    - Retain enough logs for auditing.
+    - Follow data-security regulations.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查WAF相关权限
-- 申请QcloudWAFFullAccess权限
-- 验证负载均衡器权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check WAF related permissions.
+- Request `QcloudWAFFullAccess`.
+- Verify load-balancer permissions.
 
-#### 错误二：地域不支持
+#### Error 2: Region not supported
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Region not available
 ```
 
-**原因**：选择的地域不支持WAF
-**解决方案**：
-- 检查地域可用性
-- 选择支持的地域
-- 联系腾讯云支持
+**Cause**: The selected region does not support WAF.
+**Solution**:
+- Check region availability.
+- Choose a supported region.
+- Contact Tencent Cloud support.
 
-#### 错误三：域名配置错误
+#### Error 3: Invalid domain configuration
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid domain configuration
 ```
 
-**原因**：域名配置参数错误
-**解决方案**：
-- 检查domain_configs格式
-- 确认负载均衡器信息正确
-- 验证地域匹配
+**Cause**: Wrong domain configuration parameter.
+**Solution**:
+- Check the `domain_configs` format.
+- Confirm load-balancer info is correct.
+- Verify region matching.
 
-#### 错误四：QPS限制过低
+#### Error 4: QPS limit too low
 
 ```
 Error: [TencentCloudSDKError] Code=LimitExceeded
 Message=QPS limit too low
 ```
 
-**原因**：QPS限制设置过低
-**解决方案**：
-- 增加qps_limit值
-- 确认弹性模式已启用
-- 联系腾讯云调整配额
+**Cause**: The QPS limit is set too low.
+**Solution**:
+- Increase the `qps_limit` value.
+- Confirm elastic mode is enabled.
+- Contact Tencent Cloud to adjust the quota.
 
-#### 错误五：负载均衡器绑定失败
+#### Error 5: Load balancer binding failed
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=LoadBalancer not found
 ```
 
-**原因**：负载均衡器不存在或权限不足
-**解决方案**：
-- 检查负载均衡器ID是否正确
-- 确认有负载均衡器访问权限
-- 验证负载均衡器状态正常
+**Cause**: The load balancer does not exist or permissions are insufficient.
+**Solution**:
+- Check the load balancer ID is correct.
+- Confirm load-balancer access permissions.
+- Verify the load balancer status is normal.
 
-#### 错误六：CLS配置错误
+#### Error 6: CLS configuration error
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=CLS configuration error
 ```
 
-**原因**：CLS日志配置错误
-**解决方案**：
-- 检查CLS地域可用性
-- 确认日志主题和日志集存在
-- 验证CLS服务权限
+**Cause**: Wrong CLS log configuration.
+**Solution**:
+- Check CLS region availability.
+- Confirm the log topic and logset exist.
+- Verify CLS service permissions and `enable_cls_log = true`.
 
-#### 错误七：版本功能未购买
+#### Error 7: Feature not purchased
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Feature not purchased
 ```
 
-**原因**：使用了未购买的功能
-**解决方案**：
-- 确认已购买相应WAF版本
-- 检查API安全或Bot管理是否已启用
-- 联系腾讯云购买所需功能
+**Cause**: An unpurchased feature is used.
+**Solution**:
+- Confirm the corresponding WAF edition is purchased.
+- Check whether API security or Bot management is enabled.
+- Contact Tencent Cloud to purchase the required feature.
+
+## License
+
+See [LICENSE](../../../../LICENSE) for full details.

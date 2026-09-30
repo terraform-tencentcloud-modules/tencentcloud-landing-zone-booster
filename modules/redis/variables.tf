@@ -1,4 +1,13 @@
 ################################################################################
+# Zone list by product
+################################################################################
+variable "zone_query_product" {
+  description = "Product name for which to query the zones."
+  type        = string
+  default     = "redis"
+}
+
+################################################################################
 ### Redis Instance Configuration
 ################################################################################
 variable "vpc_id" {
@@ -69,10 +78,10 @@ variable "redis" {
     port = optional(number, 6379)
 
     # The number of instance shards (for cluster architecture only).
-    shard_num = optional(number, 1)
+    shard_num = optional(number)
 
     # The number of instance copies.
-    replicas_num = optional(number, 1)
+    replicas_num = optional(number)
 
     # Name of replica nodes available zone, e.g. ["ap-guangzhou-3", "ap-guangzhou-4"]
     replica_zone_names = optional(list(string), [])

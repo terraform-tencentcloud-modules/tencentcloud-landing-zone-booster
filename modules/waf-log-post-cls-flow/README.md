@@ -1,62 +1,57 @@
-# tencentcloud-waf-log-post-cls-flow 模块
+# tencentcloud-waf-log-post-cls-flow module
 
-该 Terraform 模块用于将 WAF 日志（访问或攻击日志）投递到腾讯云日志服务 CLS（Cloud Log Service），基于资源 `tencentcloud_waf_log_post_cls_flow`。
+This Terraform module configures forwarding of WAF logs to Tencent Cloud CLS (Cloud Log Service) using the `tencentcloud_waf_log_post_cls_flow` resource.
 
-## 说明
+## Overview
 
-模块提供了最小化的配置（大多数参数均有默认值），你可以快速启用将 WAF 日志投递到 CLS 的能力。常见场景包括统一日志管理、审计、离线分析或告警触发。
+The module exposes a small set of optional inputs (defaults are provided) to quickly enable delivery of WAF access or attack logs to CLS. Typical use cases include centralized logging, auditing, analytics pipelines, and alerting.
 
-## 目录结构
+## Directory structure
 
-- `main.tf` — 模块主体，声明 `tencentcloud_waf_log_post_cls_flow` 资源。
-- `variables.tf` — 模块输入变量（含默认值与校验）。
-- `outputs.tf` — 模块输出（`id`、`flow_id`、`log_topic_id`、`logset_id`、`status`）。
-- `examples/` — 示例 `*.tfvars`，用于快速测试（请替换占位值和按需调整）。
-- `README.md` — 本文档（中文）。
-- `README_EN.md` — 英文文档。
+- `main.tf` — Resource declaration for `tencentcloud_waf_log_post_cls_flow`.
+- `variables.tf` — Module input variables (defaults and validation).
+- `outputs.tf` — Module outputs (`id`, `flow_id`, `log_topic_id`, `logset_id`, `status`).
+- `examples/` — Example `*.tfvars` files for quick testing.
+- `README.md` — Chinese documentation.
+- `README_EN.md` — English documentation (this file).
 
-## 输入（Variables）
+## Inputs (Variables)
 
-本模块的参数在 `variables.tf` 中定义且均为可选，提供的默认值适用于多数场景：
+All inputs in this module are optional and have sensible defaults:
 
-- `cls_region` (string, default `ap-shanghai`) — CLS 所在区域，用于投递定位。
-- `log_topic_name` (string, default `waf_post_logtopic`) — CLS 日志主题名（log topic）。
-- `log_type` (number, default `1`) — 日志类型：1 = 访问日志，2 = 攻击日志。
-- `logset_name` (string, default `waf_post_logset`) — CLS 日志集名称（logset）。
+- `cls_region` (string, default `ap-shanghai`) — CLS region to deliver logs to.
+- `log_topic_name` (string, default `waf_post_logtopic`) — CLS log topic name.
+- `log_type` (number, default `1`) — Log type: 1 = access logs, 2 = attack logs.
+- `logset_name` (string, default `waf_post_logset`) — CLS logset name.
 
-如果需要更细粒度控制（如自定义主题、不同区域），请在调用模块时覆盖这些参数。
+Override defaults when you need a specific region or when your CLS resources follow a naming convention.
 
-## 输出（Outputs）
+## Outputs
 
-- `id` — Terraform 资源 ID。
-- `flow_id` — 投递流的唯一 ID，可用于控制台查询和排查。
-- `log_topic_id` — CLS 日志主题 ID。
-- `logset_id` — CLS 日志集 ID。
-- `status` — 投递状态：0 = 关闭，1 = 启用。
+- `id` — Terraform resource id.
+- `flow_id` — Unique flow id for the CLS delivery configuration.
+- `log_topic_id` — CLS log topic id.
+- `logset_id` — CLS logset id.
+- `status` — Delivery status: 0 = off, 1 = on.
 
-## 常见示例
+## Examples
 
-示例文件位于 `examples/`，均为 `.tfvars` 文件，使用前请根据实际环境修改占位值（如 region、topic 名称等）。
+The `examples/` directory contains `.tfvars` files for common scenarios (replace placeholders with actual values where applicable):
 
-### 1) 基本（默认配置） — `examples/basic.tfvars`
-使用模块默认值将访问日志投递到默认的日志主题与日志集。
+1) Basic — `examples/basic.tfvars` (default access logs)
+2) Attack logs — `examples/attack_log.tfvars` (log_type = 2)
+3) Custom names — `examples/custom_names.tfvars` (override topic and logset names)
+4) Different region — `examples/region.tfvars` (set `cls_region` to another region)
 
-### 2) 投递攻击日志 — `examples/attack_log.tfvars`
-设置 `log_type = 2` 将攻击日志投递到 CLS。
+## Usage
 
-### 3) 自定义主题与日志集名 — `examples/custom_names.tfvars`
-自定义 `log_topic_name` 与 `logset_name`，适用于已有 CLS 命名规范的场景。
-
-### 4) 指定区域 — `examples/region.tfvars`
-将 CLS 投递目标改为其他可用区域，例如 `ap-beijing` 或 `ap-guangzhou`。
-
-## 使用示例（模块调用）
+Call the module in your root module and optionally use a `-var-file` pointing to one of the examples:
 
 ```hcl
 module "waf_cls_flow" {
   source = "../../modules/tencentcloud-waf-log-post-cls-flow"
 
-  # 可选覆盖示例
+  # optional overrides
   # cls_region    = "ap-guangzhou"
   # log_topic_name = "my_waf_topic"
   # log_type      = 2
@@ -64,7 +59,7 @@ module "waf_cls_flow" {
 }
 ```
 
-通过示例文件运行：
+Test with an example var file:
 
 ```bash
 terraform init
@@ -72,10 +67,10 @@ terraform plan -var-file=examples/basic.tfvars
 terraform apply -var-file=examples/basic.tfvars
 ```
 
-> 注意：apply 操作会在真实 CLS 中创建投递配置，请在测试环境中验证并替换占位值。
+Be cautious: applying will create real delivery configuration and may produce downstream traffic; test in non-production first.
 
-## 排查建议
+## Troubleshooting
 
-- 若未收到日志，请检查 `flow_id`、CLS 日志主题与日志集权限、网络连通性（CLS API 可达）以及 WAF 控制台中的投递状态。
-- 如果使用自定义 `log_topic_name`/`logset_name`，确保目标已创建且调用方账号有写入权限。
+- If logs are not arriving, verify `flow_id`, CLS topic/logset existence and permissions, and network reachability to CLS endpoints.
+- Ensure the `log_topic_name`/`logset_name` you provide exist and that your account has write permissions.
 

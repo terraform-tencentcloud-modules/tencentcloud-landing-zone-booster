@@ -1,54 +1,56 @@
+# tencentcloud_cfw_sync_asset module
 
-# tencentcloud_cfw_sync_asset 模块
+This Terraform module manages the CFW (Cloud Firewall) asset synchronization resource on Tencent Cloud (`tencentcloud_cfw_sync_asset`). It is a lightweight wrapper around the provider resource that triggers a synchronization of cloud assets into the Cloud Firewall.
 
-本 Terraform 模块用于通过腾讯云 Provider 管理 CFW（云防火墙）资源同步（资源：`tencentcloud_cfw_sync_asset`）。该模块封装了最小必要的参数，便于在工程中复用。
+## Overview
 
-## 说明
+It creates the `tencentcloud_cfw_sync_asset` resource. This resource takes no arguments and exposes no attributes — applying it synchronizes assets (e.g. VPC, subnet, CVM, ENI, etc.) into the Cloud Firewall. The module does not require any input variables and does not export any outputs.
 
-模块会创建/管理资源 `tencentcloud_cfw_sync_asset`。
+## Directory structure
 
-在对模块进行改动（例如新增变量、变更输出或增加示例）时，请同时更新相应的 `variables.tf` / `outputs.tf` 与文档，以保持一致性。
+Common files in this module and their purpose:
 
-## 目录结构
+- `main.tf` — Module entry, declares the `tencentcloud_cfw_sync_asset` resource.
+- `variables.tf` — Input variable definitions (empty for this module; no inputs are required).
+- `outputs.tf` — Exported outputs (empty for this module; no outputs are exposed).
+- `versions.tf` — Provider and Terraform version constraints (if present).
+- `README.md` — Chinese README for the module.
+- `README_EN.md` — English README for the module (this file).
 
-模块目录下常见文件与用途：
+When you change the module (add variables, outputs, or examples), please update `variables.tf` / `outputs.tf` and these READMEs accordingly to keep documentation in sync.
 
-- `main.tf` — 模块主体，声明 `tencentcloud_cfw_vpc_firewall_switch` 资源。
-- `variables.tf` — 模块输入变量定义与说明（类型、校验等）。
-- `outputs.tf` — 模块导出输出（例如资源 `id`）。
-- `versions.tf` — provider 与 Terraform 版本约束（如存在）。
-- `examples/` — 示例调用与变量文件（`.tfvars`），演示常见使用场景。
-- `README.md` — 中文文档（本文件）。
-- `README_EN.md` — 英文文档。
+## Variables
 
-## 变量（Variables）
+This module does not require any input variables. `variables.tf` is intentionally empty.
 
-## 输出（Outputs）
+Example usage:
 
-## 常见用例（示例文件在 `examples/` 目录下）
+```hcl
+module "cfw_sync_asset" {
+  source = "../../modules/tencentcloud-cfw-sync-asset"
+}
+```
 
-1. 开启防火墙开关（启用） — `examples/enable.tfvars`
-2. 关闭防火墙开关（停用） — `examples/disable.tfvars`
-3. 带占位符的自定义示例 — `examples/example_custom.tfvars`
+## Outputs
 
-每个示例都是一个 `.tfvars` 文件，方便在 `terraform plan/apply` 时传入 `-var-file` 参数进行验证与执行。
+This module does not export any outputs. `outputs.tf` is intentionally empty.
 
-## 使用与本地验证
+## Examples (in `examples/`)
 
-1. 在调用目录中创建 `main.tf` 并引用本模块（参见上方示例）。
-2. 运行：
+This module does not ship example `.tfvars` files. To use it, simply declare the module in your configuration as shown above.
+
+## Local testing
+
+1. Add a `main.tf` in the caller directory referencing this module.
+2. Run:
 
 ```bash
 terraform init
-terraform plan -var-file=examples/enable.tfvars
-terraform apply -var-file=examples/enable.tfvars
+terraform plan
+terraform apply
 ```
 
-注意事项：
+Notes:
 
-- `switch_id` 与 `vpc_ins_id` 在模块定义中属于强制重新创建（ForceNew），若需要修改请先确认是否允许替换资源。
-- 请确保使用的 Tencent Cloud 账户/凭证拥有对防火墙实例管理的权限。
-
-## 贡献与维护
-
-若需要添加更多输出或参数（例如导出更多属性、增加可选项），请修改 `variables.tf` / `outputs.tf` 并同步更新本 README。
+- `tencentcloud_cfw_sync_asset` takes no arguments; `terraform apply` synchronizes the assets into the Cloud Firewall.
+- Ensure your Tencent Cloud credentials have permissions to manage the Cloud Firewall and read the related asset information.

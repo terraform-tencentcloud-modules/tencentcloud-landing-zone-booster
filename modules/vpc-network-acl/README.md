@@ -1,98 +1,87 @@
-# TencentCloud VPC Module for Terraform
+# terraform-tencentcloud-vpc-network-acl
 
-## terraform-tencentcloud-vpc
-
-A terraform module used to create TencentCloud VPC, subnet and route entry.
+Terraform module which creates a **VPC Network ACL (Access Control List)** on an existing TencentCloud VPC.
 
 The following resources are included.
 
-* [VPC](https://www.terraform.io/docs/providers/tencentcloud/r/vpc.html)
-* [VPC Subnet](https://www.terraform.io/docs/providers/tencentcloud/r/subnet.html)
-* [VPC Route Entry](https://www.terraform.io/docs/providers/tencentcloud/r/route_table_entry.html)
+* [VPC Network ACL](https://registry.terraform.io/providers/tencentcloudstack/tencentcloud/latest/docs/resources/vpc_acl)
+
+A Network ACL is a stateless traffic filtering layer for a VPC subnet. This module creates a single `tencentcloud_vpc_acl` and supports both ingress and egress rule sets. The target VPC can be specified directly via `vpc_id`, or looked up by name via the `tencentcloud_vpc_instances` data source using `vpc_name` (when `vpc_id` is not provided).
 
 ## Usage
 
 ```hcl
-resource "tencentcloud_security_group" "example" {
-  name        = "tf-example"
-  description = "sg test"
-  project_id  = 0
+module "vpc_network_acl" {
+  source = "git::https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-vpc-network-acl.git"
 
-  tags = {
+  # Identify the target VPC: either by ID ...
+  vpc_id = "vpc-xxxxxxxx"
+
+  # ... or by name (the first matched VPC is used when vpc_id is null)
+  # vpc_name = "my-vpc"
+
+  network_acl_name = "example-acl"
+
+  network_acl_ingress = [
+    "ACCEPT#10.0.0.0/24#80#TCP#ALLOW_WEB",
+    "DROP#0.0.0.0/0#ALL#ALL#DROP_ALL"
+  ]
+
+  network_acl_egress = [
+    "ACCEPT#0.0.0.0/0#ALL#ALL#ALLOW_ALL"
+  ]
+
+  network_acl_tags = {
     "createdBy" = "Terraform"
   }
 }
 ```
 
-## Conditional Creation
+## Rule Format
 
-This module can create VPC and VPC Subnet.
-It is possible to use existing VPC when specify `vpc_id` parameter.
+Each ingress/egress rule is a string of the following format:
+
+```
+[action]#[cidr_ip]#[port]#[protocol]#[description]
+```
+
+| Field | Description |
+|-------|-------------|
+| action | `ACCEPT` or `DROP`. |
+| cidr_ip | An IP address, network, or CIDR segment (e.g. `10.0.0.0/24`, `0.0.0.0/0`). |
+| port | A single port (e.g. `80`), a port range (e.g. `80-90`), or `ALL`. |
+| protocol | `TCP`, `UDP`, `ICMP`, or `ALL`. When `protocol` is `ICMP` or `ALL`, `port` must be `ALL`. |
+| description | Free-text description; must be in uppercase. |
 
 ## Inputs
 
-| Name                          | Description                                                                                                                                                    |     Type     |    Default    | Required |
-|-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------:|:-------------:|:--------:|
-| tags                          | A map of tags to add to all resources.                                                                                                                         | map(string)  |      {}       |    no    |
-| cpu_core_count                | CPU core count used to query supported available zones.                                                                                                        |    number    |       1       |    no    |
-| memory_size                   | Memory size used to query supported available zones.                                                                                                           |    number    |       2       |    no    |
-| gpu_core_count                | GPU core count used to query supported available zones.                                                                                                        |    number    |       0       |    no    |
-| create_vpc                    | -                                                                                                                                                              |     bool     |     true      |    no    |
-| vpc_id                        | The vpc id used to launch resources.                                                                                                                           |    string    |      ""       |    no    |
-| vpc_name                      | The vpc name used to launch a new vpc when 'vpc_id' is not specified.                                                                                          |    string    |    my-vpc     |    no    |
-| vpc_cidr                      | The cidr block used to launch a new vpc when 'vpc_id' is not specified.                                                                                        |    string    | 172.16.0.0/16 |    no    |
-| vpc_is_multicast              | Specify the vpc is multicast when 'vpc_id' is not specified.                                                                                                   |     bool     |     true      |    no    |
-| vpc_dns_servers               | Specify the vpc dns servers when 'vpc_id' is not specified.                                                                                                    | list(string) |      []       |    no    |
-| vpc_tags                      | Additional tags for the vpc.                                                                                                                                   | map(string)  |      {}       |    no    |
-| subnet_name                   | Specify the subnet name when 'vpc_id' is not specified.                                                                                                        |    string    |    subnet     |    no    |
-| subnet_cidrs                  | Specify the subnet cidr blocks when 'vpc_id' is not specified.                                                                                                 | list(string) |      []       |    no    |
-| subnet_is_multicast           | Specify the subnet is multicast when 'vpc_id' is not specified.                                                                                                |     bool     |     true      |    no    |
-| subnet_tags                   | Additional tags for the subnet.                                                                                                                                | map(string)  |      {}       |    no    |
-| availability_zones            | List of available zones to launch resources.                                                                                                                   | list(string) |      []       |    no    |
-| create_route_table            | -                                                                                                                                                              |     bool     |     true      |    no    |
-| route_table_id                | The route table id of router table in the specified vpc.                                                                                                       |    string    |      ""       |    no    |
-| destination_cidrs             | List of destination CIDR blocks of router table in the specified VPC.                                                                                          | list(string) |      []       |    no    |
-| next_type                     | List of next hop types of router table in the specified vpc.                                                                                                   | list(string) |      []       |    no    |
-| next_hub                      | List of next hop gateway id of router table in the specified vpc.                                                                                              | list(string) |      []       |    no    |
-| route_table_tags              | Additional tags for the route table.                                                                                                                           | map(string)  |      {}       |    no    |
-| enable_vpn_gateway            | Create a new VPN Gateway resource and attach it to the VPC                                                                                                     |     bool     |     false     |    no    |
-| vpn_gateway_bandwidth         | bandwidth of VPN Gateway                                                                                                                                       |    number    |       5       |    no    |
-| vpn_gateway_max_connection    | Maximum number of connected clients allowed for the SSL VPN gateway. Valid values: [5, 10, 20, 50, 100]. This parameter is only required for SSL VPN gateways. |    number    |       5       |    no    |
-| vpn_gateway_type              | Type of VPN gateway. Valid value: IPSEC, SSL and CCN.                                                                                                          |    string    |     IPSEC     |    no    |
-| vpn_gateway_availability_zone | The Availability Zone for the VPN Gateway                                                                                                                      |    string    |      ""       |    no    |
-| vpn_gateway_tags              | Additional tags for the VPN gateway                                                                                                                            | map(string)  |      {}       |    no    |
-| manage_network_acl            | Should be true to adopt and manage Network ACL for subnets                                                                                                     |     bool     |     false     |    no    |
-| network_acl_name              | Name to be used on Network ACL                                                                                                                                 |    string    |     null      |    no    |
-| network_acl_tags              | Additional tags for the Network ACL                                                                                                                            | map(string)  |      {}       |    no    |
-| network_acl_ingress           | List of strings of ingress rules to set on the Network ACL, eg: `ACCEPT#0.0.0.0/0#ALL#ALL`                                                                     | list(string) |     null      |    no    |
-| network_acl_egress            | List of strings of egress rules to set on the Network ACL, eg: `ACCEPT#0.0.0.0/0#ALL#ALL`                                                                      | list(string) |     null      |    no    |
-| enable_nat_gateway            | Should be true if you want to provision NAT Gateways for vpc.                                                                                                  |     bool     |     false     |    no    |
-| nat_gateway_bandwidth         | bandwidth of NAT Gateway                                                                                                                                       |    number    |      100      |    no    |
-| nat_gateway_concurrent        | concurrency of NAT Gateway                                                                                                                                     |    number    |    1000000    |    no    |
-| nat_gateway_tags              | Additional tags for the NAT gateway                                                                                                                            | map(string)  |      {}       |    no    |
-| nat_public_ips                | List of EIPs to be used for `nat_gateway`, will create an new EIP if not set.                                                                                  | list(string) |      []       |    no    |
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| vpc_id | The ID of the VPC on which the Network ACL will be created. | string | null | no |
+| vpc_name | The name of the VPC to look up (used only when `vpc_id` is null). The first matched VPC is selected. | string | null | no |
+| network_acl_name | The name of the Network ACL. | string | n/a | yes |
+| network_acl_ingress | Ingress rules. See [Rule Format](#rule-format). | list(string) | [] | no |
+| network_acl_egress | Egress rules. See [Rule Format](#rule-format). | list(string) | [] | no |
+| network_acl_tags | Additional tags for the Network ACL. | map(string) | null | no |
+
+> Either `vpc_id` or `vpc_name` must be provided so that a target VPC can be resolved.
 
 ## Outputs
 
-| Name                          | Description                              |
-|-------------------------------|------------------------------------------|
-| vpc_id                        | The id of vpc.                           |
-| subnet_id                     | The ids of subnet.                       |
-| route_table_id                | The id of route table.                   |
-| route_entry_id                | The ids of route table entry.            |
-| availability_zones            | The availability zones of instance type. |
-| tags                          | The tags of vpc.                         |
-| vpn_gateway_id                | The ID of the VPN Gateway                |
-| vpn_gateway_public_ip_address | The public ip address of the VPN Gateway |
-| network_acl_id                | The ID of the network ACL                |
-| nat_gateway_id                | The ID of the NAT Gateway                |
-| nat_public_ips                | The EIPs of the NAT Gateway              |
+No outputs.
 
 ## Authors
 
-Created and maintained by [TencentCloud](https://github.com/terraform-providers/terraform-provider-tencentcloud)
+Created and maintained by [TencentCloud](https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-vpc-network-acl)
 
 ## License
 
 Mozilla Public License Version 2.0.
 See LICENSE for full details.
+
+## Requirements
+
+| Name | Version |
+|------|---------|
+| terraform | >= 0.12 |
+| tencentcloud | > 1.18.1 |

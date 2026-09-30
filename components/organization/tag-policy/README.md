@@ -1,404 +1,414 @@
-# 腾讯云标签策略管理模块
+# Tencent Cloud Organization Tag Policy Component
 
-## 模块概述
+Terraform component under `components/organization/tag-policy` for centrally managing Organization-level tag policies — creating unified tag governance policies and enforcing them across the Organization — as part of the `organization` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中统一管理组织级别的标签策略，实现标签规范的自动化管理和强制执行，主要功能包括：
+## Overview
 
-- **标签策略创建** - 创建统一的标签管理策略
-- **多目标绑定** - 支持部门和成员级别的策略绑定
-- **自动映射** - 自动处理名称到ID的映射关系
-- **策略启用** - 自动启用标签策略功能
-- **批量管理** - 支持批量创建和管理多个策略
-- **灵活配置** - 支持多种配置方式满足不同场景需求
-- **依赖处理** - 自动处理策略间的依赖关系
-- **统一管控** - 实现组织内标签规范的统一管理
+This component creates and manages Organization-level tag policies, enabling automated governance and enforcement of tag conventions. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudOrganizationFullAccess` | 组织管理全权限 |
-| `QcloudCamFullAccess` | 访问管理全权限 |
-| `QcloudTagFullAccess` | 标签管理全权限 |
-| `QcloudFinanceFullAccess` | 财务管理全权限 |
-
-### 其他要求
-
-- 需要了解腾讯云组织架构和标签策略规范
-- 需要规划好标签策略的管控范围
-- 需要确定策略绑定目标和级别
-- 需要准备标签策略文件内容
-- 需要了解策略的生效机制
-- 需要收集目标ID或准确名称
+- **Tag policy creation** – create unified tag management policies.
+- **Multi-target binding** – bind policies at department (node) and member level.
+- **Automatic mapping** – automatically resolve name → ID mapping.
+- **Policy enablement** – automatically enable the tag policy feature.
+- **Batch management** – create and manage multiple policies in one batch.
+- **Flexible configuration** – multiple configuration styles for different scenarios.
+- **Dependency handling** – policy dependencies are handled automatically.
+- **Unified governance** – centrally govern tag conventions across the Organization.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 主要配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `organization_id` | `string` | 是 | - | 组织ID |
-| `org_tag_policies` | `list(object)` | 是 | - | 标签策略配置列表 |
+## Providers
 
-### 标签策略对象字段说明
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.125 |
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `name` | `string` | 是 | - | 策略名称（1-128字符，支持中文、英文、数字、下划线） |
-| `path` | `string` | 是 | - | 策略文件路径 |
-| `description` | `string` | 否 | `null` | 策略描述 |
-| `targets` | `list(object)` | 是 | - | 策略绑定目标列表 |
+### IAM Permissions
 
-### 目标对象字段说明
+The executing principal needs the following Tencent Cloud permissions:
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `target_id` | `number` | 条件 | `null` | 目标ID（部门ID或成员UIN，与target_name二选一） |
-| `target_name` | `string` | 条件 | `null` | 目标名称（部门名称或成员名称，与target_id二选一） |
-| `target_type` | `string` | 是 | - | 目标类型：`NODE`-部门，`MEMBER`-成员 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudOrganizationFullAccess` | Full access to Organization management |
+| `QcloudCamFullAccess` | Full access to CAM (access management) |
+| `QcloudTagFullAccess` | Full access to Tag management |
+| `QcloudFinanceFullAccess` | Full access to finance management |
 
-### 目标类型说明
+### Prerequisites
 
-| 目标类型 | 说明 | 适用场景 | 管理范围 |
-|----------|------|----------|----------|
-| **NODE** | 部门级别 | 整个部门统一标签规范 | 部门下所有成员和资源 |
-| **MEMBER** | 成员级别 | 特定成员标签规范 | 指定成员的所有资源 |
+- Understand the Organization structure and tag policy conventions.
+- Plan the governance scope of tag policies.
+- Decide the binding targets and levels (node/member).
+- Prepare the tag policy file contents.
+- Understand how policies take effect.
+- Collect target IDs or exact names.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_organization_id"></a> [organization\_id](#input\_organization\_id) | `string` | yes | – | Organization ID. |
+| <a name="input_org_tag_policies"></a> [org\_tag\_policies](#input\_org\_tag\_policies) | `list(object)` | yes | – | Organization tag policy configuration list. |
+
+### `org_tag_policies` object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `string` | yes | – | Policy name (1–128 chars, supports Chinese, English, digits, and underscores). |
+| `path` | `string` | yes | – | Policy file path. |
+| `description` | `string` | no | `null` | Policy description. |
+| `targets` | `list(object)` | yes | – | Policy binding target list. |
+
+### `targets` object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `target_id` | `number` | conditional | `null` | Binding target ID (department ID or member UIN). Set one of `target_id` / `target_name`. |
+| `target_name` | `string` | conditional | `null` | Binding target name (department name or member name). Set one of `target_id` / `target_name`. |
+| `target_type` | `string` | yes | – | Target type. `NODE` = department; `MEMBER` = member. |
+
+> Exactly one of `target_id` and `target_name` must be provided; do not set both or neither.
+
+### Target types
+
+| Target type | Description | Scenario | Management scope |
+|-------------|-------------|----------|------------------|
+| **NODE** | Department level | Unified tag convention for an entire department | All members and resources under the department |
+| **MEMBER** | Member level | Tag convention for a specific member | All resources of the specified member |
+
+### Outputs
+
+This component declares **no outputs** (the policies and bindings are managed entirely via the inputs above).
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` – basic
 
 ```hcl
-# 组织ID配置
+# Organization ID configuration
 organization_id = "org-123456789"
 
-# 部门级别标签策略配置
+# Department-level tag policy configuration
 org_tag_policies = [
-  # 开发部门标签策略
+  # Development department tag policy
   {
     name        = "dev-department-tag-policy"
     path        = "./policies/dev-tags.json"
-    description = "开发部门统一标签规范"
+    description = "Unified tag convention for the development department"
     targets = [
       {
-        target_name = "开发部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Development"  # department name
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "测试部"           # 部门名称  
-        target_type = "NODE"            # 部门级别
+        target_name = "QA"           # department name
+        target_type = "NODE"         # department level
       }
     ]
   },
-  
-  # 生产环境标签策略
+
+  # Production environment tag policy
   {
     name        = "prod-environment-tag-policy"
     path        = "./policies/prod-tags.json"
-    description = "生产环境资源标签规范"
+    description = "Resource tag convention for the production environment"
     targets = [
       {
-        target_name = "生产部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Production"   # department name
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "运维部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Ops"          # department name
+        target_type = "NODE"         # department level
       }
     ]
   },
-  
-  # 财务相关标签策略
+
+  # Finance-related tag policy
   {
     name        = "finance-tag-policy"
     path        = "./policies/finance-tags.json"
-    description = "财务成本中心标签规范"
+    description = "Cost-center tag convention for finance"
     targets = [
       {
-        target_name = "财务部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Finance"      # department name
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "采购部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Procurement"  # department name
+        target_type = "NODE"         # department level
       }
     ]
   }
 ]
 ```
 
-### 混合目标类型配置示例
+### Mixed target types
 
 ```hcl
-# 组织ID配置
+# Organization ID configuration
 organization_id = "org-987654321"
 
-# 混合部门和个人级别的标签策略
+# Mix department- and member-level tag policies
 org_tag_policies = [
-  # 技术团队统一标签策略
+  # Tech team unified tag policy
   {
     name        = "tech-team-tag-policy"
     path        = "./policies/tech-tags.json"
-    description = "技术团队资源标签规范"
+    description = "Resource tag convention for the tech team"
     targets = [
       {
-        target_name = "技术中心"         # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Tech Center"      # department name
+        target_type = "NODE"             # department level
       },
       {
-        target_name = "研发部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "R&D"              # department name
+        target_type = "NODE"             # department level
       },
       {
-        target_name = "架构师团队"        # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Architecture"     # department name
+        target_type = "NODE"             # department level
       }
     ]
   },
-  
-  # 关键人员特殊标签策略
+
+  # Key personnel special tag policy
   {
     name        = "key-personnel-tag-policy"
     path        = "./policies/key-personnel-tags.json"
-    description = "关键人员资源标签规范"
+    description = "Resource tag convention for key personnel"
     targets = [
       {
-        target_name = "技术总监"         # 成员名称
-        target_type = "MEMBER"           # 成员级别
+        target_name = "Tech Director"    # member name
+        target_type = "MEMBER"           # member level
       },
       {
-        target_name = "安全负责人"        # 成员名称
-        target_type = "MEMBER"           # 成员级别
+        target_name = "Security Lead"     # member name
+        target_type = "MEMBER"           # member level
       },
       {
-        target_name = "财务总监"         # 成员名称
-        target_type = "MEMBER"           # 成员级别
+        target_name = "Finance Director" # member name
+        target_type = "MEMBER"           # member level
       }
     ]
   },
-  
-  # 合规审计标签策略
+
+  # Compliance & audit tag policy
   {
     name        = "compliance-tag-policy"
     path        = "./policies/compliance-tags.json"
-    description = "合规审计标签规范"
+    description = "Compliance & audit tag convention"
     targets = [
       {
-        target_name = "合规部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Compliance"       # department name
+        target_type = "NODE"             # department level
       },
       {
-        target_name = "审计专员"         # 成员名称
-        target_type = "MEMBER"           # 成员级别
+        target_name = "Audit Specialist" # member name
+        target_type = "MEMBER"           # member level
       },
       {
-        target_name = "风险控制"         # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Risk Control"     # department name
+        target_type = "NODE"             # department level
       }
     ]
   }
 ]
 ```
 
-### 使用目标ID配置示例
+### Using target IDs
 
 ```hcl
-# 组织ID配置
+# Organization ID configuration
 organization_id = "org-555555555"
 
-# 使用目标ID进行精确配置
+# Use target IDs for precise configuration
 org_tag_policies = [
-  # 开发环境标签策略
+  # Development environment tag policy
   {
     name        = "dev-env-tag-policy"
     path        = "./policies/dev-env-tags.json"
-    description = "开发环境资源标签规范"
+    description = "Resource tag convention for the dev environment"
     targets = [
       {
-        target_id   = 1001              # 开发部ID
-        target_type = "NODE"            # 部门级别
+        target_id   = 1001   # development dept ID
+        target_type = "NODE" # department level
       },
       {
-        target_id   = 1002              # 测试部ID
-        target_type = "NODE"            # 部门级别
+        target_id   = 1002   # test dept ID
+        target_type = "NODE" # department level
       },
       {
-        target_id   = 1003              # 预发布部ID
-        target_type = "NODE"            # 部门级别
+        target_id   = 1003   # pre-release dept ID
+        target_type = "NODE" # department level
       }
     ]
   },
-  
-  # 生产环境标签策略
+
+  # Production environment tag policy
   {
     name        = "prod-env-tag-policy"
     path        = "./policies/prod-env-tags.json"
-    description = "生产环境资源标签规范"
+    description = "Resource tag convention for production"
     targets = [
       {
-        target_id   = 2001              # 生产部ID
-        target_type = "NODE"            # 部门级别
+        target_id   = 2001   # production dept ID
+        target_type = "NODE" # department level
       },
       {
-        target_id   = 2002              # 运维部ID
-        target_type = "NODE"            # 部门级别
+        target_id   = 2002   # ops dept ID
+        target_type = "NODE" # department level
       },
       {
-        target_id   = 2003              # 监控部ID
-        target_type = "NODE"            # 部门级别
+        target_id   = 2003   # monitoring dept ID
+        target_type = "NODE" # department level
       }
     ]
   },
-  
-  # 管理人员标签策略
+
+  # Management tag policy
   {
     name        = "management-tag-policy"
     path        = "./policies/management-tags.json"
-    description = "管理人员资源标签规范"
+    description = "Resource tag convention for management"
     targets = [
       {
-        target_id   = 3001              # 技术总监UIN
-        target_type = "MEMBER"          # 成员级别
+        target_id   = 3001   # tech director UIN
+        target_type = "MEMBER" # member level
       },
       {
-        target_id   = 3002              # 产品总监UIN
-        target_type = "MEMBER"          # 成员级别
+        target_id   = 3002   # product director UIN
+        target_type = "MEMBER" # member level
       },
       {
-        target_id   = 3003              # 运营总监UIN
-        target_type = "MEMBER"          # 成员级别
+        target_id   = 3003   # operations director UIN
+        target_type = "MEMBER" # member level
       }
     ]
   }
 ]
 ```
 
-### 企业级标签策略配置
+### Enterprise-grade tag policy
 
 ```hcl
-# 组织ID配置
+# Organization ID configuration
 organization_id = "org-999999999"
 
-# 企业级精细化标签策略管理
+# Enterprise-grade fine-grained tag policy management
 org_tag_policies = [
-  # 成本中心标签策略
+  # Cost-center tag policy
   {
     name        = "cost-center-tag-policy"
     path        = "./policies/cost-center-tags.json"
-    description = "成本中心资源标签规范"
+    description = "Cost-center resource tag convention"
     targets = [
       {
-        target_name = "财务中心"         # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Finance Center"   # department name
+        target_type = "NODE"             # department level
       },
       {
-        target_name = "采购中心"         # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Procurement Center" # department name
+        target_type = "NODE"             # department level
       },
       {
-        target_name = "预算管理"         # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Budget Management" # department name
+        target_type = "NODE"             # department level
       }
     ]
   },
-  
-  # 项目组标签策略
+
+  # Project team tag policy
   {
     name        = "project-team-tag-policy"
     path        = "./policies/project-team-tags.json"
-    description = "项目组资源标签规范"
+    description = "Project team resource tag convention"
     targets = [
       {
-        target_name = "项目A组"          # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Project A"     # department name
+        target_type = "NODE"          # department level
       },
       {
-        target_name = "项目B组"          # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Project B"     # department name
+        target_type = "NODE"          # department level
       },
       {
-        target_name = "项目C组"          # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Project C"     # department name
+        target_type = "NODE"          # department level
       }
     ]
   },
-  
-  # 环境标签策略
+
+  # Environment tag policy
   {
     name        = "environment-tag-policy"
     path        = "./policies/environment-tags.json"
-    description = "环境资源标签规范"
+    description = "Environment resource tag convention"
     targets = [
       {
-        target_name = "开发环境"         # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Dev Environment"   # department name
+        target_type = "NODE"              # department level
       },
       {
-        target_name = "测试环境"         # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Test Environment"  # department name
+        target_type = "NODE"              # department level
       },
       {
-        target_name = "生产环境"         # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Prod Environment"  # department name
+        target_type = "NODE"              # department level
       }
     ]
   },
-  
-  # 合规审计标签策略
+
+  # Compliance & audit tag policy
   {
     name        = "compliance-audit-tag-policy"
     path        = "./policies/compliance-audit-tags.json"
-    description = "合规审计标签规范"
+    description = "Compliance & audit tag convention"
     targets = [
       {
-        target_name = "合规部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Compliance"    # department name
+        target_type = "NODE"          # department level
       },
       {
-        target_name = "审计部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Audit"         # department name
+        target_type = "NODE"          # department level
       },
       {
-        target_name = "风控部"           # 部门名称
-        target_type = "NODE"            # 部门级别
+        target_name = "Risk Control"  # department name
+        target_type = "NODE"          # department level
       }
     ]
   },
-  
-  # 管理人员标签策略
+
+  # Executive tag policy
   {
     name        = "executive-tag-policy"
     path        = "./policies/executive-tags.json"
-    description = "管理人员资源标签规范"
+    description = "Executive resource tag convention"
     targets = [
       {
-        target_name = "CEO"             # 成员名称
-        target_type = "MEMBER"          # 成员级别
+        target_name = "CEO"   # member name
+        target_type = "MEMBER" # member level
       },
       {
-        target_name = "CTO"             # 成员名称
-        target_type = "MEMBER"          # 成员级别
+        target_name = "CTO"   # member name
+        target_type = "MEMBER" # member level
       },
       {
-        target_name = "CFO"             # 成员名称
-        target_type = "MEMBER"          # 成员级别
+        target_name = "CFO"   # member name
+        target_type = "MEMBER" # member level
       }
     ]
   }
@@ -407,212 +417,212 @@ org_tag_policies = [
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：部门级别标签策略
+### Example 1: Department-level tag policy
 
 ```hcl
-# 部门统一标签策略配置
+# Department-wide tag policy configuration
 org_tag_policies = [
-  # 技术部门标签规范
+  # Technology department tag convention
   {
     name        = "technology-department-tags"
     path        = "./policies/tech-dept-tags.json"
-    description = "技术部门资源标签统一规范"
+    description = "Unified resource tag convention for the technology department"
     targets = [
       {
-        target_name = "研发中心"         # 研发部门
-        target_type = "NODE"            # 部门级别
+        target_name = "R&D Center"   # R&D department
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "质量保障"         # 测试部门
-        target_type = "NODE"            # 部门级别
+        target_name = "QA"           # test department
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "技术支持"         # 运维部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Tech Support" # ops department
+        target_type = "NODE"         # department level
       }
     ]
   },
-  
-  # 业务部门标签规范
+
+  # Business department tag convention
   {
     name        = "business-department-tags"
     path        = "./policies/business-dept-tags.json"
-    description = "业务部门资源标签统一规范"
+    description = "Unified resource tag convention for business departments"
     targets = [
       {
-        target_name = "销售部"           # 销售部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Sales"        # sales department
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "市场部"           # 市场部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Marketing"    # marketing department
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "客户成功"         # 客户服务部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Customer Success" # customer service department
+        target_type = "NODE"         # department level
       }
     ]
   },
-  
-  # 支持部门标签规范
+
+  # Support department tag convention
   {
     name        = "support-department-tags"
     path        = "./policies/support-dept-tags.json"
-    description = "支持部门资源标签统一规范"
+    description = "Unified resource tag convention for support departments"
     targets = [
       {
-        target_name = "人力资源"         # HR部门
-        target_type = "NODE"            # 部门级别
+        target_name = "HR"           # HR department
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "行政后勤"         # 行政部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Admin"        # admin department
+        target_type = "NODE"         # department level
       },
       {
-        target_name = "IT支持"          # IT支持部门
-        target_type = "NODE"            # 部门级别
+        target_name = "IT Support"   # IT support department
+        target_type = "NODE"         # department level
       }
     ]
   }
 ]
 ```
 
-### 示例二：成员级别标签策略
+### Example 2: Member-level tag policy
 
 ```hcl
-# 成员个人标签策略配置
+# Per-member tag policy configuration
 org_tag_policies = [
-  # 开发人员标签规范
+  # Developer tag convention
   {
     name        = "developer-tags"
     path        = "./policies/developer-tags.json"
-    description = "开发人员资源标签规范"
+    description = "Resource tag convention for developers"
     targets = [
       {
-        target_name = "张三"             # 后端开发
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Zhang San"    # backend developer
+        target_type = "MEMBER"       # member level
       },
       {
-        target_name = "李四"             # 前端开发
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Li Si"        # frontend developer
+        target_type = "MEMBER"       # member level
       },
       {
-        target_name = "王五"             # 全栈开发
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Wang Wu"      # full-stack developer
+        target_type = "MEMBER"       # member level
       }
     ]
   },
-  
-  # 运维人员标签规范
+
+  # Operations tag convention
   {
     name        = "operations-tags"
     path        = "./policies/operations-tags.json"
-    description = "运维人员资源标签规范"
+    description = "Resource tag convention for operations staff"
     targets = [
       {
-        target_name = "赵六"             # 系统运维
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Zhao Liu"     # systems ops
+        target_type = "MEMBER"       # member level
       },
       {
-        target_name = "钱七"             # 网络运维
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Qian Qi"      # network ops
+        target_type = "MEMBER"       # member level
       },
       {
-        target_name = "孙八"             # 安全运维
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Sun Ba"       # security ops
+        target_type = "MEMBER"       # member level
       }
     ]
   },
-  
-  # 管理人员标签规范
+
+  # Management tag convention
   {
     name        = "management-tags"
     path        = "./policies/management-tags.json"
-    description = "管理人员资源标签规范"
+    description = "Resource tag convention for management"
     targets = [
       {
-        target_name = "周九"             # 技术总监
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Zhou Jiu"     # tech director
+        target_type = "MEMBER"       # member level
       },
       {
-        target_name = "吴十"             # 产品总监
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Wu Shi"       # product director
+        target_type = "MEMBER"       # member level
       },
       {
-        target_name = "郑十一"           # 运营总监
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Zheng Shiyi"  # operations director
+        target_type = "MEMBER"       # member level
       }
     ]
   }
 ]
 ```
 
-### 示例三：混合级别标签策略
+### Example 3: Mixed-level tag policy
 
 ```hcl
-# 混合部门和成员级别的标签策略
+# Mix department- and member-level tag policies
 org_tag_policies = [
-  # 项目组级别标签规范
+  # Project group tag convention
   {
     name        = "project-group-tags"
     path        = "./policies/project-group-tags.json"
-    description = "项目组资源标签规范"
+    description = "Resource tag convention for project groups"
     targets = [
       {
-        target_name = "电商项目组"        # 项目部门
-        target_type = "NODE"            # 部门级别
+        target_name = "E-commerce Project"  # project department
+        target_type = "NODE"                # department level
       },
       {
-        target_name = "金融项目组"        # 项目部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Finance Project"     # project department
+        target_type = "NODE"                # department level
       },
       {
-        target_name = "教育项目组"        # 项目部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Education Project"   # project department
+        target_type = "NODE"                # department level
       }
     ]
   },
-  
-  # 环境级别标签规范
+
+  # Environment tag convention
   {
     name        = "environment-tags"
     path        = "./policies/environment-tags.json"
-    description = "环境资源标签规范"
+    description = "Resource tag convention for environments"
     targets = [
       {
-        target_name = "开发环境组"        # 环境部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Dev Environment Group"  # environment department
+        target_type = "NODE"                   # department level
       },
       {
-        target_name = "测试环境组"        # 环境部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Test Environment Group" # environment department
+        target_type = "NODE"                   # department level
       },
       {
-        target_name = "生产环境组"        # 环境部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Prod Environment Group" # environment department
+        target_type = "NODE"                   # department level
       }
     ]
   },
-  
-  # 关键人员标签规范
+
+  # Key personnel tag convention
   {
     name        = "key-personnel-tags"
     path        = "./policies/key-personnel-tags.json"
-    description = "关键人员资源标签规范"
+    description = "Resource tag convention for key personnel"
     targets = [
       {
-        target_name = "架构师团队"        # 架构部门
-        target_type = "NODE"            # 部门级别
+        target_name = "Architecture Team"  # architecture department
+        target_type = "NODE"               # department level
       },
       {
-        target_name = "首席架构师"        # 关键人员
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Chief Architect"    # key person
+        target_type = "MEMBER"            # member level
       },
       {
-        target_name = "安全专家"         # 关键人员
-        target_type = "MEMBER"          # 成员级别
+        target_name = "Security Expert"    # key person
+        target_type = "MEMBER"            # member level
       }
     ]
   }
@@ -621,44 +631,44 @@ org_tag_policies = [
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 目标识别方式
+### Target identification
 
-模块支持两种目标识别方式：
+The module supports two identification methods:
 
-1. **通过目标名称识别**
-   - 使用`target_name`字段指定目标名称
-   - 模块自动查询并映射到对应的目标ID
-   - 适合名称已知但ID未知的场景
-   - 需要确保目标名称在组织中唯一
+1. **By target name**
+   - Use `target_name` to specify the target name.
+   - The module queries and maps it to the corresponding target ID automatically.
+   - Suitable when the name is known but the ID is not.
+   - The target name must be unique in the Organization.
 
-2. **通过目标ID识别**
-   - 使用`target_id`字段指定目标ID
-   - 直接使用指定的ID进行绑定
-   - 适合ID已知且需要精确控制的场景
-   - 需要确保ID正确且目标存在
+2. **By target ID**
+   - Use `target_id` to specify the target ID.
+   - The given ID is used directly for binding.
+   - Suitable when the ID is known and precise control is required.
+   - The ID must be correct and the target must exist.
 
-### 策略级别说明
+### Policy levels
 
-| 策略级别 | 管理范围 | 适用场景 | 优势 |
-|----------|----------|----------|------|
-| **部门级别** | 整个部门 | 统一部门标签规范 | 批量管理，一致性高 |
-| **成员级别** | 单个成员 | 个性化标签要求 | 精细控制，灵活性高 |
+| Policy level | Management scope | Scenario | Advantage |
+|--------------|------------------|----------|-----------|
+| **Department level** | Entire department | Unified department tag convention | Batch management, high consistency |
+| **Member level** | Single member | Personalized tag requirements | Fine-grained control, high flexibility |
 
-### 自动映射机制
+### Automatic mapping
 
-模块内置自动映射功能：
-- 自动查询组织中所有部门信息
-- 自动查询组织中所有成员信息
-- 建立名称到ID的映射表
-- 支持动态解析目标名称
-- 处理目标不存在的情况
-- 确保策略绑定的准确性
+The module has a built-in automatic mapping:
+- Queries all department information in the Organization.
+- Queries all member information in the Organization.
+- Builds a name → ID mapping table.
+- Dynamically resolves target names.
+- Handles the case where a target does not exist.
+- Ensures accurate policy binding.
 
-### 策略文件格式要求
+### Policy file format
 
-策略文件需要符合JSON格式，包含完整的标签策略定义：
+The policy file must be valid JSON containing a complete tag policy definition:
 
 ```json
 {
@@ -678,164 +688,168 @@ org_tag_policies = [
 }
 ```
 
-### 最佳实践建议
+### Best practices
 
-1. **分级管理原则**
-   - 按组织架构分级制定策略
-   - 避免过度严格的策略
-   - 定期审计策略效果
+1. **Tiered management**
+   - Define policies by organization tier.
+   - Avoid overly strict policies.
+   - Periodically audit policy effectiveness.
 
-2. **命名规范**
-   - 制定统一的策略命名规范
-   - 确保策略名称唯一性
-   - 便于策略管理和审计
+2. **Naming convention**
+   - Define a consistent policy naming convention.
+   - Ensure policy name uniqueness.
+   - Facilitate policy management and auditing.
 
-3. **策略分组**
-   - 按功能分组制定策略
-   - 同类策略集中管理
-   - 避免策略冲突
+3. **Policy grouping**
+   - Group policies by function.
+   - Manage similar policies centrally.
+   - Avoid policy conflicts.
 
-4. **监控审计**
-   - 启用策略执行日志
-   - 定期检查策略合规性
-   - 及时调整不合适的策略
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **目标识别**
-   - `target_id`和`target_name`必须二选一
-   - 不能同时为空或同时设置
-   - 确保指定的目标存在
-
-2. **策略文件**
-   - 确保策略文件路径正确
-   - 检查策略文件格式是否合法
-   - 确认策略内容有效性
-
-3. **权限验证**
-   - 绑定前验证目标权限
-   - 确保不会造成权限冲突
-   - 测试策略生效情况
-
-4. **名称准确性**
-   - 目标名称必须精确匹配
-   - 大小写敏感
-   - 避免使用易混淆名称
-
-5. **ID准确性**
-   - 目标ID必须准确无误
-   - 避免使用错误的ID
-   - 定期核对ID信息
-
-6. **策略限制**
-   - 了解策略的数量限制
-   - 注意策略之间的依赖关系
-   - 避免冲突配置
-
-7. **操作顺序**
-   - 先创建部门/成员再绑定策略
-   - 按依赖关系顺序操作
-   - 避免循环依赖
-
-8. **备份恢复**
-   - 定期备份策略配置
-   - 准备恢复方案
-   - 测试恢复流程
-
-9. **变更管理**
-   - 记录所有策略变更
-   - 通知相关受影响方
-   - 评估变更影响
-
-10. **合规要求**
-    - 遵守企业内部合规要求
-    - 满足行业监管要求
-    - 定期进行合规检查
+4. **Monitoring & audit**
+   - Enable policy enforcement logs.
+   - Periodically check policy compliance.
+   - Revoke inappropriate policies promptly.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：目标不存在
+1. **Target identification**
+   - `target_id` and `target_name` are mutually exclusive (set exactly one).
+   - Do not leave both empty or set both at once.
+   - Ensure the identified target exists.
+
+2. **Policy file**
+   - Ensure the policy file path is correct.
+   - Check that the policy file format is valid.
+   - Confirm the policy content is effective.
+
+3. **Permission verification**
+   - Verify the target permissions before binding.
+   - Ensure no permission conflicts are introduced.
+   - Test that the policy takes effect.
+
+4. **Name accuracy**
+   - The target name must match exactly.
+   - Name matching is case-sensitive.
+   - Avoid ambiguous names.
+
+5. **ID accuracy**
+   - The target ID must be accurate.
+   - Avoid using wrong IDs.
+   - Periodically verify ID information.
+
+6. **Policy limits**
+   - Understand the policy count limits.
+   - Note dependencies between policies.
+   - Avoid conflicting configuration.
+
+7. **Operation order**
+   - Create the department/member before binding the policy.
+   - Operate following dependency order.
+   - Avoid circular dependencies.
+
+8. **Backup & recovery**
+   - Periodically back up policy configuration.
+   - Prepare a recovery plan.
+   - Test the recovery process.
+
+9. **Change management**
+   - Record all policy changes.
+   - Notify affected parties.
+   - Evaluate change impact.
+
+10. **Compliance**
+    - Comply with internal compliance requirements.
+    - Meet industry regulatory requirements.
+    - Perform periodic compliance checks.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Target not found
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Target not found
 ```
 
-**原因**：指定的目标名称或ID不存在
-**解决方案**：
-- 检查目标名称拼写是否正确
-- 确认目标ID是否正确
-- 确保目标已在组织中创建
+**Cause**: The specified target name or ID does not exist.
+**Solution**:
+- Check the target name spelling.
+- Confirm the target ID is correct.
+- Ensure the target is created in the Organization.
 
-#### 错误二：策略文件不存在
+#### Error 2: Policy file not found
 
 ```
 Error: [TerraformError] Code=FileNotFound
 Message=Policy file not found
 ```
 
-**原因**：指定的策略文件路径不存在
-**解决方案**：
-- 检查策略文件路径是否正确
-- 确认文件是否已创建
-- 确保文件有读取权限
+**Cause**: The specified policy file path does not exist.
+**Solution**:
+- Check the policy file path is correct.
+- Confirm the file has been created.
+- Ensure the file is readable.
 
-#### 错误三：权限不足
+#### Error 3: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查当前账号权限
-- 确认是否有策略管理权限
-- 申请必要的权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check the current account's permissions.
+- Confirm it has policy management permission.
+- Request the necessary permissions.
 
-#### 错误四：重复绑定
+#### Error 4: Duplicate binding
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Policy already bound
 ```
 
-**原因**：相同的策略已绑定到该目标
-**解决方案**：
-- 检查是否重复配置
-- 移除重复的绑定配置
-- 确认是否需要重复绑定
+**Cause**: The same policy is already bound to that target.
+**Solution**:
+- Check for duplicate configuration.
+- Remove the duplicate binding entry.
+- Confirm whether re-binding is needed.
 
-#### 错误五：参数冲突
+#### Error 5: Parameter conflict
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Parameter conflict
 ```
 
-**原因**：同时设置了target_id和target_name
-**解决方案**：
-- 只使用一种识别方式
-- 移除冲突的参数
-- 选择优先使用的方式
+**Cause**: Both `target_id` and `target_name` are set.
+**Solution**:
+- Use only one identification method.
+- Remove the conflicting parameter.
+- Choose the preferred method.
 
-#### 错误六：策略限制
+#### Error 6: Policy limit exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=LimitExceeded
 Message=Policy limit exceeded
 ```
 
-**原因**：达到策略数量限制
-**解决方案**：
-- 检查策略数量限制
-- 减少策略数量
-- 申请提高限额
+**Cause**: The policy count limit has been reached.
+**Solution**:
+- Check the policy count limit.
+- Reduce the policy count.
+- Request a quota increase.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

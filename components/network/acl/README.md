@@ -1,82 +1,108 @@
-# 腾讯云网络ACL管理模块
+# Tencent Cloud Network ACL Component
 
-## 模块概述
+Terraform component under `components/network/acl` for creating and managing Network Access Control Lists (Network ACL) in Tencent Cloud VPC (Virtual Private Cloud). It implements VPC-level network security control as part of the `network` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云VPC（Virtual Private Cloud）中创建和管理网络访问控制列表（Network ACL），实现VPC级别的网络安全控制，主要功能包括：
+## Overview
 
-- **批量ACL创建** - 支持同时创建多个网络ACL
-- **入站规则管理** - 配置入站（ingress）流量控制规则
-- **出站规则管理** - 配置出站（egress）流量控制规则
-- **VPC关联** - 支持通过VPC ID或VPC名称关联ACL
-- **标签管理** - 支持为ACL添加标签进行资源管理
-- **自动映射** - 自动生成ACL名称到ACL ID的映射
+This component creates and manages network ACLs in a VPC, providing VPC-level network security control. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudVPCFullAccess` | VPC管理全权限 |
-| `QcloudTagFullAccess` | 标签管理全权限 |
-
-### 其他要求
-
-- 需要提前创建好VPC网络
-- 需要获取VPC ID或VPC名称
-- 需要规划好网络ACL的规则策略
-- 需要了解网络协议和端口配置
+- **Batch ACL creation** – create multiple network ACLs at once.
+- **Ingress rule management** – configure ingress traffic control rules.
+- **Egress rule management** – configure egress traffic control rules.
+- **VPC association** – associate ACLs via VPC ID or VPC name.
+- **Tag management** – attach tags to ACLs for resource management.
+- **Auto mapping** – automatically build a map from ACL name to ACL ID.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 网络ACL配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| `network_acls` | `list(object)` | 是 | 网络ACL配置列表 |
-| `↳ acl_name` | `string` | 是 | ACL名称（必须唯一） |
-| `↳ vpc_id` | `string` | 否 | VPC ID |
-| `↳ vpc_name` | `string` | 否 | VPC名称 |
-| `↳ ingress_rules` | `list(object)` | 否 | 入站规则列表 |
-| `↳↳ action` | `string` | 是 | 动作（ACCEPT: 允许, DROP: 拒绝） |
-| `↳↳ cidr` | `string` | 是 | IP地址网络或网段 |
-| `↳↳ port` | `string` | 是 | 端口（格式: 80, 80-90, ALL） |
-| `↳↳ protocol` | `string` | 是 | 协议（TCP, UDP, ICMP, ALL） |
-| `↳↳ desc` | `string` | 是 | 规则描述（必须大写） |
-| `↳ egress_rules` | `list(object)` | 否 | 出站规则列表 |
-| `↳↳ action` | `string` | 是 | 动作（ACCEPT: 允许, DROP: 拒绝） |
-| `↳↳ cidr` | `string` | 是 | IP地址网络或网段 |
-| `↳↳ port` | `string` | 是 | 端口（格式: 80, 80-90, ALL） |
-| `↳↳ protocol` | `string` | 是 | 协议（TCP, UDP, ICMP, ALL） |
-| `↳↳ desc` | `string` | 是 | 规则描述（必须大写） |
-| `↳ tags` | `map(string)` | 否 | ACL标签 |
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.125 |
+
+### IAM Permissions
+
+The executing principal needs the following Tencent Cloud permissions:
+
+| Permission | Description |
+|------------|-------------|
+| `QcloudVPCFullAccess` | Full access to VPC management |
+| `QcloudTagFullAccess` | Full access to Tag management |
+
+### Prerequisites
+
+- The target VPC must be created in advance.
+- The VPC ID or VPC name must be obtained.
+- The network ACL rule strategy must be planned.
+- Knowledge of network protocols and port configuration is required.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### Network ACL configuration
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| <a name="input_network_acls"></a> [network\_acls](#input\_network\_acls) | `list(object)` | no (default `[]`) | List of network ACLs to be created. |
+| `↳ acl_name` | `string` | yes | Name of the network ACL. Must be unique within the VPC. |
+| `↳ vpc_id` | `string` | no | VPC ID to associate the ACL with. |
+| `↳ vpc_name` | `string` | no | VPC name to look up the VPC ID. |
+| `↳ subnet_ids` | `list(string)` | no (default `[]`) | Subnet IDs to associate the ACL with. |
+| `↳ ingress_rules` | `list(object)` | no (default `[]`) | Ingress rule list. |
+| `↳↳ action` | `string` | yes | Action: `ACCEPT` (allow) or `DROP` (deny). |
+| `↳↳ cidr` | `string` | yes | IP address network or CIDR segment. |
+| `↳↳ port` | `string` | yes | Port, format: `80`, `80-90` or `ALL`. |
+| `↳↳ protocol` | `string` | yes | Protocol: `TCP`, `UDP`, `ICMP` or `ALL`. When `ICMP`/`ALL`, `port` must be `ALL`. |
+| `↳↳ desc` | `string` | yes | Rule description; must be uppercase. |
+| `↳ egress_rules` | `list(object)` | no (default `[]`) | Egress rule list. |
+| `↳↳ action` | `string` | yes | Action: `ACCEPT` (allow) or `DROP` (deny). |
+| `↳↳ cidr` | `string` | yes | IP address network or CIDR segment. |
+| `↳↳ port` | `string` | yes | Port, format: `80`, `80-90` or `ALL`. |
+| `↳↳ protocol` | `string` | yes | Protocol: `TCP`, `UDP`, `ICMP` or `ALL`. When `ICMP`/`ALL`, `port` must be `ALL`. |
+| `↳↳ desc` | `string` | yes | Rule description; must be uppercase. |
+| `↳ tags` | `map(string)` | no | Tags of the network ACL. |
+
+> **Note**: `vpc_id` and `vpc_name` cannot both be empty; if both are provided, `vpc_id` takes precedence.
+
+---
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_acl_ids"></a> [acl\_ids](#output\_acl\_ids) | The map of network ACL name to ACL ID. |
+
+Example:
 
 ```hcl
-# 网络ACL配置示例
+acl_ids = {
+  "web-tier-acl" = "acl-xxxxxx"
+  "db-tier-acl"  = "acl-yyyyyy"
+}
+```
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` example
+
+```hcl
+# Network ACL configuration example
 network_acls = [
   {
     acl_name = "web-tier-acl"
     vpc_name = "production-vpc"
-    
+
     ingress_rules = [
       {
         action   = "ACCEPT"
@@ -100,7 +126,7 @@ network_acls = [
         desc     = "DENY ALL OTHER TRAFFIC"
       }
     ]
-    
+
     egress_rules = [
       {
         action   = "ACCEPT"
@@ -117,7 +143,7 @@ network_acls = [
         desc     = "ALLOW HTTPS TO INTERNET"
       }
     ]
-    
+
     tags = {
       Environment = "production"
       Tier        = "web"
@@ -127,7 +153,7 @@ network_acls = [
   {
     acl_name = "db-tier-acl"
     vpc_id   = "vpc-xxxxxx"
-    
+
     ingress_rules = [
       {
         action   = "ACCEPT"
@@ -144,7 +170,7 @@ network_acls = [
         desc     = "DENY ALL OTHER TRAFFIC"
       }
     ]
-    
+
     egress_rules = [
       {
         action   = "ACCEPT"
@@ -158,15 +184,15 @@ network_acls = [
 ]
 ```
 
-### 简单配置示例
+### Simple configuration example
 
 ```hcl
-# 基础配置示例
+# Basic configuration example
 network_acls = [
   {
     acl_name = "basic-acl"
     vpc_name = "my-vpc"
-    
+
     ingress_rules = [
       {
         action   = "ACCEPT"
@@ -176,7 +202,7 @@ network_acls = [
         desc     = "ALLOW ALL INTERNAL TRAFFIC"
       }
     ]
-    
+
     egress_rules = [
       {
         action   = "ACCEPT"
@@ -192,17 +218,17 @@ network_acls = [
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：Web层ACL配置
+### Example 1: Web-tier ACL
 
 ```hcl
-# Web层网络ACL配置
+# Web-tier network ACL configuration
 network_acls = [
   {
     acl_name = "web-acl"
     vpc_name = "app-vpc"
-    
+
     ingress_rules = [
       {
         action   = "ACCEPT"
@@ -226,7 +252,7 @@ network_acls = [
         desc     = "ALLOW ALL INTERNAL TRAFFIC"
       }
     ]
-    
+
     egress_rules = [
       {
         action   = "ACCEPT"
@@ -250,7 +276,7 @@ network_acls = [
         desc     = "ALLOW MYSQL TO DB TIER"
       }
     ]
-    
+
     tags = {
       Environment = "production"
       Tier        = "web"
@@ -259,15 +285,15 @@ network_acls = [
 ]
 ```
 
-### 示例二：数据库层ACL配置
+### Example 2: Database-tier ACL
 
 ```hcl
-# 数据库层网络ACL配置
+# Database-tier network ACL configuration
 network_acls = [
   {
     acl_name = "db-acl"
     vpc_id   = "vpc-abcdef"
-    
+
     ingress_rules = [
       {
         action   = "ACCEPT"
@@ -291,7 +317,7 @@ network_acls = [
         desc     = "DENY ALL OTHER TRAFFIC"
       }
     ]
-    
+
     egress_rules = [
       {
         action   = "ACCEPT"
@@ -301,7 +327,7 @@ network_acls = [
         desc     = "ALLOW ALL INTERNAL TRAFFIC"
       }
     ]
-    
+
     tags = {
       Environment = "production"
       Tier        = "database"
@@ -311,16 +337,16 @@ network_acls = [
 ]
 ```
 
-### 示例三：多ACL批量配置
+### Example 3: Batch multi-ACL configuration
 
 ```hcl
-# 多ACL批量配置示例
+# Batch multi-ACL configuration example
 network_acls = [
-  # Web层ACL
+  # Web-tier ACL
   {
     acl_name = "web-acl"
     vpc_name = "multi-tier-vpc"
-    
+
     ingress_rules = [
       {
         action   = "ACCEPT"
@@ -337,7 +363,7 @@ network_acls = [
         desc     = "ALLOW HTTPS"
       }
     ]
-    
+
     egress_rules = [
       {
         action   = "ACCEPT"
@@ -348,12 +374,12 @@ network_acls = [
       }
     ]
   },
-  
-  # App层ACL
+
+  # App-tier ACL
   {
     acl_name = "app-acl"
     vpc_name = "multi-tier-vpc"
-    
+
     ingress_rules = [
       {
         action   = "ACCEPT"
@@ -363,7 +389,7 @@ network_acls = [
         desc     = "ALLOW APP TRAFFIC"
       }
     ]
-    
+
     egress_rules = [
       {
         action   = "ACCEPT"
@@ -374,12 +400,12 @@ network_acls = [
       }
     ]
   },
-  
-  # DB层ACL
+
+  # DB-tier ACL
   {
     acl_name = "db-acl"
     vpc_name = "multi-tier-vpc"
-    
+
     ingress_rules = [
       {
         action   = "ACCEPT"
@@ -396,7 +422,7 @@ network_acls = [
         desc     = "ALLOW POSTGRES"
       }
     ]
-    
+
     egress_rules = [
       {
         action   = "ACCEPT"
@@ -412,40 +438,42 @@ network_acls = [
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 规则格式说明
+### Rule format
 
-网络ACL规则使用特定格式：`[action]#[cidr]#[port]#[protocol]#[description]`
+A network ACL rule uses the following format: `[action]#[cidr]#[port]#[protocol]#[description]`
 
-| 字段 | 说明 | 允许值 |
-|------|------|--------|
-| **action** | 动作 | `ACCEPT`, `DROP` |
-| **cidr** | IP地址/网段 | 有效的IP地址或CIDR格式 |
-| **port** | 端口范围 | `80`, `80-90`, `ALL` |
-| **protocol** | 协议类型 | `TCP`, `UDP`, `ICMP`, `ALL` |
-| **description** | 规则描述 | 必须为大写字母 |
+| Field | Description | Allowed values |
+|-------|-------------|----------------|
+| **action** | Action | `ACCEPT`, `DROP` |
+| **cidr** | IP address / CIDR | Valid IP address or CIDR |
+| **port** | Port range | `80`, `80-90`, `ALL` |
+| **protocol** | Protocol | `TCP`, `UDP`, `ICMP`, `ALL` |
+| **description** | Rule description | Must be uppercase |
 
-### 协议与端口约束
+### Protocol and port constraints
 
-| 协议 | 端口约束 | 说明 |
-|------|----------|------|
-| `TCP` | 任意端口 | 支持具体端口或范围 |
-| `UDP` | 任意端口 | 支持具体端口或范围 |
-| `ICMP` | 必须为 `ALL` | ICMP协议不需要端口 |
-| `ALL` | 必须为 `ALL` | 所有协议和端口 |
+| Protocol | Port constraint | Description |
+|----------|-----------------|-------------|
+| `TCP` | Any port | Specific port or range |
+| `UDP` | Any port | Specific port or range |
+| `ICMP` | Must be `ALL` | ICMP has no port concept |
+| `ALL` | Must be `ALL` | All protocols and ports |
 
-### VPC关联方式
+### VPC association
 
-支持两种VPC关联方式：
-- **VPC ID** - 直接使用VPC ID进行关联
-- **VPC名称** - 通过VPC名称自动查找对应ID
+Two association methods are supported:
 
-> **注意**: VPC ID和VPC名称不能同时为空，如果同时提供，优先使用VPC ID
+- **VPC ID** – associate directly via VPC ID.
+- **VPC name** – look up the VPC ID by name automatically.
 
-### 输出映射
+> **Note**: `vpc_id` and `vpc_name` cannot both be empty. If both are provided, `vpc_id` takes precedence.
 
-模块自动生成ACL名称到ACL ID的映射：
+### Output mapping
+
+The component automatically builds a map from ACL name to ACL ID:
+
 ```hcl
 acl_ids = {
   "web-tier-acl" = "acl-xxxxxx"
@@ -455,124 +483,128 @@ acl_ids = {
 
 ---
 
-## 注意事项
+## Important Notes
 
-> ⚠️ **重要提示，操作前请仔细阅读**
+> ⚠️ **Important: read carefully before making changes**
 
-1. **权限配置**
-   - 确保执行账号具有VPC管理相关权限
-   - 需要`QcloudVPCFullAccess`权限
+1. **Permissions**
+   - Ensure the executing account has VPC management permissions.
+   - `QcloudVPCFullAccess` is required.
 
-2. **VPC要求**
-   - VPC必须提前创建好
-   - 确保VPC ID或VPC名称正确
+2. **VPC requirement**
+   - The VPC must be created in advance.
+   - Ensure the VPC ID or VPC name is correct.
 
-3. **ACL名称唯一性**
-   - ACL名称在VPC内必须唯一
-   - 避免使用重复的ACL名称
+3. **ACL name uniqueness**
+   - The ACL name must be unique within the VPC.
+   - Avoid reusing ACL names.
 
-4. **规则顺序**
-   - ACL规则按顺序执行
-   - 第一条匹配的规则决定流量处理
-   - 建议从具体到一般排列规则
+4. **Rule order**
+   - ACL rules are evaluated in order.
+   - The first matching rule decides how traffic is handled.
+   - Arrange rules from specific to general.
 
-5. **协议端口约束**
-   - ICMP协议端口必须为`ALL`
-   - ALL协议端口必须为`ALL`
-   - 违反约束会导致创建失败
+5. **Protocol/port constraints**
+   - ICMP protocol port must be `ALL`.
+   - ALL protocol port must be `ALL`.
+   - Violations cause creation to fail.
 
-6. **描述格式**
-   - 规则描述必须使用大写字母
-   - 建议使用英文描述便于管理
+6. **Description format**
+   - Rule descriptions must be uppercase.
+   - English descriptions are recommended for easier management.
 
-7. **批量操作**
-   - 支持批量创建多个ACL
-   - 每个ACL独立配置规则
-   - 建议按业务层级分组配置
+7. **Batch operations**
+   - Multiple ACLs can be created in a batch.
+   - Each ACL has its own rule configuration.
+   - Group configurations by business tier.
 
-8. **标签管理**
-   - 支持为ACL添加标签
-   - 便于资源分类和管理
-   - 建议添加环境、层级等标签
+8. **Tag management**
+   - Tags can be attached to ACLs.
+   - Useful for resource classification and management.
+   - It is recommended to add environment, tier, etc.
 
 ---
 
-## 故障排除
+## Troubleshooting
 
-### 常见错误及解决方案
+### Common errors and solutions
 
-#### 错误一：权限不足
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=UnauthorizedOperation
 Message=You are not authorized to perform the operation
 ```
 
-**原因**：执行账号缺少VPC管理权限
-**解决方案**：
-- 确认Provider配置的密钥具有所需权限
-- 检查是否包含`QcloudVPCFullAccess`权限
+**Cause**: The executing account lacks VPC management permissions.
+**Solution**:
+- Confirm the provider credentials have the required permissions.
+- Check `QcloudVPCFullAccess` is included.
 
-#### 错误二：VPC不存在
+#### Error 2: VPC not found
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=VPC not found
 ```
 
-**原因**：指定的VPC ID或VPC名称不存在
-**解决方案**：
-- 确认VPC ID或VPC名称正确
-- 检查VPC是否已被删除
+**Cause**: The specified VPC ID or VPC name does not exist.
+**Solution**:
+- Confirm the VPC ID or VPC name is correct.
+- Check whether the VPC has been deleted.
 
-#### 错误三：ACL名称重复
+#### Error 3: Duplicate ACL name
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Network ACL name already exists
 ```
 
-**原因**：ACL名称在VPC内已存在
-**解决方案**：
-- 使用唯一的ACL名称
-- 检查是否已有同名ACL
-- 添加前缀或后缀区分
+**Cause**: The ACL name already exists within the VPC.
+**Solution**:
+- Use a unique ACL name.
+- Check for an existing ACL with the same name.
+- Add a prefix or suffix to differentiate.
 
-#### 错误四：规则格式错误
+#### Error 4: Invalid rule format
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid rule format
 ```
 
-**原因**：规则格式不符合要求
-**解决方案**：
-- 检查规则格式是否正确
-- 验证协议和端口约束
-- 确保描述为大写字母
+**Cause**: The rule format does not meet the requirements.
+**Solution**:
+- Check the rule format.
+- Verify protocol and port constraints.
+- Ensure the description is uppercase.
 
-#### 错误五：协议端口不匹配
+#### Error 5: Protocol and port mismatch
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Protocol and port mismatch
 ```
 
-**原因**：协议和端口配置不匹配
-**解决方案**：
-- ICMP协议端口必须为`ALL`
-- ALL协议端口必须为`ALL`
-- 调整协议或端口配置
+**Cause**: The protocol and port configuration do not match.
+**Solution**:
+- ICMP protocol port must be `ALL`.
+- ALL protocol port must be `ALL`.
+- Adjust the protocol or port configuration.
 
-#### 错误六：CIDR格式错误
+#### Error 6: Invalid CIDR format
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid CIDR format
 ```
 
-**原因**：CIDR格式不正确
-**解决方案**：
-- 检查CIDR格式是否正确
-- 确保为有效的IP地址或网段
-- 使用标准CIDR表示法
+**Cause**: The CIDR format is incorrect.
+**Solution**:
+- Check the CIDR format.
+- Ensure it is a valid IP address or segment.
+- Use standard CIDR notation.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

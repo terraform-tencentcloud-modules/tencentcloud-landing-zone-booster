@@ -1,93 +1,70 @@
-# terraform-tencentcloud-cos
+# TencentCloud COS Bucket Module for Terraform
 
+## terraform-tencentcloud-cos-bucket
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/mango-engineering/tencent-poc/mango-infra-components/terraform-tencentcloud-cos.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/mango-engineering/tencent-poc/mango-infra-components/terraform-tencentcloud-cos/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+A terraform module that creates a TencentCloud COS (Cloud Object Storage) bucket (`tencentcloud_cos_bucket`). It supports access control, versioning, server-side encryption (AES256 / KMS / SM4), lifecycle rules, CORS rules, origin-pull rules, access logging and tags. The bucket name is suffixed automatically with the account `app_id` (`${bucket_name}-${app_id}`).
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```hcl
+module "cos_bucket" {
+  source = "terraform-tencentcloud-modules/cos-bucket/tencentcloud"
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+  bucket_name           = "mycos"
+  bucket_acl            = "private"
+  versioning_enable     = true
+  encryption_algorithm  = "AES256"
+  multi_az              = false
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+  cors_rules = [
+    {
+      allowed_headers = ["*"]
+      allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
+      allowed_origins = ["*"]
+      expose_headers  = ["ETag", "Content-Length", "x-cos-request-id"]
+      max_age_seconds = 0
+    }
+  ]
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+  tags = {
+    created_by = "terraform"
+  }
+}
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## Inputs
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+| Name | Description | Type | Default | Required |
+|------|-------------|:----:|:-----:|:-----:|
+| app_id | Your appid. If empty, it is resolved automatically from the current account. | string | "" | no |
+| bucket_name | The name of the bucket (without the `-appid` suffix). | string | "mycos" | no |
+| bucket_acl | Access control list for the bucket. | string | "private" | no |
+| multi_az | Indicates whether to create a bucket of multi available zone. NOTE: If set to true, versioning must be enabled. | bool | false | no |
+| force_clean | Whether to force cleanup all objects before deleting the bucket. | bool | false | no |
+| versioning_enable | Enable bucket versioning. | bool | false | no |
+| encryption_algorithm | The server-side encryption algorithm to use. Valid values are `AES256`, `KMS` and `SM4`. | string | null | no |
+| kms_id | The KMS Master Key ID. Valid only when `encryption_algorithm` is `KMS`. If not specified, the default KMS id is used. | string | null | no |
+| lifecycle_rules | List of lifecycle rules configuration. Each rule may contain `id`, `filter_prefix`, `expiration`, `transition`, `non_current_expiration`, `non_current_transition` and `abort_incomplete_multipart_upload`. | list(object) | [] | no |
+| cors_rules | A rule of Cross-Origin Resource Sharing. | list(object({ allowed_headers = list(string), allowed_methods = list(string), allowed_origins = list(string), expose_headers = optional(list(string), ["ETag", "Content-Length", "x-cos-request-id"]), max_age_seconds = optional(number, 0) })) | [] | no |
+| origin_pull_rules | Bucket Origin-Pull settings. | list(object({ host = string, priority = string, back_to_source_mode = optional(string), custom_http_headers = optional(map(string)), follow_http_headers = optional(set(string)), follow_query_string = optional(bool), follow_redirection = optional(bool), http_redirect_code = optional(string), prefix = optional(string), protocol = optional(string) })) | [] | no |
+| log_enable | Indicate the access log of this bucket to be saved or not. | bool | false | no |
+| log_prefix | The prefix log name which saves the access log of this bucket per 5 minutes. Only valid when `log_enable` is true. | string | "" | no |
+| log_target_bucket | The target bucket name which saves the access log of this bucket per 5 minutes. User must have full access on this bucket. Only valid when `log_enable` is true. | string | "" | no |
+| tags | A mapping of tags to assign to the bucket. | map(string) | {} | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| bucket_id | The ID of the COS bucket. |
+| bucket_name | The full bucket name (including the `-appid` suffix). |
+| bucket_url | The URL of the COS bucket. |
+| cos_app_id | The app_id used by the bucket. |
+
+## Authors
+
+Created and maintained by [TencentCloud](https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-cos-bucket)
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Mozilla Public License Version 2.0. See LICENSE for full details.

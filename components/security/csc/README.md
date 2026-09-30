@@ -1,546 +1,551 @@
-# 腾讯云云安全中心（CSC）模块
+# Tencent Cloud Cloud Security Center (CSC) Component
 
-## 模块概述
+Terraform component under `components/security/csc` for deploying and managing the Cloud Security Center (CSC) service in Tencent Cloud — as part of the `security` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中部署和管理云安全中心（Cloud Security Center，CSC）服务，提供全面的云上安全防护能力，主要功能包括：
+## Overview
 
-- **安全防护** - 提供多版本安全防护能力
-- **计费管理** - 支持包年包月计费模式
-- **自动续费** - 支持自动续费功能配置
-- **多版本选择** - 支持基础版、高级版、企业版、旗舰版
-- **扩展功能** - 支持日志分析、组织账户管理、资产扫描
-- **标签管理** - 支持资源标签分类
-- **资源输出** - 输出CSC实例ID便于后续管理
+This component deploys and manages the Cloud Security Center (CSC) service, providing comprehensive cloud security protection. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudFinanceFullAccess` | 财务管理权限 |
-| `QcloudBillingReadOnlyAccess` | 账单只读权限 |
-| `QcloudTagFullAccess` | 标签管理权限 |
-| `QcloudCSCFullAccess` | 云安全中心全权限 |
-
-### 其他要求
-
-- 需要确定部署地域和可用区
-- 需要选择合适的安全中心版本
-- 需要确定计费周期和续费策略
-- 需要规划扩展功能需求
-- 需要准备标签分类方案
-- 需要确认项目ID（如适用）
+- **Security protection** – multi-edition security protection capability.
+- **Billing management** – subscription (PrePay) billing mode.
+- **Auto renewal** – configure auto-renewal.
+- **Edition selection** – Advanced, Enterprise, and Flagship editions.
+- **Extended features** – log analysis, organization account management, asset scan.
+- **Tag management** – classify resources with tags.
+- **Resource output** – output the CSC instance ID for later management.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 必需配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.1.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `region` | `string` | 是 | - | 部署地域 |
-| `zone` | `string` | 是 | - | 可用区 |
-| `pay_mode` | `string` | 否 | `PrePay` | 付费模式（仅支持PrePay） |
+## Providers
 
-### 产品参数配置变量
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `parameter` | `object` | 是 | - | 产品详细参数对象 |
+### IAM Permissions
 
-### 参数对象字段说明
+The executing principal needs the following Tencent Cloud permissions:
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `sv_soccloud_pc_ae` | `bool` | 否 | `false` | 高级版 |
-| `sv_soccloud_pc_ee` | `bool` | 否 | `false` | 企业版 |
-| `sv_soccloud_pc_fe` | `bool` | 否 | `false` | 旗舰版/终极版 |
-| `sv_soccloud_pc_la` | `bool` | 否 | `false` | 日志分析功能 |
-| `sv_soccloud_pc_ma` | `bool` | 否 | `false` | 组织账户限制版 |
-| `sv_soccloud_pc_mas` | `bool` | 否 | `false` | 组织账户无限制版 |
-| `sv_soccloud_pc_ss` | `bool` | 否 | `false` | 资产扫描功能 |
-| `autoRenewFlag` | `number` | 否 | `0` | 自动续费标识 |
-| `goodsNum` | `number` | 否 | `1` | 商品数量 |
-| `tag` | `list(string)` | 否 | `[]` | 标签列表 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudFinanceFullAccess` | Financial management access |
+| `QcloudBillingReadOnlyAccess` | Billing read-only access |
+| `QcloudTagFullAccess` | Tag management access |
+| `QcloudCSCFullAccess` | Full access to Cloud Security Center |
 
-### 可选配置变量
+### Prerequisites
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `project_id` | `number` | 否 | `0` | 项目ID |
-| `period` | `number` | 否 | `1` | 购买时长（最大36） |
-| `period_unit` | `string` | 否 | `m` | 购买时间单位（m:月, y:年） |
-| `renew_flag` | `string` | 否 | `NOTIFY_AND_MANUAL_RENEW` | 续费标志 |
-| `create_timeout` | `string` | 否 | `20m` | 创建超时时间 |
-
-### 续费标志选项
-
-| 值 | 说明 |
-|----|------|
-| `NOTIFY_AND_MANUAL_RENEW` | 通知并手动续费 |
-| `NOTIFY_AND_AUTO_RENEW` | 通知并自动续费 |
-| `DISABLE_NOTIFY_AND_MANUAL_RENEW` | 禁用通知和手动续费 |
+- Decide the deployment region and availability zone.
+- Select the appropriate security center edition.
+- Decide the billing period and renewal strategy.
+- Plan extended-feature requirements.
+- Prepare a tag classification scheme.
+- Confirm the project ID if applicable.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### Required configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_region"></a> [region](#input\_region) | `string` | yes | – | Deployment region. |
+| <a name="input_zone"></a> [zone](#input\_zone) | `string` | yes | – | Availability zone. |
+| <a name="input_parameter"></a> [parameter](#input\_parameter) | `object` | yes | – | Product detail parameter object. All of its sub-fields are optional (see below). |
+
+### Optional configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_pay_mode"></a> [pay\_mode](#input\_pay\_mode) | `string` | no | `PrePay` | Payment mode. Only `PrePay` (subscription) is supported. |
+| <a name="input_project_id"></a> [project\_id](#input\_project\_id) | `number` | no | `0` | Project ID. |
+| <a name="input_period"></a> [period](#input\_period) | `number` | no | `1` | Purchase duration, max value is `36`. |
+| <a name="input_period_unit"></a> [period\_unit](#input\_period\_unit) | `string` | no | `m` | Purchase duration unit: `m` (month), `y` (year). |
+| <a name="input_renew_flag"></a> [renew\_flag](#input\_renew\_flag) | `string` | no | `NOTIFY_AND_MANUAL_RENEW` | Renewal flag: `NOTIFY_AND_MANUAL_RENEW` (manual), `NOTIFY_AND_AUTO_RENEW` (auto), `DISABLE_NOTIFY_AND_MANUAL_RENEW` (disabled). |
+| <a name="input_create_timeout"></a> [create\_timeout](#input\_create\_timeout) | `string` | no | `20m` | Create timeout. |
+
+### `parameter` object fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sv_soccloud_pc_ae` | `bool` | `false` | Advanced Edition. |
+| `sv_soccloud_pc_ee` | `bool` | `false` | Enterprise Edition. |
+| `sv_soccloud_pc_fe` | `bool` | `false` | Flagship Edition / Ultimate. |
+| `sv_soccloud_pc_la` | `bool` | `false` | Log analysis feature. |
+| `sv_soccloud_pc_ma` | `bool` | `false` | Organization account (limited). |
+| `sv_soccloud_pc_mas` | `bool` | `false` | Organization account (unlimited). |
+| `sv_soccloud_pc_ss` | `bool` | `false` | Asset scan feature. |
+| `autoRenewFlag` | `number` | `0` | Auto-renewal flag: `0` = disabled, `1` = enabled. |
+| `goodsNum` | `number` | `1` | Goods quantity. |
+| `tag` | `list(string)` | `[]` | Tag list. |
+
+> **Note**: Select at most one edition flag (`sv_soccloud_pc_ae` / `sv_soccloud_pc_ee` / `sv_soccloud_pc_fe`) to `true`. The organization account editions (`sv_soccloud_pc_ma` / `sv_soccloud_pc_mas`) are mutually exclusive as well.
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_instance_id"></a> [instance\_id](#output\_instance\_id) | CSC instance ID. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars`
 
 ```hcl
-# 基础配置
+# Basic configuration
 region   = "ap-guangzhou"
 zone     = "ap-guangzhou-1"
 pay_mode = "PrePay"
 
-# 计费配置
+# Billing configuration
 period      = 12
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 产品参数配置
+# Product parameter configuration
 parameter = {
-  sv_soccloud_pc_ae  = true   # 启用高级版
-  sv_soccloud_pc_la  = true   # 启用日志分析
-  sv_soccloud_pc_ss  = true   # 启用资产扫描
-  autoRenewFlag      = 1      # 启用自动续费
-  goodsNum           = 1      # 商品数量
+  sv_soccloud_pc_ae  = true   # enable Advanced Edition
+  sv_soccloud_pc_la  = true   # enable log analysis
+  sv_soccloud_pc_ss  = true   # enable asset scan
+  autoRenewFlag      = 1      # enable auto renewal
+  goodsNum           = 1      # goods quantity
   tag                = ["security", "production"]
 }
 
-# 可选配置
+# Optional configuration
 project_id     = 123456
 create_timeout = "30m"
 ```
 
-### 企业版配置示例
+### Enterprise edition configuration
 
 ```hcl
-# 基础配置
+# Basic configuration
 region   = "ap-shanghai"
 zone     = "ap-shanghai-2"
 pay_mode = "PrePay"
 
-# 企业版配置
+# Enterprise edition configuration
 parameter = {
-  sv_soccloud_pc_ee  = true   # 启用企业版
-  sv_soccloud_pc_la  = true   # 启用日志分析
-  sv_soccloud_pc_ss  = true   # 启用资产扫描
-  autoRenewFlag      = 1      # 启用自动续费
-  goodsNum           = 2      # 2个实例
+  sv_soccloud_pc_ee  = true   # enable Enterprise Edition
+  sv_soccloud_pc_la  = true   # enable log analysis
+  sv_soccloud_pc_ss  = true   # enable asset scan
+  autoRenewFlag      = 1      # enable auto renewal
+  goodsNum           = 2      # 2 instances
   tag                = ["enterprise", "security"]
 }
 
-# 长期订阅
+# Long-term subscription
 period      = 36
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 ```
 
-### 旗舰版配置示例
+### Flagship edition configuration
 
 ```hcl
-# 基础配置
+# Basic configuration
 region   = "ap-beijing"
 zone     = "ap-beijing-3"
 pay_mode = "PrePay"
 
-# 旗舰版全功能配置
+# Flagship full-feature configuration
 parameter = {
-  sv_soccloud_pc_fe  = true   # 启用旗舰版
-  sv_soccloud_pc_la  = true   # 启用日志分析
-  sv_soccloud_pc_ss  = true   # 启用资产扫描
-  autoRenewFlag      = 1      # 启用自动续费
-  goodsNum           = 1      # 商品数量
+  sv_soccloud_pc_fe  = true   # enable Flagship Edition
+  sv_soccloud_pc_la  = true   # enable log analysis
+  sv_soccloud_pc_ss  = true   # enable asset scan
+  autoRenewFlag      = 1      # enable auto renewal
+  goodsNum           = 1      # goods quantity
   tag                = ["ultimate", "security"]
 }
 
-# 年度订阅
+# Annual subscription
 period      = 2
 period_unit = "y"
 renew_flag  = "NOTIFY_AND_MANUAL_RENEW"
 ```
 
-### 组织账户管理配置示例
+### Organization account configuration
 
 ```hcl
-# 基础配置
+# Basic configuration
 region   = "ap-guangzhou"
 zone     = "ap-guangzhou-1"
 pay_mode = "PrePay"
 
-# 组织账户无限制版
+# Organization account unlimited edition
 parameter = {
-  sv_soccloud_pc_mas = true   # 启用组织账户无限制版
-  sv_soccloud_pc_la  = true   # 启用日志分析
-  autoRenewFlag      = 0      # 禁用自动续费
-  goodsNum           = 1      # 商品数量
+  sv_soccloud_pc_mas = true   # enable organization account unlimited edition
+  sv_soccloud_pc_la  = true   # enable log analysis
+  autoRenewFlag      = 0      # disable auto renewal
+  goodsNum           = 1      # goods quantity
   tag                = ["organization", "unlimited"]
 }
 
-# 月度订阅
+# Monthly subscription
 period      = 1
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_MANUAL_RENEW"
 ```
 
-### 最小化配置示例
+### Minimal configuration
 
 ```hcl
-# 最小化基础配置
+# Minimal base configuration
 region = "ap-shanghai"
 zone   = "ap-shanghai-1"
 
-# 仅使用默认参数
+# Use default parameters only
 parameter = {
   goodsNum = 1
 }
 
-# 使用所有默认值：1个月、手动续费、20分钟超时
+# All defaults used: 1 month, manual renewal, 20m timeout
 ```
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：生产环境高级版配置
+### Example 1: Production Advanced edition
 
 ```hcl
-# 生产环境配置
+# Production environment configuration
 region   = "ap-guangzhou"
 zone     = "ap-guangzhou-3"
 pay_mode = "PrePay"
 
-# 生产环境参数
+# Production parameters
 parameter = {
-  sv_soccloud_pc_ae  = true   # 高级版
-  sv_soccloud_pc_la  = true   # 日志分析
-  sv_soccloud_pc_ss  = true   # 资产扫描
-  autoRenewFlag      = 1      # 自动续费
-  goodsNum           = 1      # 单实例
+  sv_soccloud_pc_ae  = true   # Advanced Edition
+  sv_soccloud_pc_la  = true   # log analysis
+  sv_soccloud_pc_ss  = true   # asset scan
+  autoRenewFlag      = 1      # auto renewal
+  goodsNum           = 1      # single instance
   tag                = ["production", "high-availability"]
 }
 
-# 长期订阅确保稳定性
+# Long-term subscription for stability
 period      = 24
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 项目关联
+# Project association
 project_id = 10086
 ```
 
-### 示例二：多实例企业部署
+### Example 2: Multi-instance enterprise deployment
 
 ```hcl
-# 企业多实例配置
+# Enterprise multi-instance configuration
 region   = "ap-beijing"
 zone     = "ap-beijing-2"
 pay_mode = "PrePay"
 
-# 企业级部署
+# Enterprise-grade deployment
 parameter = {
-  sv_soccloud_pc_ee  = true   # 企业版
-  sv_soccloud_pc_la  = true   # 日志分析
-  sv_soccloud_pc_ss  = true   # 资产扫描
-  autoRenewFlag      = 1      # 自动续费
-  goodsNum           = 3      # 3个实例
+  sv_soccloud_pc_ee  = true   # Enterprise Edition
+  sv_soccloud_pc_la  = true   # log analysis
+  sv_soccloud_pc_ss  = true   # asset scan
+  autoRenewFlag      = 1      # auto renewal
+  goodsNum           = 3      # 3 instances
   tag                = ["enterprise", "multi-instance"]
 }
 
-# 年度订阅
+# Annual subscription
 period      = 3
 period_unit = "y"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 延长创建超时时间
+# Extend create timeout
 create_timeout = "45m"
 ```
 
-### 示例三：开发测试环境
+### Example 3: Development / testing environment
 
 ```hcl
-# 开发环境配置
+# Development environment configuration
 region = "ap-shanghai"
 zone   = "ap-shanghai-4"
 
-# 基础功能配置
+# Basic feature configuration
 parameter = {
-  sv_soccloud_pc_ae  = true   # 高级版
-  sv_soccloud_pc_ss  = true   # 资产扫描
-  autoRenewFlag      = 0      # 手动续费
-  goodsNum           = 1      # 单实例
+  sv_soccloud_pc_ae  = true   # Advanced Edition
+  sv_soccloud_pc_ss  = true   # asset scan
+  autoRenewFlag      = 0      # manual renewal
+  goodsNum           = 1      # single instance
   tag                = ["development", "test"]
 }
 
-# 短期订阅便于测试
+# Short-term subscription for testing
 period      = 1
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_MANUAL_RENEW"
 ```
 
-### 示例四：合规性要求配置
+### Example 4: Compliance-required configuration
 
 ```hcl
-# 合规性配置
+# Compliance configuration
 region   = "ap-guangzhou"
 zone     = "ap-guangzhou-1"
 pay_mode = "PrePay"
 
-# 全功能合规配置
+# Full-feature compliance configuration
 parameter = {
-  sv_soccloud_pc_fe  = true   # 旗舰版
-  sv_soccloud_pc_la  = true   # 日志分析（合规要求）
-  sv_soccloud_pc_ss  = true   # 资产扫描（合规要求）
-  autoRenewFlag      = 1      # 确保服务连续性
-  goodsNum           = 2      # 冗余部署
+  sv_soccloud_pc_fe  = true   # Flagship Edition
+  sv_soccloud_pc_la  = true   # log analysis (compliance requirement)
+  sv_soccloud_pc_ss  = true   # asset scan (compliance requirement)
+  autoRenewFlag      = 1      # ensure service continuity
+  goodsNum           = 2      # redundant deployment
   tag                = ["compliance", "audit", "security"]
 }
 
-# 长期订阅满足合规周期
+# Long-term subscription to meet compliance cycle
 period      = 36
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 明确项目归属
+# Explicit project ownership
 project_id = 20010
 ```
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 版本选择指南
+### Edition selection guide
 
-#### 高级版（Advanced Edition）
-- **适用场景**：中小型企业基础安全需求
-- **功能**：基础安全防护、漏洞扫描
-- **成本**：中等
-- **推荐**：适合大多数业务场景
+#### Advanced Edition
+- **Use case**: basic security needs of small/medium business.
+- **Features**: basic protection, vulnerability scan.
+- **Cost**: medium.
+- **Recommendation**: fits most business scenarios.
 
-#### 企业版（Enterprise Edition）
-- **适用场景**：中大型企业综合安全需求
-- **功能**：增强安全防护、高级威胁检测
-- **成本**：较高
-- **推荐**：对安全要求较高的企业
+#### Enterprise Edition
+- **Use case**: comprehensive security needs of medium/large business.
+- **Features**: enhanced protection, advanced threat detection.
+- **Cost**: higher.
+- **Recommendation**: for security-sensitive enterprises.
 
-#### 旗舰版（Flagship Edition）
-- **适用场景**：大型企业、金融、政府等高安全要求
-- **功能**：全面安全防护、高级别威胁情报
-- **成本**：最高
-- **推荐**：关键业务、合规要求严格的场景
+#### Flagship Edition
+- **Use case**: large business, finance, government with high security requirements.
+- **Features**: full protection, high-level threat intelligence.
+- **Cost**: highest.
+- **Recommendation**: critical workloads, strict compliance.
 
-#### 组织账户版本
-- **限制版（MA）**：有限制的组织账户管理
-- **无限制版（MAS）**：无限制的组织账户管理
-- **适用场景**：多账户环境、集团企业
+#### Organization account editions
+- **Limited (MA)**: organization account management with limits.
+- **Unlimited (MAS)**: organization account management without limits.
+- **Use case**: multi-account environments, group enterprises.
 
-### 功能模块说明
+### Feature modules
 
-#### 日志分析（Log Analytical）
-- **功能**：安全日志收集、分析和审计
-- **价值**：满足合规要求、安全事件调查
-- **推荐**：生产环境建议启用
+#### Log analysis
+- **Feature**: security log collection, analysis, and audit.
+- **Value**: meets compliance requirements, security incident investigation.
+- **Recommendation**: enable in production.
 
-#### 资产扫描（Asset Scan）
-- **功能**：自动化资产发现和漏洞扫描
-- **价值**：资产清点、风险识别
-- **推荐**：所有环境建议启用
+#### Asset scan
+- **Feature**: automated asset discovery and vulnerability scan.
+- **Value**: asset inventory, risk identification.
+- **Recommendation**: enable in all environments.
 
-### 计费策略说明
+### Billing strategy
 
-#### 包年包月模式（PrePay）
-- **计费方式**：预付费
-- **优势**：长期使用成本较低
-- **适用**：稳定业务环境
+#### PrePay (subscription)
+- **Model**: prepaid.
+- **Advantage**: lower long-term cost.
+- **Use case**: stable business environments.
 
-#### 自动续费配置
-- **自动续费（1）**：避免服务中断，确保连续性
-- **手动续费（0）**：更灵活的成本控制
-- **推荐**：生产环境建议自动续费
+#### Auto-renewal configuration
+- **Auto renewal (`1`)**: avoid service interruption, ensure continuity.
+- **Manual renewal (`0`)**: more flexible cost control.
+- **Recommendation**: enable auto renewal in production.
 
-#### 订阅周期选择
-- **月度（m）**：灵活性高，适合测试环境
-- **年度（y）**：成本优势，适合生产环境
-- **最大周期**：36个月
+#### Subscription period
+- **Monthly (`m`)**: high flexibility, for test environments.
+- **Annual (`y`)**: cost advantage, for production.
+- **Max period**: 36 months.
 
-### 部署建议
+### Deployment recommendations
 
-#### 单实例部署
-- **适用场景**：开发测试、中小业务
-- **优势**：成本低，部署简单
-- **风险**：单点故障
+#### Single-instance deployment
+- **Use case**: dev/test, small workloads.
+- **Advantage**: low cost, simple deployment.
+- **Risk**: single point of failure.
 
-#### 多实例部署
-- **适用场景**：生产环境、高可用要求
-- **优势**：冗余备份，高可用性
-- **成本**：较高
+#### Multi-instance deployment
+- **Use case**: production, high-availability requirements.
+- **Advantage**: redundancy, high availability.
+- **Cost**: higher.
 
-#### 地域选择建议
+#### Region selection
 
-| 地域 | 编码 | 适用场景 | 延迟 |
-|------|------|----------|------|
-| **华南地区** | ap-guangzhou | 华南用户访问 | 低 |
-| **华东地区** | ap-shanghai | 华东用户访问 | 低 |
-| **华北地区** | ap-beijing | 华北用户访问 | 低 |
-| **西南地区** | ap-chongqing | 西南用户访问 | 中 |
+| Region | Code | Use case | Latency |
+|--------|------|----------|---------|
+| **South China** | ap-guangzhou | South China users | Low |
+| **East China** | ap-shanghai | East China users | Low |
+| **North China** | ap-beijing | North China users | Low |
+| **Southwest** | ap-chongqing | Southwest users | Medium |
 
-### 安全最佳实践
+### Security best practices
 
-1. **版本选择**：根据业务需求选择合适的版本
-2. **功能启用**：生产环境启用日志分析和资产扫描
-3. **自动续费**：生产环境启用自动续费避免中断
-4. **标签管理**：使用标签进行成本分摊和管理
-5. **多实例部署**：生产环境考虑多实例高可用
-6. **定期评估**：定期评估安全需求和配置
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **版本兼容性**
-   - 确保选择的版本符合业务需求
-   - 不同版本功能差异较大
-   - 升级版本可能需要重新购买
-
-2. **地域限制**
-   - CSC服务有地域属性
-   - 确认目标地域支持CSC服务
-   - 跨地域功能可能受限
-
-3. **权限验证**
-   - 确认有足够的权限创建CSC实例
-   - 检查账户额度限制
-   - 验证财务权限
-
-4. **计费确认**
-   - 包年包月需要预付费用
-   - 确认自动续费设置
-   - 注意实例数量对费用的影响
-
-5. **功能选择**
-   - 仔细选择需要的功能模块
-   - 不必要的功能会增加成本
-   - 考虑未来的扩展需求
-
-6. **标签管理**
-   - 遵循统一的标签命名规范
-   - 使用标签进行成本分摊
-   - 利用标签进行资源管理
-
-7. **测试验证**
-   - 部署后测试CSC功能
-   - 验证配置是否正确生效
-   - 检查账单信息
-
-8. **监控配置**
-   - 配置CSC服务监控
-   - 设置服务状态告警
-   - 监控安全事件
-
-9. **续费管理**
-   - 关注续费时间和费用
-   - 设置续费提醒
-   - 定期评估续费策略
-
-10. **合规性考虑**
-    - 确保配置符合安全合规要求
-    - 保留必要的审计日志
-    - 遵循数据保护规范
+1. **Edition selection**: choose the edition per business needs.
+2. **Feature enablement**: enable log analysis and asset scan in production.
+3. **Auto renewal**: enable auto renewal in production to avoid interruption.
+4. **Tag management**: use tags for cost allocation and management.
+5. **Multi-instance deployment**: consider multi-instance HA in production.
+6. **Periodic assessment**: regularly review security needs and config.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：权限不足
+1. **Edition compatibility**
+   - Ensure the selected edition meets business needs.
+   - Feature differences between editions are significant.
+   - Upgrading an edition may require repurchase.
+
+2. **Region limits**
+   - CSC is region-specific.
+   - Confirm the target region supports CSC.
+   - Cross-region features may be limited.
+
+3. **Permission verification**
+   - Confirm sufficient permissions to create a CSC instance.
+   - Check account quota limits.
+   - Verify finance permissions.
+
+4. **Billing confirmation**
+   - PrePay requires upfront payment.
+   - Confirm auto-renewal settings.
+   - Note the impact of instance count on cost.
+
+5. **Feature selection**
+   - Select required feature modules carefully.
+   - Unnecessary features increase cost.
+   - Consider future expansion needs.
+
+6. **Tag management**
+   - Follow a unified tag naming convention.
+   - Use tags for cost allocation.
+   - Use tags for resource management.
+
+7. **Test & verify**
+   - Test CSC features after deployment.
+   - Verify the configuration takes effect.
+   - Check billing information.
+
+8. **Monitoring**
+   - Configure CSC service monitoring.
+   - Set service-status alerts.
+   - Monitor security events.
+
+9. **Renewal management**
+   - Watch renewal time and cost.
+   - Set renewal reminders.
+   - Periodically review the renewal strategy.
+
+10. **Compliance**
+    - Ensure configuration meets security/compliance requirements.
+    - Retain necessary audit logs.
+    - Follow data-protection regulations.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查CSC相关权限
-- 申请QcloudCSCFullAccess权限
-- 验证财务相关权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check CSC related permissions.
+- Request `QcloudCSCFullAccess`.
+- Verify finance related permissions.
 
-#### 错误二：额度限制
+#### Error 2: Quota limit
 
 ```
 Error: [TencentCloudSDKError] Code=LimitExceeded
 Message=Resource limit exceeded
 ```
 
-**原因**：达到资源数量或额度限制
-**解决方案**：
-- 检查当前CSC实例数量
-- 申请提高资源额度
-- 选择更低的配置
+**Cause**: Reached resource count or quota limit.
+**Solution**:
+- Check the current number of CSC instances.
+- Request a quota increase.
+- Choose a lower configuration.
 
-#### 错误三：地域不可用
+#### Error 3: Region unavailable
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Region not available
 ```
 
-**原因**：选择的地域不支持CSC
-**解决方案**：
-- 检查地域可用性
-- 选择支持的地域
-- 联系腾讯云支持
+**Cause**: The selected region does not support CSC.
+**Solution**:
+- Check region availability.
+- Choose a supported region.
+- Contact Tencent Cloud support.
 
-#### 错误四：参数错误
+#### Error 4: Invalid parameter
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid parameter
 ```
 
-**原因**：参数配置错误
-**解决方案**：
-- 检查parameter对象格式
-- 验证参数值有效性
-- 参考示例配置
+**Cause**: Wrong parameter configuration.
+**Solution**:
+- Check the `parameter` object format.
+- Validate parameter values.
+- Refer to the example configuration.
 
-#### 错误五：计费模式不支持
+#### Error 5: Pay mode not supported
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Pay mode not supported
 ```
 
-**原因**：使用了不支持的计费模式
-**解决方案**：
-- 确认使用PrePay模式
-- 检查pay_mode参数
+**Cause**: An unsupported billing mode was used.
+**Solution**:
+- Confirm `PrePay` mode is used.
+- Check the `pay_mode` parameter.
 
-#### 错误六：超时错误
+#### Error 6: Timeout
 
 ```
 Error: timeout while waiting for state to become 'success'
 ```
 
-**原因**：创建操作超时
-**解决方案**：
-- 增加create_timeout值
-- 检查网络连接
-- 联系腾讯云支持
+**Cause**: The create operation timed out.
+**Solution**:
+- Increase the `create_timeout` value.
+- Check network connectivity.
+- Contact Tencent Cloud support.
+
+## License
+
+See [LICENSE](../../../../LICENSE) for full details.

@@ -1,92 +1,104 @@
-# 腾讯云安全组管理模块
+# Tencent Cloud Security Group Management Component
 
-## 模块概述
+Terraform component under `components/network/security-group` for creating and managing Tencent Cloud Security Groups (SG) in bulk, with flexible network access control policies. It is part of the `network` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中批量创建和管理安全组（Security Group），提供灵活的网络安全策略配置，主要功能包括：
+## Overview
 
-- **批量安全组创建** - 支持一次性创建多个安全组
-- **入站规则管理** - 配置入站流量访问控制策略
-- **出站规则管理** - 配置出站流量访问控制策略
-- **模板化配置** - 支持地址模板和协议模板
-- **优先级控制** - 规则按配置顺序应用优先级
-- **标签管理** - 支持为安全组添加标签
-- **项目隔离** - 支持按项目ID进行资源隔离
-- **ID映射输出** - 输出安全组名称到ID的映射关系
+This component creates and manages multiple Security Groups and their inbound/outbound rules in a single pass. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudVPCFullAccess` | VPC管理全权限 |
-| `QcloudSecurityGroupFullAccess` | 安全组管理全权限 |
-| `QcloudTagFullAccess` | 标签管理全权限 |
-
-### 其他要求
-
-- 需要规划好安全组的命名规范
-- 需要了解网络访问控制需求
-- 需要确定安全组规则优先级
-- 需要规划好标签策略
-- 需要了解项目ID（如适用）
+- **Bulk Security Group creation** – create multiple security groups at once.
+- **Ingress rule management** – configure inbound traffic access control policies.
+- **Egress rule management** – configure outbound traffic access control policies.
+- **Template-based configuration** – support address templates and service (protocol) templates.
+- **Priority control** – rules are applied in configuration order; the first rule has the highest priority.
+- **Tag management** – attach tags to each security group.
+- **Project isolation** – isolate resources by project ID.
+- **ID mapping output** – export a name-to-ID mapping of the created security groups.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 安全组配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.125 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `security_groups` | `list(object)` | 否 | `[]` | 安全组配置列表 |
+## Providers
 
-### 安全组对象字段说明
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.125 |
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `name` | `string` | 是 | - | 安全组名称 |
-| `project_id` | `number` | 否 | - | 项目ID |
-| `description` | `string` | 否 | - | 安全组描述 |
-| `tags` | `map(string)` | 否 | `{}` | 安全组标签 |
-| `ingress_rules` | `list(object)` | 否 | `[]` | 入站规则列表 |
-| `egress_rules` | `list(object)` | 否 | `[]` | 出站规则列表 |
+### IAM Permissions
 
-### 安全组规则对象字段说明
+The executing principal needs the following Tencent Cloud permissions:
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `action` | `string` | 是 | - | 规则策略：`ACCEPT` 或 `DROP` |
-| `cidr_block` | `string` | 否 | - | IP地址网络或CIDR段 |
-| `ipv6_cidr_block` | `string` | 否 | - | IPv6地址网络或CIDR段 |
-| `protocol` | `string` | 否 | `ALL` | 协议类型：`TCP`, `UDP`, `ICMP`, `ICMPv6`, `ALL` |
-| `port` | `string` | 否 | `all` | 端口范围：`all`, 单端口, 端口范围 |
-| `source_security_id` | `string` | 否 | - | 嵌套安全组ID |
-| `address_template_id` | `string` | 否 | - | 地址模板ID（如 `ipm-xxxxxxxx`） |
-| `address_template_group` | `string` | 否 | - | 地址模板组ID（如 `ipmg-xxxxxxxx`） |
-| `service_template_id` | `string` | 否 | - | 协议模板ID（如 `ppm-xxxxxxxx`） |
-| `service_template_group` | `string` | 否 | - | 协议模板组ID（如 `ppmg-xxxxxxxx`） |
-| `description` | `string` | 否 | - | 规则描述 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudVPCFullAccess` | Full access to VPC management |
+| `QcloudSecurityGroupFullAccess` | Full access to Security Group management |
+| `QcloudTagFullAccess` | Full access to Tag management |
+
+### Prerequisites
+
+- Plan a naming convention for your security groups.
+- Understand your network access control requirements.
+- Decide the priority order of your security group rules.
+- Plan your tagging strategy.
+- Know the target project ID if project isolation is required.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_security_groups"></a> [security\_groups](#input\_security\_groups) | List of security groups to be created. | <pre>list(object({<br>  name        = string<br>  project_id  = optional(number)<br>  description = optional(string)<br>  tags        = optional(map(string))<br>  ingress_rules = optional(list(object({<br>    action                 = string<br>    cidr_block             = optional(string)<br>    ipv6_cidr_block        = optional(string)<br>    protocol               = optional(string)<br>    port                   = optional(string)<br>    source_security_id     = optional(string)<br>    address_template_id    = optional(string)<br>    address_template_group = optional(string)<br>    service_template_id    = optional(string)<br>    service_template_group = optional(string)<br>    description            = optional(string)<br>  })), [])<br>  egress_rules = optional(list(object({<br>    action                 = string<br>    cidr_block             = optional(string)<br>    ipv6_cidr_block        = optional(string)<br>    protocol               = optional(string)<br>    port                   = optional(string)<br>    source_security_id     = optional(string)<br>    address_template_id    = optional(string)<br>    address_template_group = optional(string)<br>    service_template_id    = optional(string)<br>    service_template_group = optional(string)<br>    description            = optional(string)<br>  })), [])<br>}))</pre> | `[]` | no |
+
+### `security_groups` object fields
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `string` | yes | - | Name of the security group. |
+| `project_id` | `number` | no | - | Project ID of the security group. |
+| `description` | `string` | no | - | Description of the security group. |
+| `tags` | `map(string)` | no | `{}` | Tags of the security group. |
+| `ingress_rules` | `list(object)` | no | `[]` | List of ingress rules. |
+| `egress_rules` | `list(object)` | no | `[]` | List of egress rules. |
+
+### Rule object fields (ingress / egress)
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `action` | `string` | yes | - | Rule policy: `ACCEPT` or `DROP`. |
+| `cidr_block` | `string` | no | - | An IPv4 address network or CIDR segment. |
+| `ipv6_cidr_block` | `string` | no | - | An IPv6 address network or CIDR segment. |
+| `protocol` | `string` | no | `ALL` | Protocol type: `TCP`, `UDP`, `ICMP`, `ICMPv6`, `ALL`. Conflicts with `service_template_*`. |
+| `port` | `string` | no | `all` | Port range: `all`, a single port, or a port range (e.g. `80`, `80,90`, `80-90`). Conflicts with `service_template_*`. |
+| `source_security_id` | `string` | no | - | ID of a nested (referenced) security group. |
+| `address_template_id` | `string` | no | - | Address template ID (e.g. `ipm-xxxxxxxx`). |
+| `address_template_group` | `string` | no | - | Address template group ID (e.g. `ipmg-xxxxxxxx`). |
+| `service_template_id` | `string` | no | - | Service (protocol) template ID (e.g. `ppm-xxxxxxxx`). |
+| `service_template_group` | `string` | no | - | Service (protocol) template group ID (e.g. `ppmg-xxxxxxxx`). |
+| `description` | `string` | no | - | Description of the rule. |
+
+---
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_security_group_ids"></a> [security\_group\_ids](#output\_security\_group\_ids) | The id of security groups (map of security group name to ID). |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` example
 
 ```hcl
-# 基础安全组配置
+# Basic security group configuration
 security_groups = [
   {
     name        = "web-servers"
@@ -97,8 +109,8 @@ security_groups = [
       Role        = "web"
       ManagedBy   = "terraform"
     }
-    
-    # 入站规则
+
+    # Ingress rules
     ingress_rules = [
       {
         action      = "ACCEPT"
@@ -122,8 +134,8 @@ security_groups = [
         description = "Allow SSH access from internal network"
       }
     ]
-    
-    # 出站规则
+
+    # Egress rules
     egress_rules = [
       {
         action      = "ACCEPT"
@@ -134,7 +146,7 @@ security_groups = [
       }
     ]
   },
-  
+
   {
     name        = "database-servers"
     description = "Security group for database servers"
@@ -142,26 +154,26 @@ security_groups = [
       Environment = "production"
       Role        = "database"
     }
-    
-    # 入站规则
+
+    # Ingress rules
     ingress_rules = [
       {
         action              = "ACCEPT"
-        source_security_id  = "sg-web-servers" # 引用web安全组
+        source_security_id  = "sg-web-servers" # reference another security group by ID
         protocol            = "TCP"
         port                = "3306"
         description         = "Allow MySQL access from web servers"
       },
       {
         action              = "ACCEPT"
-        source_security_id  = "sg-app-servers" # 引用应用安全组
+        source_security_id  = "sg-app-servers" # reference another security group by ID
         protocol            = "TCP"
         port                = "5432"
         description         = "Allow PostgreSQL access from app servers"
       }
     ]
-    
-    # 出站规则
+
+    # Egress rules
     egress_rules = [
       {
         action      = "ACCEPT"
@@ -182,29 +194,29 @@ security_groups = [
 ]
 ```
 
-### 使用模板配置示例
+### Template-based configuration example
 
 ```hcl
-# 使用地址模板和协议模板的安全组配置
+# Security group using address and service templates
 security_groups = [
   {
     name        = "template-based-sg"
     description = "Security group using templates"
-    
+
     ingress_rules = [
       {
         action               = "ACCEPT"
-        address_template_id  = "ipm-12345678"  # 地址模板ID
-        service_template_id  = "ppm-87654321"  # 协议模板ID
+        address_template_id  = "ipm-12345678"  # address template ID
+        service_template_id  = "ppm-87654321"  # service (protocol) template ID
         description          = "Allow access based on address and service templates"
       }
     ],
-    
+
     egress_rules = [
       {
         action                 = "ACCEPT"
-        address_template_group = "ipmg-abcdefgh"  # 地址模板组ID
-        service_template_group = "ppmg-hgfedcba"  # 协议模板组ID
+        address_template_group = "ipmg-abcdefgh"  # address template group ID
+        service_template_group = "ppmg-hgfedcba"  # service (protocol) template group ID
         description            = "Allow outbound based on template groups"
       }
     ]
@@ -212,15 +224,15 @@ security_groups = [
 ]
 ```
 
-### IPv6配置示例
+### IPv6 configuration example
 
 ```hcl
-# IPv6安全组配置
+# Security group with IPv6 support
 security_groups = [
   {
     name        = "ipv6-enabled-sg"
     description = "Security group with IPv6 support"
-    
+
     ingress_rules = [
       {
         action          = "ACCEPT"
@@ -237,7 +249,7 @@ security_groups = [
         description     = "Allow HTTPS from IPv6 network"
       }
     ],
-    
+
     egress_rules = [
       {
         action          = "ACCEPT"
@@ -251,12 +263,12 @@ security_groups = [
 ]
 ```
 
-### 多环境配置示例
+### Multi-environment configuration example
 
 ```hcl
-# 多环境安全组配置
+# Security groups for multiple environments
 security_groups = [
-  # 开发环境
+  # Development
   {
     name        = "dev-web-sg"
     description = "Development web servers security group"
@@ -264,7 +276,7 @@ security_groups = [
       Environment = "development"
       Role        = "web"
     }
-    
+
     ingress_rules = [
       {
         action      = "ACCEPT"
@@ -282,8 +294,8 @@ security_groups = [
       }
     ]
   },
-  
-  # 测试环境
+
+  # Testing
   {
     name        = "test-web-sg"
     description = "Testing web servers security group"
@@ -291,7 +303,7 @@ security_groups = [
       Environment = "testing"
       Role        = "web"
     }
-    
+
     ingress_rules = [
       {
         action      = "ACCEPT"
@@ -309,8 +321,8 @@ security_groups = [
       }
     ]
   },
-  
-  # 生产环境
+
+  # Production
   {
     name        = "prod-web-sg"
     description = "Production web servers security group"
@@ -319,7 +331,7 @@ security_groups = [
       Role        = "web"
       SLA         = "99.95%"
     }
-    
+
     ingress_rules = [
       {
         action      = "ACCEPT"
@@ -349,12 +361,11 @@ security_groups = [
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：Web应用安全组
+### Example 1: Web application security group
 
 ```hcl
-# Web应用安全组配置
 security_groups = [
   {
     name        = "web-application-sg"
@@ -365,8 +376,8 @@ security_groups = [
       Application = "ecommerce"
       Tier        = "web"
     }
-    
-    # 入站规则 - 外部访问
+
+    # Ingress - external access
     ingress_rules = [
       {
         action      = "ACCEPT"
@@ -397,8 +408,8 @@ security_groups = [
         description = "Internal application port"
       }
     ]
-    
-    # 出站规则
+
+    # Egress
     egress_rules = [
       {
         action      = "ACCEPT"
@@ -433,10 +444,9 @@ security_groups = [
 ]
 ```
 
-### 示例二：数据库安全组
+### Example 2: Database security group
 
 ```hcl
-# 数据库安全组配置
 security_groups = [
   {
     name        = "database-sg"
@@ -447,33 +457,33 @@ security_groups = [
       Application = "ecommerce"
       Tier        = "database"
     }
-    
-    # 入站规则 - 仅允许特定安全组访问
+
+    # Ingress - only allow specific security groups
     ingress_rules = [
       {
         action              = "ACCEPT"
-        source_security_id  = "sg-web-application"  # Web应用安全组
+        source_security_id  = "sg-web-application"  # web app security group ID
         protocol            = "TCP"
         port                = "3306"
         description         = "MySQL access from web servers"
       },
       {
         action              = "ACCEPT"
-        source_security_id  = "sg-application"      # 应用服务器安全组
+        source_security_id  = "sg-application"      # app server security group ID
         protocol            = "TCP"
         port                = "3306"
         description         = "MySQL access from app servers"
       },
       {
         action              = "ACCEPT"
-        source_security_id  = "sg-bastion"          # 堡垒机安全组
+        source_security_id  = "sg-bastion"          # bastion security group ID
         protocol            = "TCP"
         port                = "22"
         description         = "SSH access from bastion"
       }
     ]
-    
-    # 出站规则 - 限制出站流量
+
+    # Egress - restricted outbound
     egress_rules = [
       {
         action      = "ACCEPT"
@@ -501,10 +511,9 @@ security_groups = [
 ]
 ```
 
-### 示例三：堡垒机安全组
+### Example 3: Bastion host security group
 
 ```hcl
-# 堡垒机安全组配置
 security_groups = [
   {
     name        = "bastion-sg"
@@ -515,26 +524,26 @@ security_groups = [
       Role        = "bastion"
       Access      = "restricted"
     }
-    
-    # 入站规则 - 严格限制访问
+
+    # Ingress - strictly limited
     ingress_rules = [
       {
         action      = "ACCEPT"
-        cidr_block  = "203.0.113.0/24"  # 公司办公网
+        cidr_block  = "203.0.113.0/24"  # corporate office network
         protocol    = "TCP"
         port        = "22"
         description = "SSH from office network"
       },
       {
         action      = "ACCEPT"
-        cidr_block  = "198.51.100.0/24" # VPN网络
+        cidr_block  = "198.51.100.0/24" # VPN network
         protocol    = "TCP"
         port        = "22"
         description = "SSH from VPN network"
       }
     ]
-    
-    # 出站规则 - 允许访问所有内部服务
+
+    # Egress - allow access to all internal services
     egress_rules = [
       {
         action      = "ACCEPT"
@@ -571,41 +580,44 @@ security_groups = [
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 安全组规则优先级说明
+### Rule priority
 
-安全组规则按照配置顺序应用优先级，**第一条规则具有最高优先级**。规则匹配是顺序执行的，一旦匹配到规则就停止后续匹配。
+Security group rules are applied in configuration order; **the first rule has the highest priority**. Matching is sequential and stops at the first match.
 
-### 地址源类型互斥说明
+### Exclusive source / port fields
 
-以下地址源类型互斥，不能同时设置：
-- `cidr_block` - IP地址网络或CIDR段
-- `ipv6_cidr_block` - IPv6地址网络或CIDR段
-- `source_security_id` - 嵌套安全组ID
-- `address_template_id` - 地址模板ID
-- `address_template_group` - 地址模板组ID
+The following source fields are mutually exclusive and cannot be set together. **Exactly one** of them must be provided:
+- `cidr_block` – IPv4 address network or CIDR segment
+- `ipv6_cidr_block` – IPv6 address network or CIDR segment
+- `source_security_id` – nested security group ID
+- `address_template_id` – address template ID
+- `address_template_group` – address template group ID
 
-**必须设置其中一种地址源类型**。
+Similarly, `protocol` / `port` and `service_template_*` are mutually exclusive:
+- Use `protocol` + `port` for literal protocol/port rules, **or**
+- Use `service_template_id` / `service_template_group` for template-based protocol/port rules.
 
-### 协议端口配置说明
+### Protocol and port
 
-- **协议类型**：支持 `TCP`, `UDP`, `ICMP`, `ICMPv6`, `ALL`
-- **端口配置**：支持 `all`、单端口（如 `80`）、端口范围（如 `80-90`）、端口列表（如 `80,90`）
-- **特殊规则**：如果协议设置为 `ALL`，端口也必须设置为 `all`
+- **Protocol**: `TCP`, `UDP`, `ICMP`, `ICMPv6`, `ALL`.
+- **Port**: `all`, a single port (e.g. `80`), a port range (e.g. `80-90`), or a port list (e.g. `80,90`).
+- **Special rule**: if `protocol` is set to `ALL`, `port` must also be set to `all`.
 
-### 模板使用说明
+### Templates
 
-| 模板类型 | 格式 | 说明 |
-|----------|------|------|
-| **地址模板** | `ipm-xxxxxxxx` | 预定义的IP地址集合 |
-| **地址模板组** | `ipmg-xxxxxxxx` | 地址模板的组集合 |
-| **协议模板** | `ppm-xxxxxxxx` | 预定义的协议端口组合 |
-| **协议模板组** | `ppmg-xxxxxxxx` | 协议模板的组集合 |
+| Template type | Format | Description |
+|---------------|--------|-------------|
+| Address template | `ipm-xxxxxxxx` | Predefined set of IP addresses |
+| Address template group | `ipmg-xxxxxxxx` | Group of address templates |
+| Service (protocol) template | `ppm-xxxxxxxx` | Predefined protocol/port combination |
+| Service (protocol) template group | `ppmg-xxxxxxxx` | Group of service templates |
 
-### 输出说明
+### Output
 
-模块输出安全组名称到ID的映射关系：
+The component outputs a name-to-ID mapping of the created security groups:
+
 ```hcl
 security_group_ids = {
   "web-servers"      = "sg-12345678"
@@ -616,130 +628,134 @@ security_group_ids = {
 
 ---
 
-## 注意事项
+## Important Notes
 
-> ⚠️ **重要提示，操作前请仔细阅读**
+> ⚠️ **Important: read carefully before making changes**
 
-1. **规则优先级**
-   - 规则按配置顺序应用，第一条规则优先级最高
-   - 仔细规划规则顺序，避免意外的访问控制
-   - 建议将拒绝规则放在最后
+1. **Rule priority**
+   - Rules are applied in configuration order; the first rule has the highest priority.
+   - Plan rule order carefully to avoid unintended access control.
+   - Place `DROP` rules last.
 
-2. **地址源配置**
-   - 确保只设置一种地址源类型
-   - CIDR块要使用正确的网络掩码
-   - 嵌套安全组ID必须引用已存在的安全组
+2. **Source configuration**
+   - Set exactly one source field per rule.
+   - Use correct network masks in CIDR blocks.
+   - `source_security_id` must reference an existing security group.
 
-3. **协议端口配置**
-   - 协议为 `ALL` 时端口必须为 `all`
-   - 端口范围使用连字符（如 `80-90`）
-   - 端口列表使用逗号分隔（如 `80,443`）
+3. **Protocol and port**
+   - When `protocol` is `ALL`, `port` must be `all`.
+   - Use a hyphen for port ranges (e.g. `80-90`).
+   - Use commas for port lists (e.g. `80,443`).
 
-4. **模板使用**
-   - 确保模板ID正确且存在
-   - 模板和直接配置互斥，不能同时使用
-   - 了解模板的具体内容和使用限制
+4. **Templates**
+   - Ensure template IDs are correct and exist.
+   - Templates and literal protocol/port configs are mutually exclusive.
+   - Understand the template contents and usage limits.
 
-5. **安全最佳实践**
-   - 遵循最小权限原则
-   - 定期审查和清理安全组规则
-   - 使用描述字段记录规则用途
-   - 实施网络分段和隔离
+5. **Security best practices**
+   - Follow the principle of least privilege.
+   - Regularly review and clean up security group rules.
+   - Use the `description` field to record each rule's purpose.
+   - Implement network segmentation and isolation.
 
-6. **性能考虑**
-   - 安全组规则数量影响网络性能
-   - 合理规划规则数量，避免过多规则
-   - 考虑使用网络ACL进行粗粒度控制
+6. **Performance**
+   - The number of rules affects network performance.
+   - Plan the rule count reasonably; avoid excessive rules.
+   - Consider Network ACLs for coarse-grained control.
 
-7. **变更管理**
-   - 记录所有安全组变更
-   - 测试规则变更对业务的影响
-   - 制定回滚计划
+7. **Change management**
+   - Record all security group changes.
+   - Test the impact of rule changes on your workloads.
+   - Prepare a rollback plan.
 
-8. **监控审计**
-   - 启用安全组流量日志
-   - 监控异常访问模式
-   - 定期进行安全审计
+8. **Monitoring & auditing**
+   - Enable security group flow logs.
+   - Monitor for anomalous access patterns.
+   - Perform periodic security audits.
 
 ---
 
-## 故障排除
+## Troubleshooting
 
-### 常见错误及解决方案
+### Common errors and solutions
 
-#### 错误一：地址源类型冲突
+#### Error 1: Conflicting source types
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Conflict address source types
 ```
 
-**原因**：同时设置了多种地址源类型
-**解决方案**：
-- 检查规则配置，确保只设置一种地址源
-- 移除冲突的地址源配置
-- 重新规划地址源选择
+**Cause**: Multiple source types set in the same rule.
+**Solution**:
+- Check the rule config and set only one source type.
+- Remove the conflicting source config.
+- Re-plan the source selection.
 
-#### 错误二：协议端口不匹配
+#### Error 2: Protocol/port mismatch
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Protocol and port mismatch
 ```
 
-**原因**：协议为 `ALL` 但端口不是 `all`
-**解决方案**：
-- 将端口设置为 `all` 当协议为 `ALL` 时
-- 或者选择具体的协议类型
+**Cause**: `protocol` is `ALL` but `port` is not `all`.
+**Solution**:
+- Set `port = "all"` when `protocol = "ALL"`, or
+- Choose a specific protocol type.
 
-#### 错误三：安全组不存在
+#### Error 3: Security group not found
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=Security group not found
 ```
 
-**原因**：引用的嵌套安全组不存在
-**解决方案**：
-- 确认引用的安全组ID正确
-- 确保引用的安全组已创建
-- 检查安全组名称拼写
+**Cause**: The referenced nested security group does not exist.
+**Solution**:
+- Verify the referenced security group ID is correct.
+- Ensure the referenced security group was created (e.g. in the same `security_groups` list or a prior step).
+- Check the security group name spelling.
 
-#### 错误四：模板不存在
+#### Error 4: Template not found
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=Template not found
 ```
 
-**原因**：引用的模板ID不存在
-**解决方案**：
-- 确认模板ID正确
-- 检查模板是否已创建
-- 验证模板权限
+**Cause**: The referenced template ID does not exist.
+**Solution**:
+- Verify the template ID is correct.
+- Check that the template was created.
+- Validate template permissions.
 
-#### 错误五：权限不足
+#### Error 5: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=UnauthorizedOperation
 Message=You are not authorized to perform the operation
 ```
 
-**原因**：执行账号缺少必要权限
-**解决方案**：
-- 确认Provider配置的密钥具有所需权限
-- 检查是否包含安全组管理权限
-- 验证项目权限（如设置project_id）
+**Cause**: The executing account lacks the required permissions.
+**Solution**:
+- Confirm the provider credentials have the required permissions.
+- Ensure Security Group management permissions are included.
+- Verify project permissions (if `project_id` is set).
 
-#### 错误六：配额限制
+#### Error 6: Quota exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=QuotaExceeded
 Message=Security group quota exceeded
 ```
 
-**原因**：达到安全组或规则配额限制
-**解决方案**：
-- 检查安全组和规则配额
-- 申请提高配额或删除无用资源
-- 合并相似的安全组规则
+**Cause**: Reached the security group or rule quota limit.
+**Solution**:
+- Check the security group and rule quotas.
+- Request a quota increase or delete unused resources.
+- Consolidate similar security group rules.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

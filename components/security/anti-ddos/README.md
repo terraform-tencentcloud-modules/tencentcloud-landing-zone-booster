@@ -1,131 +1,141 @@
-# 腾讯云DDoS高防模块
+# Tencent Cloud Anti-DDoS (BGP) Component
 
-## 模块概述
+Terraform component under `components/security/anti-ddos` for deploying and managing Tencent Cloud Anti-DDoS (BGP) protection — providing professional DDoS attack mitigation — as part of the `security` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中部署和管理DDoS高防服务，提供专业的DDoS攻击防护能力，主要功能包括：
+## Overview
 
-- **多套餐支持** - 支持企业版、标准版、标准版2.0三种防护套餐
-- **灵活计费** - 支持包年包月和按量计费两种计费模式
-- **弹性带宽** - 支持弹性带宽扩展应对突发流量
-- **多IP防护** - 支持多IP地址同时防护
-- **地域部署** - 支持多地域部署优化访问体验
-- **标签管理** - 支持资源标签分类管理
-- **自动配置** - 根据套餐类型自动配置相应参数
-- **资源输出** - 输出高防实例ID便于后续管理
+This component deploys and manages Anti-DDoS (BGP) instances, providing professional DDoS attack protection. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudAntiDDoSFullAccess` | DDoS高防全权限 |
-| `QcloudFinanceFullAccess` | 财务管理权限 |
-| `QcloudTagFullAccess` | 标签管理权限 |
-| `QcloudBillingReadOnlyAccess` | 账单只读权限 |
-
-### 其他要求
-
-- 需要了解DDoS防护的基本概念和需求
-- 需要确定防护套餐类型和规格
-- 需要规划防护IP数量和带宽需求
-- 需要选择合适的地域部署
-- 需要确定计费模式和周期
-- 需要准备标签分类方案
+- **Multiple plan support** – Enterprise, Standard, and Standard 2.0 (StandardPlus) protection plans.
+- **Flexible billing** – Monthly subscription (PREPAID) and pay-as-you-go (POSTPAID_BY_MONTH) billing modes.
+- **Elastic bandwidth** – elastic bandwidth expansion to absorb traffic bursts.
+- **Multi-IP protection** – protect multiple IP addresses simultaneously.
+- **Regional deployment** – multi-region deployment for optimized access.
+- **Tag management** – classify resources with tags.
+- **Auto-configuration** – parameters are configured automatically based on the plan type.
+- **Resource output** – outputs the Anti-DDoS instance ID for later management.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 主要配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.1.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `instance_charge_type` | `string` | 是 | - | 计费模式：`PREPAID`(包年包月)/`POSTPAID_BY_MONTH`(按量计费) |
-| `package_type` | `string` | 是 | - | 防护套餐：`Enterprise`(企业版)/`Standard`(标准版)/`StandardPlus`(标准版2.0) |
-| `tag_info_list` | `list(object)` | 否 | `[]` | 标签信息列表 |
+## Providers
 
-### 包年包月计费配置
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `instance_charge_prepaid_period` | `number` | 条件 | `null` | 购买时长（月数） |
-| `instance_charge_prepaid_renew_flag` | `string` | 否 | `OTIFY_AND_MANUAL_RENEW` | 续费标识：`OTIFY_AND_MANUAL_RENEW`(通知不自动续费)/`NOTIFY_AND_AUTO_RENEW`(通知自动续费)/`DISABLE_NOTIFY_AND_MANUAL_RENEW`(不通知不自动续费) |
+### IAM Permissions
 
-### 标准版配置变量
+The executing principal needs the following Tencent Cloud permissions:
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `standard_region` | `string` | 条件 | `null` | 高防包购买地域 |
-| `standard_protect_ip_count` | `number` | 条件 | `null` | 防护IP数量（如：1,10,50,100） |
-| `standard_bandwidth` | `number` | 条件 | `null` | 防护服务带宽（Mbps） |
-| `standard_elastic_bandwidth_flag` | `bool` | 否 | `false` | 是否启用弹性服务带宽 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudAntiDDoSFullAccess` | Full access to Anti-DDoS |
+| `QcloudFinanceFullAccess` | Full access to finance management |
+| `QcloudTagFullAccess` | Full access to Tag management |
+| `QcloudBillingReadOnlyAccess` | Read-only access to billing |
 
-### 标准版2.0配置变量
+### Prerequisites
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `standard_plus_region` | `string` | 条件 | `null` | 高防包购买地域 |
-| `standard_plus_protect_count` | `string` | 条件 | `null` | 防护次数：`TWO_TIMES`(2次全力防护)/`UNLIMITED`(无限次防护) |
-| `standard_plus_protect_ip_count` | `number` | 条件 | `null` | 防护IP数量（如：1,10,50,100） |
-| `standard_plus_bandwidth` | `number` | 条件 | `null` | 防护服务带宽（Mbps） |
-| `standard_plus_elastic_bandwidth_flag` | `bool` | 否 | `false` | 是否启用弹性服务带宽 |
-
-### 企业版配置变量
-
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `enterprise_region` | `string` | 条件 | `null` | 高防包购买地域 |
-| `enterprise_protect_ip_count` | `number` | 条件 | `null` | 防护IP数量（如：1,10,50,100） |
-| `enterprise_basic_protect_bandwidth` | `number` | 条件 | `null` | 保底防护带宽（Gbps） |
-| `enterprise_bandwidth` | `number` | 条件 | `null` | 服务带宽规模 |
-| `enterprise_elastic_protect_bandwidth` | `number` | 否 | `0` | 弹性带宽（Gbps，可选：0,400,500,600,800,1000） |
-| `enterprise_elastic_bandwidth_flag` | `bool` | 否 | `false` | 是否启用弹性服务带宽 |
-
-### 标签对象字段说明
-
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `key` | `string` | 是 | - | 标签键 |
-| `value` | `string` | 是 | - | 标签值 |
-
-### 套餐类型对比
-
-| 特性 | 企业版 | 标准版2.0 | 标准版 |
-|------|--------|-----------|--------|
-| **防护能力** | 最高 | 高 | 基础 |
-| **防护次数** | 无限次 | 可选2次/无限次 | 基础防护 |
-| **弹性带宽** | 支持 | 支持 | 支持 |
-| **适用场景** | 大型企业 | 中型企业 | 小型企业 |
-| **成本** | 高 | 中 | 低 |
+- Understand the basic concepts and requirements of DDoS protection.
+- Decide the protection plan type and specs.
+- Plan the number of protected IPs and bandwidth needs.
+- Choose an appropriate deployment region.
+- Decide the billing mode and period.
+- Prepare the tag classification scheme.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_instance_charge_type"></a> [instance\_charge\_type](#input\_instance\_charge\_type) | `string` | yes | – | Billing mode: `PREPAID` (monthly subscription) / `POSTPAID_BY_MONTH` (pay-as-you-go). |
+| <a name="input_package_type"></a> [package\_type](#input\_package\_type) | `string` | yes | – | Protection plan: `Enterprise` / `Standard` / `StandardPlus` (Standard 2.0). |
+| <a name="input_tag_info_list"></a> [tag\_info\_list](#input\_tag\_info\_list) | `list(object)` | no | `[]` | Tag information list. |
+
+### Monthly subscription (PREPAID) configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_instance_charge_prepaid_period"></a> [instance\_charge\_prepaid\_period](#input\_instance\_charge\_prepaid\_period) | `number` | conditional | `null` | Purchase period in months. |
+| <a name="input_instance_charge_prepaid_renew_flag"></a> [instance\_charge\_prepaid\_renew\_flag](#input\_instance\_charge\_prepaid\_renew\_flag) | `string` | no | `NOTIFY_AND_MANUAL_RENEW` | Renewal flag: `NOTIFY_AND_MANUAL_RENEW` (notify, no auto-renew) / `NOTIFY_AND_AUTO_RENEW` (notify and auto-renew) / `DISABLE_NOTIFY_AND_MANUAL_RENEW` (no notify, no auto-renew). |
+
+### Standard plan configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_standard_region"></a> [standard\_region](#input\_standard\_region) | `string` | conditional | `null` | Region where the Anti-DDoS package is purchased. |
+| <a name="input_standard_protect_ip_count"></a> [standard\_protect\_ip\_count](#input\_standard\_protect\_ip\_count) | `number` | conditional | `null` | Number of protected IPs (e.g. 1, 10, 50, 100). |
+| <a name="input_standard_bandwidth"></a> [standard\_bandwidth](#input\_standard\_bandwidth) | `number` | conditional | `null` | Protected service bandwidth (Mbps). |
+| <a name="input_standard_elastic_bandwidth_flag"></a> [standard\_elastic\_bandwidth\_flag](#input\_standard\_elastic\_bandwidth\_flag) | `bool` | no | `false` | Whether to enable elastic service bandwidth. |
+
+### Standard 2.0 (StandardPlus) configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_standard_plus_region"></a> [standard\_plus\_region](#input\_standard\_plus\_region) | `string` | conditional | `null` | Region where the Anti-DDoS package is purchased. |
+| <a name="input_standard_plus_protect_count"></a> [standard\_plus\_protect\_count](#input\_standard\_plus\_protect\_count) | `string` | conditional | `null` | Protection count: `TWO_TIMES` (2 full protections) / `UNLIMITED` (unlimited protections). |
+| <a name="input_standard_plus_protect_ip_count"></a> [standard\_plus\_protect\_ip\_count](#input\_standard\_plus\_protect\_ip\_count) | `number` | conditional | `null` | Number of protected IPs (e.g. 1, 10, 50, 100). |
+| <a name="input_standard_plus_bandwidth"></a> [standard\_plus\_bandwidth](#input\_standard\_plus\_bandwidth) | `number` | conditional | `null` | Protected service bandwidth (Mbps). |
+| <a name="input_standard_plus_elastic_bandwidth_flag"></a> [standard\_plus\_elastic\_bandwidth\_flag](#input\_standard\_plus\_elastic\_bandwidth\_flag) | `bool` | no | `false` | Whether to enable elastic service bandwidth. |
+
+### Enterprise plan configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_enterprise_region"></a> [enterprise\_region](#input\_enterprise\_region) | `string` | conditional | `null` | Region where the Anti-DDoS package is purchased. |
+| <a name="input_enterprise_protect_ip_count"></a> [enterprise\_protect\_ip\_count](#input\_enterprise\_protect\_ip\_count) | `number` | conditional | `null` | Number of protected IPs (e.g. 1, 10, 50, 100). |
+| <a name="input_enterprise_basic_protect_bandwidth"></a> [enterprise\_basic\_protect\_bandwidth](#input\_enterprise\_basic\_protect\_bandwidth) | `number` | conditional | `null` | Guaranteed protection bandwidth (Gbps). |
+| <a name="input_enterprise_bandwidth"></a> [enterprise\_bandwidth](#input\_enterprise\_bandwidth) | `number` | conditional | `null` | Service bandwidth scale. |
+| <a name="input_enterprise_elastic_protect_bandwidth"></a> [enterprise\_elastic\_protect\_bandwidth](#input\_enterprise\_elastic\_protect\_bandwidth) | `number` | no | `0` | Elastic bandwidth (Gbps), selectable [0, 400, 500, 600, 800, 1000]. |
+| <a name="input_enterprise_elastic_bandwidth_flag"></a> [enterprise\_elastic\_bandwidth\_flag](#input\_enterprise\_elastic\_bandwidth\_flag) | `bool` | no | `false` | Whether to enable elastic service bandwidth. |
+
+### `tag_info_list` object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `key` | `string` | yes | – | Tag key. |
+| `value` | `string` | yes | – | Tag value. |
+
+### Plan comparison
+
+| Feature | Enterprise | Standard 2.0 | Standard |
+|---------|------------|--------------|----------|
+| **Protection capability** | Highest | High | Basic |
+| **Protection count** | Unlimited | 2 times / Unlimited | Basic protection |
+| **Elastic bandwidth** | Supported | Supported | Supported |
+| **Use case** | Large enterprise | Medium enterprise | Small business |
+| **Cost** | High | Medium | Low |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_resource_id"></a> [resource\_id](#output\_resource\_id) | BGP instance ID. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` – basic (Enterprise, PREPAID)
 
 ```hcl
-# 基础配置
+# Basic configuration
 instance_charge_type = "PREPAID"
 package_type        = "Enterprise"
 
-# 包年包月配置
+# Monthly subscription configuration
 instance_charge_prepaid_period    = 12
 instance_charge_prepaid_renew_flag = "NOTIFY_AND_AUTO_RENEW"
 
-# 企业版配置
+# Enterprise plan configuration
 enterprise_region                    = "ap-guangzhou"
 enterprise_protect_ip_count          = 10
 enterprise_basic_protect_bandwidth   = 100
@@ -133,7 +143,7 @@ enterprise_bandwidth                 = 200
 enterprise_elastic_protect_bandwidth = 500
 enterprise_elastic_bandwidth_flag    = true
 
-# 标签配置
+# Tag configuration
 tag_info_list = [
   {
     key   = "Environment"
@@ -150,20 +160,20 @@ tag_info_list = [
 ]
 ```
 
-### 标准版配置示例
+### Standard plan
 
 ```hcl
-# 基础配置
+# Basic configuration
 instance_charge_type = "POSTPAID_BY_MONTH"
 package_type        = "Standard"
 
-# 标准版配置
+# Standard plan configuration
 standard_region                 = "ap-beijing"
 standard_protect_ip_count       = 5
 standard_bandwidth              = 50
 standard_elastic_bandwidth_flag = true
 
-# 标签配置
+# Tag configuration
 tag_info_list = [
   {
     key   = "Environment"
@@ -176,25 +186,25 @@ tag_info_list = [
 ]
 ```
 
-### 标准版2.0配置示例
+### Standard 2.0 plan
 
 ```hcl
-# 基础配置
+# Basic configuration
 instance_charge_type = "PREPAID"
 package_type        = "StandardPlus"
 
-# 包年包月配置
+# Monthly subscription configuration
 instance_charge_prepaid_period    = 6
-instance_charge_prepaid_renew_flag = "OTIFY_AND_MANUAL_RENEW"
+instance_charge_prepaid_renew_flag = "NOTIFY_AND_MANUAL_RENEW"
 
-# 标准版2.0配置
+# Standard 2.0 configuration
 standard_plus_region                 = "ap-shanghai"
 standard_plus_protect_count          = "UNLIMITED"
 standard_plus_protect_ip_count       = 20
 standard_plus_bandwidth              = 100
 standard_plus_elastic_bandwidth_flag = false
 
-# 标签配置
+# Tag configuration
 tag_info_list = [
   {
     key   = "Environment"
@@ -207,18 +217,18 @@ tag_info_list = [
 ]
 ```
 
-### 混合配置示例
+### Mixed / advanced configuration
 
 ```hcl
-# 基础配置
+# Basic configuration
 instance_charge_type = "PREPAID"
 package_type        = "Enterprise"
 
-# 包年包月配置
+# Monthly subscription configuration
 instance_charge_prepaid_period    = 24
 instance_charge_prepaid_renew_flag = "NOTIFY_AND_AUTO_RENEW"
 
-# 企业版高级配置
+# Enterprise plan advanced configuration
 enterprise_region                    = "ap-guangzhou"
 enterprise_protect_ip_count          = 50
 enterprise_basic_protect_bandwidth   = 200
@@ -226,7 +236,7 @@ enterprise_bandwidth                 = 500
 enterprise_elastic_protect_bandwidth = 1000
 enterprise_elastic_bandwidth_flag    = true
 
-# 详细标签配置
+# Detailed tag configuration
 tag_info_list = [
   {
     key   = "Environment"
@@ -255,20 +265,20 @@ tag_info_list = [
 ]
 ```
 
-### 按量计费配置示例
+### Pay-as-you-go configuration
 
 ```hcl
-# 基础配置
+# Basic configuration
 instance_charge_type = "POSTPAID_BY_MONTH"
 package_type        = "Standard"
 
-# 标准版配置（按量计费）
+# Standard plan configuration (pay-as-you-go)
 standard_region                 = "ap-beijing"
 standard_protect_ip_count       = 3
 standard_bandwidth              = 30
 standard_elastic_bandwidth_flag = false
 
-# 简单标签配置
+# Simple tag configuration
 tag_info_list = [
   {
     key   = "Billing"
@@ -283,20 +293,20 @@ tag_info_list = [
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：企业生产环境防护
+### Example 1: Production environment protection (Enterprise)
 
 ```hcl
-# 企业生产环境DDoS防护配置
+# Production DDoS protection configuration
 instance_charge_type = "PREPAID"
 package_type        = "Enterprise"
 
-# 包年包年配置（2年自动续费）
+# Monthly subscription (2 years, auto-renew)
 instance_charge_prepaid_period    = 24
 instance_charge_prepaid_renew_flag = "NOTIFY_AND_AUTO_RENEW"
 
-# 企业版高级防护配置
+# Enterprise advanced protection configuration
 enterprise_region                    = "ap-guangzhou"
 enterprise_protect_ip_count          = 25
 enterprise_basic_protect_bandwidth   = 150
@@ -304,7 +314,7 @@ enterprise_bandwidth                 = 300
 enterprise_elastic_protect_bandwidth = 800
 enterprise_elastic_bandwidth_flag    = true
 
-# 生产环境标签
+# Production tags
 tag_info_list = [
   {
     key   = "Env"
@@ -321,20 +331,20 @@ tag_info_list = [
 ]
 ```
 
-### 示例二：开发测试环境防护
+### Example 2: Dev/test environment protection (Standard)
 
 ```hcl
-# 开发测试环境DDoS防护配置
+# Dev/test DDoS protection configuration
 instance_charge_type = "POSTPAID_BY_MONTH"
 package_type        = "Standard"
 
-# 标准版基础配置（按量计费）
+# Standard plan basic configuration (pay-as-you-go)
 standard_region                 = "ap-shanghai"
 standard_protect_ip_count       = 2
 standard_bandwidth              = 20
 standard_elastic_bandwidth_flag = false
 
-# 开发环境标签
+# Dev tags
 tag_info_list = [
   {
     key   = "Env"
@@ -347,25 +357,25 @@ tag_info_list = [
 ]
 ```
 
-### 示例三：电商业务防护
+### Example 3: E-commerce business protection (StandardPlus)
 
 ```hcl
-# 电商业务DDoS防护配置
+# E-commerce DDoS protection configuration
 instance_charge_type = "PREPAID"
 package_type        = "StandardPlus"
 
-# 包年包月配置（1年自动续费）
+# Monthly subscription (1 year, auto-renew)
 instance_charge_prepaid_period    = 12
 instance_charge_prepaid_renew_flag = "NOTIFY_AND_AUTO_RENEW"
 
-# 标准版2.0无限防护配置
+# Standard 2.0 unlimited protection configuration
 standard_plus_region                 = "ap-beijing"
 standard_plus_protect_count          = "UNLIMITED"
 standard_plus_protect_ip_count       = 15
 standard_plus_bandwidth              = 80
 standard_plus_elastic_bandwidth_flag = true
 
-# 电商业务标签
+# E-commerce tags
 tag_info_list = [
   {
     key   = "Business"
@@ -384,184 +394,188 @@ tag_info_list = [
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 计费模式选择
+### Billing mode selection
 
-#### 包年包月（PREPAID）
-- **适用场景**：长期稳定的业务
-- **优势**：成本较低，资源保障
-- **注意事项**：需要预付费用，灵活性较低
+#### Monthly subscription (PREPAID)
+- **Use case**: long-running, stable workloads.
+- **Advantage**: lower cost, guaranteed resources.
+- **Caution**: upfront payment, lower flexibility.
 
-#### 按量计费（POSTPAID_BY_MONTH）
-- **适用场景**：临时或测试环境
-- **优势**：按使用付费，灵活性高
-- **注意事项**：成本相对较高，资源可能受限
+#### Pay-as-you-go (POSTPAID_BY_MONTH)
+- **Use case**: temporary or testing environments.
+- **Advantage**: pay per usage, high flexibility.
+- **Caution**: relatively higher cost, resources may be limited.
 
-### 套餐类型选择指南
+### Plan selection guide
 
-#### 企业版（Enterprise）
-- **适用场景**：大型企业、金融、游戏等高安全要求业务
-- **防护能力**：最高级别防护，无限次防护
-- **带宽支持**：支持大带宽和弹性带宽
-- **成本**：较高
+#### Enterprise
+- **Use case**: large enterprises, finance, gaming, and other high-security workloads.
+- **Protection**: highest level, unlimited protections.
+- **Bandwidth**: large bandwidth and elastic bandwidth supported.
+- **Cost**: high.
 
-#### 标准版2.0（StandardPlus）
-- **适用场景**：中型企业、电商、在线服务等
-- **防护能力**：高强度防护，可选2次或无限次防护
-- **带宽支持**：适中带宽，支持弹性带宽
-- **成本**：中等
+#### Standard 2.0 (StandardPlus)
+- **Use case**: medium enterprises, e-commerce, online services.
+- **Protection**: strong protection, 2 times or unlimited protections.
+- **Bandwidth**: moderate bandwidth, elastic bandwidth supported.
+- **Cost**: medium.
 
-#### 标准版（Standard）
-- **适用场景**：小型企业、个人网站、测试环境
-- **防护能力**：基础防护
-- **带宽支持**：基础带宽，可选弹性带宽
-- **成本**：较低
+#### Standard
+- **Use case**: small businesses, personal websites, testing environments.
+- **Protection**: basic protection.
+- **Bandwidth**: basic bandwidth, optional elastic bandwidth.
+- **Cost**: low.
 
-### 地域选择建议
+### Region selection
 
-| 地域 | 编码 | 适用场景 | 延迟 |
-|------|------|----------|------|
-| **华南地区** | ap-guangzhou | 华南用户访问 | 低 |
-| **华东地区** | ap-shanghai | 华东用户访问 | 低 |
-| **华北地区** | ap-beijing | 华北用户访问 | 低 |
-| **西南地区** | ap-chongqing | 西南用户访问 | 中 |
+| Region | Code | Use case | Latency |
+|--------|------|----------|---------|
+| **South China** | ap-guangzhou | Users in South China | Low |
+| **East China** | ap-shanghai | Users in East China | Low |
+| **North China** | ap-beijing | Users in North China | Low |
+| **Southwest China** | ap-chongqing | Users in Southwest China | Medium |
 
-### 弹性带宽配置
+### Elastic bandwidth
 
-弹性带宽用于应对突发的大流量攻击：
-- **启用时机**：业务有突发流量需求时
-- **成本考虑**：按实际使用量计费
-- **配置建议**：根据业务峰值流量配置
+Elastic bandwidth absorbs sudden large traffic attacks:
+- **When to enable**: when the workload has burst traffic needs.
+- **Cost**: billed by actual usage.
+- **Recommendation**: size it according to the business peak traffic.
 
-### 标签管理最佳实践
+### Tag management best practices
 
-1. **环境标识**：使用Env标签标识环境（Prod/Dev/Test）
-2. **业务分类**：使用Business标签标识业务类型
-3. **成本中心**：使用CostCenter标签进行成本分摊
-4. **安全等级**：使用Criticality标签标识安全等级
-5. **负责人**：使用Owner标签标识资源负责人
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **计费模式**
-   - 包年包月需要预付费用，请确保账户余额充足
-   - 按量计费会按小时扣费，注意费用控制
-
-2. **套餐选择**
-   - 选择适合业务规模的套餐，避免过度配置
-   - 企业版和标准版2.0支持更高防护能力
-
-3. **地域限制**
-   - 高防包有地域属性，请选择正确的地域
-   - 跨地域防护需要额外配置
-
-4. **IP数量**
-   - 防护IP数量需要提前规划
-   - 增加IP数量可能涉及套餐变更
-
-5. **带宽配置**
-   - 基础带宽要满足日常业务需求
-   - 弹性带宽用于应对突发流量
-
-6. **续费设置**
-   - 包年包月务必设置合适的续费策略
-   - 避免服务到期导致防护中断
-
-7. **标签规范**
-   - 遵循统一的标签命名规范
-   - 确保标签键值对的唯一性
-
-8. **权限验证**
-   - 确认有足够的权限创建高防实例
-   - 检查账户额度限制
-
-9. **测试验证**
-   - 部署后测试防护效果
-   - 验证标签是否正确应用
-
-10. **监控告警**
-    - 设置资源使用监控
-    - 配置费用超支告警
+1. **Environment**: use `Env` to mark the environment (Prod/Dev/Test).
+2. **Business**: use `Business` to mark the business type.
+3. **Cost center**: use `CostCenter` for cost allocation.
+4. **Criticality**: use `Criticality` to mark security level.
+5. **Owner**: use `Owner` to mark the resource owner.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：权限不足
+1. **Billing mode**
+   - PREPAID requires an upfront payment; ensure sufficient account balance.
+   - POSTPAID_BY_MONTH is charged hourly; control the cost closely.
+
+2. **Plan selection**
+   - Choose a plan that fits the business scale; avoid over-provisioning.
+   - Enterprise and StandardPlus support higher protection capability.
+
+3. **Region limits**
+   - The Anti-DDoS package is region-specific; pick the correct region.
+   - Cross-region protection requires extra configuration.
+
+4. **IP count**
+   - Plan the number of protected IPs in advance.
+   - Adding IPs may involve a plan change.
+
+5. **Bandwidth**
+   - Base bandwidth must cover daily business needs.
+   - Elastic bandwidth is for traffic bursts.
+
+6. **Renewal**
+   - Set a proper renewal policy for PREPAID instances.
+   - Avoid protection interruption caused by expiration.
+
+7. **Tagging**
+   - Follow a consistent tag naming convention.
+   - Ensure tag key/value uniqueness.
+
+8. **Permission verification**
+   - Confirm sufficient permission to create Anti-DDoS instances.
+   - Check account quota limits.
+
+9. **Testing**
+   - Test the protection effect after deployment.
+   - Verify tags are applied correctly.
+
+10. **Monitoring & alerting**
+    - Set up resource usage monitoring.
+    - Configure cost overrun alerts.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查AntiDDoS相关权限
-- 申请QcloudAntiDDoSFullAccess权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check Anti-DDoS related permissions.
+- Request `QcloudAntiDDoSFullAccess`.
 
-#### 错误二：额度限制
+#### Error 2: Resource limit exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=LimitExceeded
 Message=Resource limit exceeded
 ```
 
-**原因**：达到资源数量限制
-**解决方案**：
-- 检查当前高防实例数量
-- 申请提高资源额度
+**Cause**: The resource count limit has been reached.
+**Solution**:
+- Check the current number of Anti-DDoS instances.
+- Request a quota increase.
 
-#### 错误三：地域不可用
+#### Error 3: Region not available
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Region not available
 ```
 
-**原因**：选择的地域不支持该套餐
-**解决方案**：
-- 检查地域可用性
-- 选择支持的地域
+**Cause**: The selected region does not support the plan.
+**Solution**:
+- Check region availability.
+- Choose a supported region.
 
-#### 错误四：套餐冲突
+#### Error 4: Package type conflict
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Package type conflict
 ```
 
-**原因**：配置了不匹配的套餐参数
-**解决方案**：
-- 检查package_type与具体配置的匹配性
-- 确保只配置当前套餐类型的参数
+**Cause**: A parameter mismatch with the selected plan was configured.
+**Solution**:
+- Check that `package_type` matches the configured parameters.
+- Only configure parameters for the selected plan.
 
-#### 错误五：计费错误
+#### Error 5: Billing error
 
 ```
 Error: [TencentCloudSDKError] Code=BillingError
 Message=Billing configuration error
 ```
 
-**原因**：计费配置错误
-**解决方案**：
-- 检查instance_charge_type配置
-- 确认预付费参数是否正确
+**Cause**: Billing configuration error.
+**Solution**:
+- Check `instance_charge_type`.
+- Confirm the prepaid parameters are correct.
 
-#### 错误六：标签格式错误
+#### Error 6: Invalid tag format
 
 ```
 Error: [TerraformError] Code=ValidationError
 Message=Invalid tag format
 ```
 
-**原因**：标签格式不符合要求
-**解决方案**：
-- 检查标签键值对格式
-- 确保键值不为空
+**Cause**: The tag format is invalid.
+**Solution**:
+- Check the tag key/value format.
+- Ensure keys and values are not empty.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

@@ -1,309 +1,326 @@
-# 腾讯云组织部门管理模块
+# Tencent Cloud Organization Departments Component
 
-## 模块概述
+Terraform component under `components/organization/departments` for creating and managing the Organization's department (node) structure, supporting a two-level (L1/L2) hierarchy, as part of the `organization` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中创建和管理组织部门结构，支持多级部门架构，主要功能包括：
+## Overview
 
-- **多级部门创建** - 支持创建一级（L1）和二级（L2）部门节点
-- **部门层级管理** - 自动处理部门间的父子层级关系
-- **部门信息配置** - 支持部门名称和备注信息配置
-- **依赖关系处理** - 自动处理部门创建的顺序依赖
-- **ID映射输出** - 输出部门名称到ID的映射关系
-- **批量操作** - 支持一次性配置多个部门层级
-- **灵活配置** - 支持可选参数和默认值配置
+This component creates Organization department nodes and manages their parent-child hierarchy. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudOrganizationFullAccess` | 组织管理全权限 |
-| `QcloudOrganizationReadOnlyAccess` | 组织只读访问权限 |
-
-### 其他要求
-
-- 需要了解腾讯云组织架构
-- 需要规划好部门命名规范
-- 需要确定部门层级结构
-- 需要收集部门备注信息（可选）
-- 需要了解部门ID映射关系
+- **Multi-level department creation** – create Level-1 (L1) and Level-2 (L2) department nodes.
+- **Hierarchy management** – parent-child relationships are handled automatically.
+- **Node information** – configure node name, remark, and tags.
+- **Flexible placement** – an optional `parent_id` lets an L1 node be created under a specific parent instead of the root.
+- **Dependency handling** – node creation order dependencies are handled automatically.
+- **ID mapping output** – output name → ID maps for both L1 and L2 nodes.
+- **Batch operations** – configure multiple node levels at once.
+- **Optional parameters** – optional fields and defaults supported.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 主要配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.81.126 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `org_nodes` | `list(object)` | 否 | `[]` | 组织部门节点配置列表 |
+## Providers
 
-### 部门节点对象字段说明
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.81.126 |
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `name` | `string` | 是 | - | 一级部门名称 |
-| `remark` | `string` | 否 | - | 一级部门备注信息 |
-| `sub_nodes` | `list(object)` | 否 | `[]` | 二级部门子节点列表 |
+### IAM Permissions
 
-### 二级部门对象字段说明
+The executing principal needs the following Tencent Cloud permissions:
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `name` | `string` | 是 | - | 二级部门名称 |
-| `remark` | `string` | 否 | - | 二级部门备注信息 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudOrganizationFullAccess` | Full access to Organization management |
+| `QcloudOrganizationReadOnlyAccess` | Organization read-only access |
+
+### Prerequisites
+
+- Understand the Tencent Cloud Organization structure.
+- Plan a department naming convention.
+- Decide the department hierarchy.
+- Prepare optional node remarks/tags.
+- Note the node name → ID mapping produced by the module.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_org_nodes"></a> [org\_nodes](#input\_org\_nodes) | `list(object)` | no | `[]` | Organization department (node) configuration list. |
+
+### `org_nodes` object (L1 node)
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `parent_id` | `number` | no | `null` | Parent node ID. When omitted, the node is created directly under the root. |
+| `name` | `string` | yes | – | Level-1 department name. |
+| `remark` | `string` | no | – | Level-1 department remark. |
+| `tags` | `map(string)` | no | – | Tags attached to the L1 node. |
+| `sub_nodes` | `list(object)` | no | `[]` | Level-2 sub-node list. |
+
+### `sub_nodes` object (L2 node)
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `string` | yes | – | Level-2 department name. |
+| `remark` | `string` | no | – | Level-2 department remark. |
+| `tags` | `map(string)` | no | – | Tags attached to the L2 node. |
+
+---
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_l1_nodes"></a> [l1\_nodes](#output\_l1\_nodes) | Map of L1 node name → node ID. |
+| <a name="output_l2_nodes"></a> [l2\_nodes](#output\_l2\_nodes) | Map of `L1/L2` name → node ID. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars` – basic structure
 
 ```hcl
-# 基础部门结构配置
+# Basic department structure configuration
 org_nodes = [
   {
-    name      = "技术部"
-    remark    = "负责技术研发和运维"
+    name      = "Technology"
+    remark    = "Responsible for R&D and operations"
     sub_nodes = [
       {
-        name   = "前端开发组"
-        remark = "负责前端技术开发"
+        name   = "Frontend Team"
+        remark = "Frontend development"
       },
       {
-        name   = "后端开发组"
-        remark = "负责后端技术开发"
+        name   = "Backend Team"
+        remark = "Backend development"
       },
       {
-        name   = "运维组"
-        remark = "负责系统运维和部署"
+        name   = "Ops Team"
+        remark = "System operations and deployment"
       }
     ]
   },
-  
+
   {
-    name      = "产品部"
-    remark    = "负责产品设计和规划"
+    name      = "Product"
+    remark    = "Product design and planning"
     sub_nodes = [
       {
-        name   = "产品设计组"
-        remark = "负责产品界面和交互设计"
+        name   = "Product Design"
+        remark = "UI and interaction design"
       },
       {
-        name   = "产品策划组"
-        remark = "负责产品功能规划和需求分析"
+        name   = "Product Planning"
+        remark = "Feature planning and requirements"
       }
     ]
   },
-  
+
   {
-    name      = "市场部"
-    remark    = "负责市场推广和品牌建设"
+    name      = "Marketing"
+    remark    = "Marketing and branding"
     sub_nodes = [
       {
-        name   = "市场推广组"
-        remark = "负责线上线下的市场推广活动"
+        name   = "Promotion"
+        remark = "Online and offline campaigns"
       },
       {
-        name   = "品牌建设组"
-        remark = "负责品牌形象建设和维护"
+        name   = "Branding"
+        remark = "Brand building and maintenance"
       },
       {
-        name   = "客户关系组"
-        remark = "负责客户关系维护和客户服务"
+        name   = "Customer Relations"
+        remark = "Customer relationship management"
       }
     ]
   },
-  
+
   {
-    name      = "财务部"
-    remark    = "负责财务管理和资金运作"
-    sub_nodes = []  # 没有子部门
+    name      = "Finance"
+    remark    = "Finance and treasury"
+    sub_nodes = [] # no sub-nodes
   },
-  
+
   {
-    name      = "人力资源部"
-    remark    = "负责人才招聘和员工发展"
+    name      = "HR"
+    remark    = "Recruiting and employee development"
     sub_nodes = [
       {
-        name   = "招聘组"
-        remark = "负责人才招聘和面试"
+        name   = "Recruiting"
+        remark = "Talent recruiting and interviews"
       },
       {
-        name   = "培训组"
-        remark = "负责员工培训和职业发展"
+        name   = "Training"
+        remark = "Employee training and career development"
       },
       {
-        name   = "薪酬福利组"
-        remark = "负责薪酬管理和福利发放"
+        name   = "Compensation"
+        remark = "Compensation and benefits"
       }
     ]
   }
 ]
 ```
 
-### 多层级部门配置示例
+### Multi-level structure configuration
 
 ```hcl
-# 复杂层级部门结构配置
+# Complex hierarchy department structure configuration
 org_nodes = [
   {
-    name      = "研发中心"
-    remark    = "公司核心技术研发部门"
+    name      = "R&D Center"
+    remark    = "Core technology R&D"
     sub_nodes = [
       {
-        name   = "平台研发部"
-        remark = "基础平台技术研发"
+        name   = "Platform R&D"
+        remark = "Platform technology R&D"
       },
       {
-        name   = "应用研发部"
-        remark = "业务应用系统研发"
+        name   = "Application R&D"
+        remark = "Business application R&D"
       },
       {
-        name   = "数据研发部"
-        remark = "大数据和AI技术研发"
+        name   = "Data R&D"
+        remark = "Big data and AI R&D"
       },
       {
-        name   = "质量保障部"
-        remark = "软件测试和质量保证"
+        name   = "QA"
+        remark = "Software testing and QA"
       }
     ]
   },
-  
+
   {
-    name      = "业务中心"
-    remark    = "公司业务运营部门"
+    name      = "Business Center"
+    remark    = "Business operations"
     sub_nodes = [
       {
-        name   = "电商业务部"
-        remark = "电商平台业务运营"
+        name   = "E-commerce"
+        remark = "E-commerce operations"
       },
       {
-        name   = "金融业务部"
-        remark = "金融科技业务运营"
+        name   = "Fintech"
+        remark = "Fintech operations"
       },
       {
-        name   = "企业服务部"
-        remark = "企业级服务业务"
+        name   = "Enterprise Services"
+        remark = "Enterprise services"
       },
       {
-        name   = "海外业务部"
-        remark = "海外市场拓展和运营"
+        name   = "Overseas"
+        remark = "Overseas market expansion"
       }
     ]
   },
-  
+
   {
-    name      = "支撑中心"
-    remark    = "公司运营支撑部门"
+    name      = "Support Center"
+    remark    = "Operations support"
     sub_nodes = [
       {
-        name   = "人力资源部"
-        remark = "人才管理和组织发展"
+        name   = "Human Resources"
+        remark = "Talent management and org development"
       },
       {
-        name   = "财务部"
-        remark = "财务管理和资金运作"
+        name   = "Finance"
+        remark = "Finance and treasury"
       },
       {
-        name   = "行政部"
-        remark = "行政事务和办公管理"
+        name   = "Admin"
+        remark = "Administration and office management"
       },
       {
-        name   = "法务部"
-        remark = "法律事务和合规管理"
+        name   = "Legal"
+        remark = "Legal and compliance"
       }
     ]
   },
-  
+
   {
-    name      = "战略发展部"
-    remark    = "公司战略规划和投资"
+    name      = "Strategy"
+    remark    = "Strategy and investment"
     sub_nodes = []
   },
-  
+
   {
-    name      = "董事会办公室"
-    remark    = "董事会事务和公司治理"
+    name      = "Board Office"
+    remark    = "Board affairs and governance"
     sub_nodes = []
   }
 ]
 ```
 
-### 简单部门结构示例
+### Simple structure (small org)
 
 ```hcl
-# 简单部门结构配置（适用于小型组织）
+# Simple department structure (for small organizations)
 org_nodes = [
   {
-    name      = "管理层"
-    remark    = "公司高层管理团队"
+    name      = "Management"
+    remark    = "Executive team"
     sub_nodes = []
   },
-  
+
   {
-    name      = "技术团队"
-    remark    = "技术开发和运维"
+    name      = "Engineering"
+    remark    = "Development and operations"
     sub_nodes = [
       {
-        name   = "开发组"
-        remark = "软件开发"
+        name   = "Development"
+        remark = "Software development"
       },
       {
-        name   = "运维组"
-        remark = "系统运维"
+        name   = "Operations"
+        remark = "System operations"
       }
     ]
   },
-  
+
   {
-    name      = "业务团队"
-    remark    = "业务运营和客户服务"
+    name      = "Business"
+    remark    = "Operations and customer service"
     sub_nodes = [
       {
-        name   = "销售组"
-        remark = "产品销售"
+        name   = "Sales"
+        remark = "Product sales"
       },
       {
-        name   = "客服组"
-        remark = "客户服务"
+        name   = "Support"
+        remark = "Customer service"
       }
     ]
   },
-  
+
   {
-    name      = "支持团队"
-    remark    = "行政和财务支持"
+    name      = "Back Office"
+    remark    = "Admin and finance support"
     sub_nodes = [
       {
-        name   = "行政组"
-        remark = "行政事务"
+        name   = "Admin"
+        remark = "Administration"
       },
       {
-        name   = "财务组"
-        remark = "财务管理"
+        name   = "Finance"
+        remark = "Finance management"
       }
     ]
   }
 ]
 ```
 
-### 国际化部门结构示例
+### Internationalized structure
 
 ```hcl
-# 国际化部门结构配置
+# International department structure configuration
 org_nodes = [
   {
     name      = "Headquarters"
@@ -323,7 +340,7 @@ org_nodes = [
       }
     ]
   },
-  
+
   {
     name      = "Asia Pacific Region"
     remark    = "APAC business operations"
@@ -342,7 +359,7 @@ org_nodes = [
       }
     ]
   },
-  
+
   {
     name      = "Europe Region"
     remark    = "European business operations"
@@ -361,7 +378,7 @@ org_nodes = [
       }
     ]
   },
-  
+
   {
     name      = "North America Region"
     remark    = "NA business operations"
@@ -379,236 +396,41 @@ org_nodes = [
 ]
 ```
 
----
-
-## 使用示例
-
-### 示例一：科技公司部门结构
+### Using `parent_id` and `tags`
 
 ```hcl
-# 科技公司典型部门结构
+# Create an L1 node under a specific parent (not the root), and tag nodes
 org_nodes = [
   {
-    name      = "技术研发中心"
-    remark    = "核心技术研发和创新"
+    name      = "Cloud Platform"
+    remark    = "Cloud infrastructure department"
+    tags = {
+      "env"      = "production"
+      "costcode" = "cloud-001"
+    }
     sub_nodes = [
       {
-        name   = "基础架构部"
-        remark = "云原生和基础设施"
+        name   = "Networking"
+        remark = "Network team"
+        tags = {
+          "team" = "netops"
+        }
       },
       {
-        name   = "前端开发部"
-        remark = "Web和移动端开发"
-      },
-      {
-        name   = "后端开发部"
-        remark = "服务端和API开发"
-      },
-      {
-        name   = "数据智能部"
-        remark = "大数据和人工智能"
-      },
-      {
-        name   = "测试保障部"
-        remark = "质量保证和测试"
+        name   = "Compute"
+        remark = "Compute team"
       }
     ]
   },
-  
   {
-    name      = "产品运营中心"
-    remark    = "产品管理和运营"
+    # Place this node under an existing parent node by ID
+    parent_id = 1000001234
+    name      = "Security Sub-org"
+    remark    = "Security org under a pre-existing parent"
     sub_nodes = [
       {
-        name   = "产品管理部"
-        remark = "产品规划和设计"
-      },
-      {
-        name   = "用户运营部"
-        remark = "用户增长和运营"
-      },
-      {
-        name   = "数据运营部"
-        remark = "数据分析和运营"
-      },
-      {
-        name   = "内容运营部"
-        remark = "内容创作和运营"
-      }
-    ]
-  },
-  
-  {
-    name      = "商业拓展中心"
-    remark    = "业务发展和合作"
-    sub_nodes = [
-      {
-        name   = "销售部"
-        remark = "产品销售和商务"
-      },
-      {
-        name   = "渠道部"
-        remark = "渠道管理和合作"
-      },
-      {
-        name   = "大客户部"
-        remark = "大客户服务和管理"
-      },
-      {
-        name   = "合作伙伴部"
-        remark = "生态合作伙伴"
-      }
-    ]
-  }
-]
-```
-
-### 示例二：金融机构部门结构
-
-```hcl
-# 金融机构部门结构
-org_nodes = [
-  {
-    name      = "风险管理委员会"
-    remark    = "全面风险管理和控制"
-    sub_nodes = [
-      {
-        name   = "信用风险部"
-        remark = "信用风险评估和管理"
-      },
-      {
-        name   = "市场风险部"
-        remark = "市场风险监控"
-      },
-      {
-        name   = "操作风险部"
-        remark = "操作风险控制"
-      },
-      {
-        name   = "合规部"
-        remark = "合规管理和审计"
-      }
-    ]
-  },
-  
-  {
-    name      = "业务发展部"
-    remark    = "金融业务拓展"
-    sub_nodes = [
-      {
-        name   = "零售业务部"
-        remark = "个人金融业务"
-      },
-      {
-        name   = "企业业务部"
-        remark = "企业金融服务"
-      },
-      {
-        name   = "投资银行部"
-        remark = "投行业务"
-      },
-      {
-        name   = "资产管理部"
-        remark = "资产管理和投资"
-      }
-    ]
-  },
-  
-  {
-    name      = "科技信息部"
-    remark    = "金融科技和IT"
-    sub_nodes = [
-      {
-        name   = "系统开发部"
-        remark = "金融系统开发"
-      },
-      {
-        name   = "数据中心"
-        remark = "数据管理和分析"
-      },
-      {
-        name   = "网络安全部"
-        remark = "信息安全保障"
-      },
-      {
-        name   = "运维保障部"
-        remark = "系统运维支持"
-      }
-    ]
-  }
-]
-```
-
-### 示例三：教育机构部门结构
-
-```hcl
-# 教育机构部门结构
-org_nodes = [
-  {
-    name      = "教学管理部门"
-    remark    = "教学管理和课程开发"
-    sub_nodes = [
-      {
-        name   = "课程研发部"
-        remark = "课程体系开发"
-      },
-      {
-        name   = "教学质量部"
-        remark = "教学质量管理"
-      },
-      {
-        name   = "教师发展部"
-        remark = "教师培训和发展"
-      },
-      {
-        name   = "学术研究部"
-        remark = "学术研究和交流"
-      }
-    ]
-  },
-  
-  {
-    name      = "学生服务部门"
-    remark    = "学生服务和管理"
-    sub_nodes = [
-      {
-        name   = "招生办公室"
-        remark = "学生招生和录取"
-      },
-      {
-        name   = "学生事务部"
-        remark = "学生日常管理"
-      },
-      {
-        name   = "就业指导中心"
-        remark = "就业指导和服务"
-      },
-      {
-        name   = "心理咨询中心"
-        remark = "心理健康服务"
-      }
-    ]
-  },
-  
-  {
-    name      = "行政支持部门"
-    remark    = "行政和后勤支持"
-    sub_nodes = [
-      {
-        name   = "财务处"
-        remark = "财务管理"
-      },
-      {
-        name   = "人事处"
-        remark = "人事管理"
-      },
-      {
-        name   = "后勤保障处"
-        remark = "后勤服务"
-      },
-      {
-        name   = "信息技术处"
-        remark = "IT支持"
+        name   = "Audit"
+        remark = "Audit team"
       }
     ]
   }
@@ -617,194 +439,440 @@ org_nodes = [
 
 ---
 
-## 配置说明
+## Usage Examples
 
-### 部门层级说明
-
-| 层级 | 说明 | 最大深度 | 备注 |
-|------|------|----------|------|
-| **一级部门 (L1)** | 直接隶属于根部门的顶级部门 | 无限制 | 支持无限数量的一级部门 |
-| **二级部门 (L2)** | 隶属于一级部门的子部门 | 每个一级部门下无限制 | 支持无限数量的二级部门 |
-
-### 命名规范说明
-
-| 项目 | 要求 | 示例 |
-|------|------|------|
-| **部门名称** | 2-64个字符，支持中文、英文、数字、下划线 | `技术部`, `R&D_Department` |
-| **部门备注** | 0-128个字符，支持中文、英文、数字、标点 | `负责技术研发工作` |
-| **名称唯一性** | 同一层级下部门名称必须唯一 | 不能有两个`技术部` |
-
-### 输出说明
-
-模块输出两级部门的名称到ID的映射关系：
+### Example 1: Tech company structure
 
 ```hcl
-# 一级部门ID映射
+# Typical tech company department structure
+org_nodes = [
+  {
+    name      = "R&D Center"
+    remark    = "Core R&D and innovation"
+    sub_nodes = [
+      {
+        name   = "Infrastructure"
+        remark = "Cloud-native and infra"
+      },
+      {
+        name   = "Frontend"
+        remark = "Web and mobile development"
+      },
+      {
+        name   = "Backend"
+        remark = "Server and API development"
+      },
+      {
+        name   = "Data Intelligence"
+        remark = "Big data and AI"
+      },
+      {
+        name   = "QA"
+        remark = "Quality assurance and testing"
+      }
+    ]
+  },
+
+  {
+    name      = "Product Ops Center"
+    remark    = "Product management and operations"
+    sub_nodes = [
+      {
+        name   = "Product Management"
+        remark = "Product planning and design"
+      },
+      {
+        name   = "User Ops"
+        remark = "User growth and operations"
+      },
+      {
+        name   = "Data Ops"
+        remark = "Data analytics and operations"
+      },
+      {
+        name   = "Content Ops"
+        remark = "Content creation and operations"
+      }
+    ]
+  },
+
+  {
+    name      = "Business Development"
+    remark    = "Business growth and partnerships"
+    sub_nodes = [
+      {
+        name   = "Sales"
+        remark = "Product sales and business"
+      },
+      {
+        name   = "Channels"
+        remark = "Channel management and partnerships"
+      },
+      {
+        name   = "Key Accounts"
+        remark = "Key account service"
+      },
+      {
+        name   = "Partners"
+        remark = "Ecosystem partners"
+      }
+    ]
+  }
+]
+```
+
+### Example 2: Financial institution structure
+
+```hcl
+# Financial institution department structure
+org_nodes = [
+  {
+    name      = "Risk Committee"
+    remark    = "Enterprise-wide risk management"
+    sub_nodes = [
+      {
+        name   = "Credit Risk"
+        remark = "Credit risk assessment"
+      },
+      {
+        name   = "Market Risk"
+        remark = "Market risk monitoring"
+      },
+      {
+        name   = "Operational Risk"
+        remark = "Operational risk control"
+      },
+      {
+        name   = "Compliance"
+        remark = "Compliance and audit"
+      }
+    ]
+  },
+
+  {
+    name      = "Business Development"
+    remark    = "Financial business expansion"
+    sub_nodes = [
+      {
+        name   = "Retail"
+        remark = "Personal finance"
+      },
+      {
+        name   = "Corporate"
+        remark = "Corporate finance"
+      },
+      {
+        name   = "Investment Banking"
+        remark = "IB business"
+      },
+      {
+        name   = "Asset Management"
+        remark = "Asset management and investment"
+      }
+    ]
+  },
+
+  {
+    name      = "IT Department"
+    remark    = "Fintech and IT"
+    sub_nodes = [
+      {
+        name   = "System Dev"
+        remark = "Financial system development"
+      },
+      {
+        name   = "Data Center"
+        remark = "Data management and analytics"
+      },
+      {
+        name   = "Security"
+        remark = "Information security"
+      },
+      {
+        name   = "Ops Support"
+        remark = "System ops support"
+      }
+    ]
+  }
+]
+```
+
+### Example 3: Education institution structure
+
+```hcl
+# Education institution department structure
+org_nodes = [
+  {
+    name      = "Academic Affairs"
+    remark    = "Teaching management and curriculum"
+    sub_nodes = [
+      {
+        name   = "Curriculum Dev"
+        remark = "Curriculum development"
+      },
+      {
+        name   = "Teaching Quality"
+        remark = "Teaching quality management"
+      },
+      {
+        name   = "Faculty Dev"
+        remark = "Faculty training and development"
+      },
+      {
+        name   = "Research"
+        remark = "Academic research and exchange"
+      }
+    ]
+  },
+
+  {
+    name      = "Student Services"
+    remark    = "Student service and management"
+    sub_nodes = [
+      {
+        name   = "Admissions"
+        remark = "Student admissions"
+      },
+      {
+        name   = "Student Affairs"
+        remark = "Daily student management"
+      },
+      {
+        name   = "Career Center"
+        remark = "Career guidance"
+      },
+      {
+        name   = "Counseling"
+        remark = "Mental health services"
+      }
+    ]
+  },
+
+  {
+    name      = "Admin Support"
+    remark    = "Admin and logistics support"
+    sub_nodes = [
+      {
+        name   = "Finance Office"
+        remark = "Finance management"
+      },
+      {
+        name   = "HR Office"
+        remark = "HR management"
+      },
+      {
+        name   = "Logistics"
+        remark = "Logistics services"
+      },
+      {
+        name   = "IT Office"
+        remark = "IT support"
+      }
+    ]
+  }
+]
+```
+
+---
+
+## Configuration Notes
+
+### Hierarchy
+
+| Level | Description | Max depth | Note |
+|-------|-------------|-----------|------|
+| **Level-1 (L1)** | Top-level node directly under the root | Unlimited | Unlimited number of L1 nodes |
+| **Level-2 (L2)** | Sub-node under an L1 node | Unlimited per L1 | Unlimited number of L2 nodes |
+
+> With `parent_id` set, an L1 node can be created under a specific existing parent node instead of the root.
+
+### Naming convention
+
+| Item | Requirement | Example |
+|------|-------------|---------|
+| **Node name** | 2–64 characters; Chinese, English, digits, underscore supported | `Technology`, `R&D_Department` |
+| **Node remark** | 0–128 characters; Chinese, English, digits, punctuation supported | `Responsible for R&D` |
+| **Name uniqueness** | Node name must be unique within the same level | Two `Technology` nodes not allowed |
+
+### Tags
+
+Both L1 and L2 nodes accept a `tags` map (`map(string)`). Tags are useful for cost allocation, automation, and policy scoping.
+
+### Outputs
+
+The module outputs name → ID maps for both levels:
+
+```hcl
+# L1 node ID mapping
 l1_nodes = {
-  "技术部"       = "org-node-12345678"
-  "产品部"       = "org-node-87654321"
-  "市场部"       = "org-node-abcdefgh"
+  "Technology" = "org-node-12345678"
+  "Product"    = "org-node-87654321"
+  "Marketing"  = "org-node-abcdefgh"
 }
 
-# 二级部门ID映射
+# L2 node ID mapping (keyed by "L1/L2")
 l2_nodes = {
-  "技术部/前端开发组" = "org-node-11111111"
-  "技术部/后端开发组" = "org-node-22222222"
-  "技术部/运维组"    = "org-node-33333333"
-  "产品部/产品设计组" = "org-node-44444444"
-  "产品部/产品策划组" = "org-node-55555555"
+  "Technology/Frontend Team" = "org-node-11111111"
+  "Technology/Backend Team"  = "org-node-22222222"
+  "Technology/Ops Team"      = "org-node-33333333"
+  "Product/Product Design"   = "org-node-44444444"
+  "Product/Product Planning" = "org-node-55555555"
 }
 ```
 
-### 依赖关系说明
+### Dependency order
 
-模块内部自动处理以下依赖关系：
-1. 首先创建所有一级部门
-2. 然后创建所有二级部门
-3. 确保一级部门创建完成后才创建二级部门
-4. 自动处理部门间的父子层级关系
+The module internally handles the following dependency order:
+1. First create all Level-1 nodes.
+2. Then create all Level-2 nodes.
+3. Ensure L1 nodes are created before their L2 children.
+4. Parent-child relationships are resolved automatically.
 
-### 模块架构说明
+### Module architecture
 
 ```
-根部门 (Root)
-├── 一级部门1 (L1 Node)
-│   ├── 二级部门1-1 (L2 Node)
-│   ├── 二级部门1-2 (L2 Node)
-│   └── 二级部门1-3 (L2 Node)
-├── 一级部门2 (L1 Node)
-│   ├── 二级部门2-1 (L2 Node)
-│   └── 二级部门2-2 (L2 Node)
-└── 一级部门3 (L1 Node)
-    └── (无子部门)
+Root
+├── L1 Node 1
+│   ├── L2 Node 1-1
+│   ├── L2 Node 1-2
+│   └── L2 Node 1-3
+├── L1 Node 2
+│   ├── L2 Node 2-1
+│   └── L2 Node 2-2
+└── L1 Node 3
+    └── (no sub-nodes)
 ```
 
 ---
 
-## 注意事项
+## Important Notes
 
-> ⚠️ **重要提示，操作前请仔细阅读**
+> ⚠️ **Important: read carefully before making changes**
 
-1. **部门规划**
-   - 提前规划好部门层级结构
-   - 确定部门命名规范
-   - 避免部门名称冲突
+1. **Department planning**
+   - Plan the department hierarchy in advance.
+   - Define a naming convention.
+   - Avoid duplicate node names.
 
-2. **依赖管理**
-   - 模块自动处理创建顺序
-   - 不要手动修改依赖关系
-   - 确保一级部门先于二级部门创建
+2. **Dependency management**
+   - The module handles creation order automatically.
+   - Do not manually change the dependencies.
+   - Ensure L1 nodes are created before L2 nodes.
 
-3. **命名规范**
-   - 使用有意义的部门名称
-   - 遵循统一的命名约定
-   - 避免使用特殊字符
+3. **Naming convention**
+   - Use meaningful node names.
+   - Follow a consistent naming convention.
+   - Avoid special characters.
 
-4. **层级限制**
-   - 目前支持两级部门结构
-   - 如需更多层级需要自定义扩展
-   - 考虑组织架构的扁平化
+4. **Hierarchy limit**
+   - Currently a two-level (L1/L2) structure is supported.
+   - More levels require custom extension.
+   - Consider a flatter organization structure.
 
-5. **ID管理**
-   - 部门ID由腾讯云自动生成
-   - 通过输出变量获取ID映射
-   - 不要硬编码部门ID
+5. **ID management**
+   - Node IDs are generated automatically by Tencent Cloud.
+   - Retrieve them via the output variables.
+   - Do not hard-code node IDs.
 
-6. **变更管理**
-   - 部门创建后不建议重命名
-   - 部门删除需要先删除子部门
-   - 制定部门变更流程
+6. **Change management**
+   - Renaming a node after creation is not recommended.
+   - A node must be deleted before its children can be removed.
+   - Define a department change process.
 
-7. **权限控制**
-   - 部门用于权限分组
-   - 结合CAM策略进行权限控制
-   - 遵循最小权限原则
+7. **Permission control**
+   - Departments are used for permission grouping.
+   - Combine with CAM policies for access control.
+   - Follow the principle of least privilege.
 
-8. **监控审计**
-   - 启用组织操作日志
-   - 定期审计部门结构
-   - 监控部门变更操作
+8. **Monitoring & auditing**
+   - Enable organization operation logs.
+   - Periodically audit the department structure.
+   - Monitor department change operations.
 
 ---
 
-## 故障排除
+## Troubleshooting
 
-### 常见错误及解决方案
+### Common errors and solutions
 
-#### 错误一：部门名称冲突
+#### Error 1: Duplicate node name
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Node name already exists
 ```
 
-**原因**：同一层级下部门名称重复
-**解决方案**：
-- 检查部门名称是否唯一
-- 修改重复的部门名称
-- 使用不同的名称或添加后缀
+**Cause**: A duplicate node name exists at the same level.
+**Solution**:
+- Ensure node names are unique.
+- Rename the duplicated node.
+- Use a different name or add a suffix.
 
-#### 错误二：权限不足
+#### Error 2: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=UnauthorizedOperation
 Message=You are not authorized to perform the operation
 ```
 
-**原因**：执行账号缺少组织管理权限
-**解决方案**：
-- 确认Provider配置的密钥具有所需权限
-- 检查是否包含组织管理权限
-- 验证项目权限
+**Cause**: The executing account lacks Organization management permission.
+**Solution**:
+- Confirm the provider credentials have the required permissions.
+- Check Organization management permission is included.
+- Verify project permissions.
 
-#### 错误三：父部门不存在
+#### Error 3: Parent node not found
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Parent node not found
 ```
 
-**原因**：二级部门的父部门不存在
-**解决方案**：
-- 确保一级部门已正确配置
-- 检查一级部门名称拼写
-- 验证依赖关系是否正确
+**Cause**: The parent of an L2 node does not exist.
+**Solution**:
+- Ensure the L1 node is configured correctly.
+- Check the L1 node name spelling.
+- Verify the dependency relationship.
 
-#### 错误四：参数格式错误
+#### Error 4: Invalid parameter format
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid parameter format
 ```
 
-**原因**：部门名称或备注格式不符合要求
-**解决方案**：
-- 检查部门名称长度（2-64字符）
-- 检查备注长度（0-128字符）
-- 移除非法字符
+**Cause**: Node name or remark format is invalid.
+**Solution**:
+- Check node name length (2–64 chars).
+- Check remark length (0–128 chars).
+- Remove illegal characters.
 
-#### 错误五：配额限制
+#### Error 5: Quota exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=QuotaExceeded
 Message=Node quota exceeded
 ```
 
-**原因**：达到部门数量配额限制
-**解决方案**：
-- 检查部门配额限制
-- 申请提高配额或删除无用部门
-- 合并相似的部门
+**Cause**: The department/node quota limit has been reached.
+**Solution**:
+- Check the node quota limit.
+- Request a quota increase or delete unused nodes.
+- Merge similar departments.
 
-#### 错误六：依赖错误
+#### Error 6: Dependency error
 
 ```
 Error: [TencentCloudSDKError] Code=DependencyViolation
 Message=Cannot create child node before parent
 ```
 
-**原因**：二级部门创建在一级部门之前
-**解决方案**：
-- 确保依赖关系正确配置
-- 检查depends_on设置
-- 重新运行terraform apply
+**Cause**: An L2 node was created before its L1 parent.
+**Solution**:
+- Ensure the dependency relationship is configured correctly.
+- Check `depends_on` settings.
+- Re-run `terraform apply`.
+
+## License
+
+See [LICENSE](../../../LICENSE) for full details.

@@ -1,93 +1,98 @@
-# tencentcloud-vpn-gateway-ipsec
+# terraform-tencentcloud-vpn-gateway-ipsec
 
+Terraform module which creates an **IPSec VPN tunnel** on TencentCloud, including the customer gateway, the VPN connection (with IKE/IPsec, DPD and health-check settings) and a VPN gateway route pointing to the connection.
 
+The following resources are included.
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/mango-engineering/tencent-poc/mango-infra-components/terraform-tencentcloud-cos.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/mango-engineering/tencent-poc/mango-infra-components/terraform-tencentcloud-cos/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+* [VPN Customer Gateway](https://registry.terraform.io/providers/tencentcloudstack/tencentcloud/latest/docs/resources/vpn_customer_gateway)
+* [VPN Connection](https://registry.terraform.io/providers/tencentcloudstack/tencentcloud/latest/docs/resources/vpn_connection)
+* [VPN Gateway Route](https://registry.terraform.io/providers/tencentcloudstack/tencentcloud/latest/docs/resources/vpn_gateway_route)
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```hcl
+module "vpn_gateway_ipsec" {
+  source = "git::https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-vpn-gateway-ipsec.git"
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+  vpc_id            = "vpc-xxxxxxxx"
+  vpn_gateway_id    = "vpngw-xxxxxxxx"
+  customer_gateway_name      = "my-cgw"
+  customer_gateway_address   = "203.0.113.10"
+  connection_name            = "my-ipsec-conn"
+  pre_share_key              = var.vpn_psk
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+  ike_proto_encry_algorithm  = "AES-CBC-128"
+  ipsec_encrypt_algorithm    = "AES-CBC-128"
+  destination_cidr_block     = "192.168.0.0/24"
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+  spd_policy = [
+    {
+      local_cidr_block  = "10.0.0.0/16"
+      remote_cidr_blocks = "172.16.0.0/16"
+    }
+  ]
+}
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## Inputs
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| customer_gateway_name | Name of the customer gateway (1-60 chars). | string | n/a | yes |
+| customer_gateway_address | Public IP of the customer gateway. | string | n/a | yes |
+| customer_gateway_tags | Tags of the customer gateway. | map(string) | `{}` | no |
+| connection_name | Name of the VPN connection (1-60 chars). | string | n/a | yes |
+| vpc_id | ID of the VPC. | string | n/a | yes |
+| vpn_gateway_id | ID of the VPN gateway. | string | n/a | yes |
+| pre_share_key | Pre-shared key of the VPN connection. | string | `test` | no |
+| ike_version | IKE version. Valid: `IKEV1`, `IKEV2`. | string | `IKEV1` | no |
+| ike_proto_encry_algorithm | IKE encryption algorithm. | string | `3DES-CBC` | no |
+| ike_proto_authen_algorithm | IKE authentication algorithm. Valid: `MD5`, `SHA`, `SHA-256`. | string | `SHA` | no |
+| ike_local_identity | IKE local identity. Valid: `ADDRESS`, `FQDN`. | string | `ADDRESS` | no |
+| ike_exchange_mode | IKE exchange mode. Valid: `AGGRESSIVE`, `MAIN`. | string | `AGGRESSIVE` | no |
+| ike_local_address | IKE local address (when identity is ADDRESS). | string | n/a | no |
+| ike_remote_identity | IKE remote identity. Valid: `ADDRESS`, `FQDN`. | string | `ADDRESS` | no |
+| ike_remote_address | IKE remote address (when identity is ADDRESS). | string | null | no |
+| ike_dh_group_name | IKE DH group. Valid: `GROUP1`, `GROUP2`, `GROUP5`, `GROUP14`, `GROUP24`. | string | `GROUP2` | no |
+| ike_sa_lifetime_seconds | IKE SA lifetime in seconds (60-604800). | number | `86400` | no |
+| ipsec_encrypt_algorithm | IPsec encryption algorithm. | string | `3DES-CBC` | no |
+| ipsec_integrity_algorithm | IPsec integrity algorithm. Valid: `SHA1`, `MD5`, `SHA-256`. | string | `MD5` | no |
+| ipsec_sa_lifetime_seconds | IPsec SA lifetime in seconds (180-604800). | number | `3600` | no |
+| ipsec_sa_lifetime_traffic | IPsec SA lifetime traffic in KB (>= 2560). | number | `2560` | no |
+| ipsec_pfs_dh_group | IPsec PFS DH group. Valid: `GROUP1/2/5/14/24`, `NULL`. | string | null | no |
+| dpd_action | DPD timeout action. Valid: `clear`, `restart`. | string | `restart` | no |
+| dpd_enable | Enable DPD. Valid: 0 (disable), 1 (enable). | number | `1` | no |
+| dpd_timeout | DPD timeout in seconds (30-60). | number | `30` | no |
+| enable_health_check | Whether intra-tunnel health checks are supported. | bool | `false` | no |
+| health_check_local_ip | Health check local address. | string | null | no |
+| health_check_remote_ip | Health check peer address. | string | null | no |
+| spd_policy | Security group policy of the VPN connection (list of maps with `local_cidr_block` and `remote_cidr_blocks`). | list(map(string)) | `[]` | no |
+| vpn_connection_tags | Tags of the VPN connection. | map(string) | `{}` | no |
+| destination_cidr_block | Destination IDC IP range for the gateway route. | string | `192.168.0.0/24` | no |
+| route_priority | Route priority. Valid: 0 and 100. | number | `100` | no |
+| route_status | Route status. Valid: `ENABLE`, `DISABLE`. | string | `ENABLE` | no |
+| instance_type | Next hop type. Valid: `VPNCONN` (VPN tunnel), `CCN` (CCN instance). | string | `VPNCONN` | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| vpn_customer_gateway_id | The ID of the VPN customer gateway. |
+| vpn_connection_id | The ID of the VPN connection. |
+| vpn_gateway_route | The ID of the VPN gateway route. |
+
+## Authors
+
+Created and maintained by [TencentCloud](https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-vpn-gateway-ipsec)
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Mozilla Public License Version 2.0.
+See LICENSE for full details.
+
+## Requirements
+
+| Name | Version |
+|------|---------|
+| terraform | >= 0.12 |
+| tencentcloud | > 1.18.1 |

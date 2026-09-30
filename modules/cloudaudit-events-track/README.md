@@ -1,9 +1,8 @@
-# TencentCloud CloudAudit Module for Terraform 
+# TencentCloud CloudAudit Events Track Module for Terraform 
 
-## terraform-tencentcloud-cloudaudit
+## terraform-tencentcloud-cloudaudit-events-track
 
-A terraform module that creates CloudAudit Track and saves events to your COS bucket.
-
+A terraform module that creates a CloudAudit Events Track (`tencentcloud_events_audit_track`) which records account operation events and delivers them to a storage target (COS / CLS / CKafka). Optionally it can create the required CAM role and policy used by CloudAudit to write to the storage.
 
 ## Usage
 
@@ -12,61 +11,31 @@ provider "tencentcloud" {
   region = var.region
 }
 
-locals {
-  account_id = "your account id"
-  bucket_name = "your bucket name"
-  appid = "your appid"
-  bucket = "${local.bucket_name}-${local.appid}"
-}
+module "cloud_audit_events_track" {
+  source = "terraform-tencentcloud-modules/cloudaudit-events-track/tencentcloud"
 
-module "cloud_audit" {
-  source = "terraform-tencentcloud-modules/cloudaudit/tencentcloud"
+  create_cam_strategy = true # Create the required CAM role and related policy (set false if already enabled via the console)
 
-  create_track = true
-  create_bucket = true
-  create_bucket_policy = true
+  track_name            = "tfmodule_audit"
+  status                = 1  # 1 = open, 0 = close
+  track_for_all_members = 0  # 0 = close, 1 = open (deliver member logs to management account)
 
-  track_name = "tfmodule_audit"
-  bucket_name = local.bucket_name
-  appid = local.appid
-  storage_prefix = "tfmodule"
-  region = var.region
-  
-  force_clean = true
-  versioning_enable = true
+  # Storage target (cos / cls / ckafka)
+  storage_type     = "cos"
+  storage_region   = var.region
+  storage_name     = "your-bucket-name"
+  storage_prefix   = "tfmodule"
+  storage_app_id   = "your-appid"        # Required for cos/cls storage
+  storage_account_id = "your-account-id" # Required for cos/cls storage
 
-  lifecycle_rules = [
+  # Event filters (at least one entry)
+  audit_filters = [
     {
-      filter_prefix = "tf"
-      transition = [{
-        days = 100
-        storage_class = "STANDARD_IA"
-      }]
+      resource_type = "*"
+      action_type   = "*"
+      event_names   = ["*"]
     }
   ]
-
-  policy = <<EOF
-    {
-      "version": "2.0",
-      "Statement": [
-        {
-          "Principal": {
-            "qcs": [
-              "qcs::cam::uin/${local.account_id}:uin/${local.account_id}"
-            ]
-          },
-          "Action": [
-            "name/cos:DeleteBucket",
-            "name/cos:PutBucketACL"
-          ],
-          "Effect": "allow",
-          "Resource": [
-            "qcs::cos:${var.region}:uid/${local.appid}:${local.bucket}/*"
-          ]
-        }
-      ]
-    }
-  EOF
 }
 ```
 
@@ -74,47 +43,28 @@ module "cloud_audit" {
 
 | Name | Description | Type | Default | Required |
 |------|-------------|:----:|:-----:|:-----:|
-| create_track | Controls if cloud audit track should be created. | bool | true | no |
-| create_bucket | Controls if COS bucket should be created. | bool | false | no |
-| create_bucket_policy | Controls if COS bucket policy should be created. | bool | false | no |
-| track_name | The name of cloud audit track. | string | "" | yes |
-| action_type | Track interface type, optional: (Read: Read interface, Write: Write interface, *: All interface),  Default is *. | string | * | no |
-| resource_type | Track product, optional: (*: All product, Single product, such as cos), Default is *. | string | * | no |
-| event_names | Track interface name list. When resource_type is *, event_names is must *; When resource_type is a single product, event_name support all interfaces and some interfaces, up to 10. | string | [ " * "] | no |
+| create_cam_strategy | Specify whether to create CAM role and related policy. Set to `false` if you have already enabled it via the TencentCloud Console. | bool | false | no |
+| track_name | The name of the cloud audit track. | string | n/a | yes |
+| track_for_all_members | Whether to enable the delivery of group member operation logs to the group management account or trusted service management account, optional: (close: 0, open: 1). | number | 1 | no |
 | status | Track status, optional: (close: 0, open: 1). Default is 1. | number | 1 | no |
-| bucket_name | The name of the bucket. | string | "" | yes |
-| appid | Your appid. | string | "" | yes |
-| storage_prefix | Storage path prefix. | string | "" | yes |
-| region | The region of storage. | string | ap-singapore | no |
-| storage_type | Track Storage type, optional: cos or cls. | string | cos | no |
-| track_for_all_members | Whether to enable the delivery of group member operation logs to the group management account or trusted service management account, optional: (close: 0, open: 1). | number | 0 | no |
-| bucket_acl | Access control list for the bucket. | string | private | no |
-| acl_body | The XML format of Access control list for the bucket. | string | null | no |
-| encryption_algorithm | The server-side encryption algorithm to the bucket. | string | AES256 | no |
-| force_clean | Whether to force cleanup all objects before delete bucket. | bool | false | no |
-| versioning_enable | Enable bucket versioning. | bool | false | no |
-| log_enable | Indicate the access log of this bucket to be saved or not. | bool | false | no |
-| log_prefix | The prefix log name which saves the access log of this bucket per 5 minutes. Eg. MyLogPrefix/. The log access file format is log_target_bucket/log_prefix{YYYY}/{MM}/{DD}/{time}{random}{index}.gz. Only valid when log_enable is true." | string | "" | no |
-| log_target_bucket | The target bucket name which saves the access log of this bucket per 5 minutes. The log access file format is log_target_bucket/log_prefix{YYYY}/{MM}/{DD}/{time}{random}{index}.gz. Only valid when log_enable is true. User must have full access on this bucket.| string | "" | no |
-| lifecycle_rules | Lifecycle rules to the bucket. | list | [] | no |
-| tags | A mapping of tags to assign to the bucket. | map | {} | no |
-| policy | The text of the policy. | string | "" | no |
-
-
+| storage_type | Track storage type, optional: `cos`, `cls`, `ckafka`. | string | n/a | yes |
+| storage_region | The region of the storage. | string | n/a | yes |
+| storage_name | The name of the bucket (COS) / logset (CLS) / topic (CKafka) to store the events. | string | n/a | yes |
+| storage_prefix | Storage path prefix. | string | n/a | yes |
+| storage_account_id | Designated to store user ID. Required for `cos`/`cls` storage. | string | null | no |
+| storage_app_id | Your appid. Required for `cos`/`cls` storage. | string | null | no |
+| audit_filters | Data filtering criteria (list of resource type / action type / event names). When `resource_type` is `*`, `event_names` must be `*`. When `resource_type` is a single product (`cos`, `cls`), up to 10 API names are supported. | list(object({ resource_type = string, action_type = string, event_names = list(string) })) | n/a | yes |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| cloudaudit_id | The ID of Cloud Audit Track. | 
-| bucket_id | The ID of COS bucket. |
-| bucket_policy_id | The ID of COS bucket Policy. |
+| cloudaudit_id | The ID of Cloud Audit Track. |
 
 ## Authors
 
-Created and maintained by [TencentCloud](https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-vpc)
+Created and maintained by [TencentCloud](https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-cloudaudit-events-track)
 
 ## License
 
 Mozilla Public License Version 2.0. See LICENSE for full details.
-

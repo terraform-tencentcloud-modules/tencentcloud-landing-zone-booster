@@ -1,103 +1,111 @@
-# 腾讯云云防火墙（CFW）VPC防火墙路由重配置模块
+# Tencent Cloud Cloud Firewall (CFW) VPC Firewall Route Reconfiguration Component
 
-## 模块概述
+Terraform component under `components/security/cfw/fw-vpc-route-reconfig` for configuring and managing VPC firewall route reconfiguration of Tencent Cloud Cloud Firewall (CFW) — as part of the `security` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中配置和管理云防火墙（Cloud Firewall，CFW）的VPC防火墙路由重配置功能，主要提供以下核心能力：
+## Overview
 
-- **路由重配置** - 自动重配置VPC防火墙相关路由
-- **HAVIP支持** - 支持高可用虚拟IP（HAVIP）作为下一跳类型
-- **VPC集成** - 与VPC防火墙无缝集成
-- **网关管理** - 管理VPC防火墙网关路由配置
-- **自动化部署** - 自动化路由重配置流程
+This component reconfigures the routes associated with a VPC firewall instance. Main capabilities:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudCFWFullAccess` | 云防火墙全权限 |
-| `QcloudVPCFullAccess` | VPC网络权限 |
-| `QcloudHAVIPFullAccess` | HAVIP高可用虚拟IP权限 |
-
-### 其他要求
-
-- 需要已部署VPC防火墙实例
-- 需要获取VPC防火墙的VPC ID
-- 需要获取VPC防火墙的网关ID
-- 需要确认网络拓扑和路由需求
-- 需要规划HAVIP配置（如适用）
+- **Route reconfiguration** – automatically reconfigure the route table entries associated with the VPC firewall.
+- **HAVIP support** – use a High-Availability Virtual IP (HAVIP) as the route next hop.
+- **VPC integration** – seamless integration with the VPC firewall.
+- **Gateway management** – manage the VPC firewall gateway route configuration.
+- **Automated deployment** – automate the route reconfiguration workflow.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 必需配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.1.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `vpc_id` | `string` | 是 | - | VPC防火墙的VPC ID |
-| `gateway_id` | `string` | 是 | - | VPC防火墙的网关ID |
+## Providers
 
-### 固定配置参数
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.82.61 |
 
-| 参数名 | 值 | 说明 |
-|--------|----|------|
-| `route_next_type` | `HAVIP` | 路由下一跳类型，固定为高可用虚拟IP |
+### IAM Permissions
+
+The executing principal needs the following Tencent Cloud permissions:
+
+| Permission | Description |
+|------------|-------------|
+| `QcloudCFWFullAccess` | Full access to Cloud Firewall |
+| `QcloudVPCFullAccess` | Access to VPC |
+| `QcloudHAVIPFullAccess` | Access to HAVIP |
+
+### Prerequisites
+
+- A VPC firewall instance must already be deployed.
+- Obtain the VPC ID of the VPC firewall.
+- Obtain the gateway ID of the VPC firewall.
+- Confirm the network topology and routing requirements.
+- Plan the HAVIP configuration (if applicable).
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### Required configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | `string` | yes | – | VPC ID of the VPC firewall. |
+| <a name="input_gateway_id"></a> [gateway\_id](#input\_gateway\_id) | `string` | yes | – | Gateway ID of the VPC firewall. |
+
+> **Note on route next hop**: The route entries created by this component use a High-Availability Virtual IP (HAVIP) as the next hop (`route_next_type = HAVIP`). This is fixed module behavior, not a user-input variable — only `vpc_id` and `gateway_id` are configurable inputs.
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_route_item_ids"></a> [route\_item\_ids](#output\_route\_item\_ids) | List of route item IDs (`route_item_id`) created for the HAVIP route entries. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars`
 
 ```hcl
-# VPC防火墙路由重配置
-vpc_id     = "vpc-abcdef123456"  # VPC防火墙的VPC ID
-gateway_id = "vpngw-1234567890"  # VPC防火墙的网关ID
+# VPC firewall route reconfiguration
+vpc_id     = "vpc-abcdef123456"  # VPC ID of the VPC firewall
+gateway_id = "vpngw-1234567890"  # Gateway ID of the VPC firewall
 ```
 
-### 完整部署示例
+### Standalone module usage
 
 ```hcl
-# 引用VPC防火墙路由重配置模块
+# Reference the VPC firewall route reconfiguration component
 module "vpc_fw_route_reconfig" {
   source = "../components/security/cfw/fw-vpc-route-reconfig"
 
-  vpc_id     = "vpc-abcdef123456"  # 从VPC防火墙模块获取
-  gateway_id = "vpngw-1234567890"  # 从VPC防火墙模块获取
+  vpc_id     = "vpc-abcdef123456"  # from the VPC firewall component
+  gateway_id = "vpngw-1234567890"  # from the VPC firewall component
 }
 
-# 输出重配置结果
+# Output the reconfiguration result
 output "route_reconfig_status" {
-  description = "VPC防火墙路由重配置状态"
+  description = "VPC firewall route reconfiguration status"
   value       = module.vpc_fw_route_reconfig
 }
 ```
 
-### 与VPC防火墙模块集成示例
+### Integration with the VPC firewall component
 
 ```hcl
-# 部署VPC防火墙
+# Deploy the VPC firewall
 module "vpc_firewall" {
   source = "../components/security/cfw/fw-vpc"
 
   name        = "prod-vpc-fw"
   mode        = 0
   switch_mode = 1
-  fw_cidr     = "auto"
-  
+  fw_vpc_cidr = "auto"
+
   fw_instances = [
     {
       name = "vpc-fw-instance"
@@ -114,31 +122,33 @@ module "vpc_firewall" {
   ]
 }
 
-# 部署路由重配置
+# Deploy route reconfiguration
 module "vpc_fw_route_reconfig" {
   source = "../components/security/cfw/fw-vpc-route-reconfig"
 
-  vpc_id     = module.vpc_firewall.vpc_instances.vpc_id  # 从VPC防火墙模块获取VPC ID
-  gateway_id = module.vpc_firewall.vpc_instances.gateway_id  # 从VPC防火墙模块获取网关ID
+  # Note: the fw-vpc component exposes `vpc_instances` as a LIST, so index it
+  # and verify the exact attribute names against the fw-vpc outputs.
+  vpc_id     = module.vpc_firewall.vpc_instances[0].vpc_id
+  gateway_id = module.vpc_firewall.vpc_instances[0].gateway_id
 }
 ```
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：生产环境路由重配置
+### Example 1: Production route reconfiguration
 
 ```hcl
-# 生产环境VPC防火墙
+# Production VPC firewall
 module "prod_vpc_fw" {
   source = "../components/security/cfw/fw-vpc"
 
   name        = "prod-vpc-fw"
   mode        = 0
-  switch_mode = 2  # 多点通信
-  fw_cidr     = "10.20.30.0/24"
-  
+  switch_mode = 2  # multi-point communication
+  fw_vpc_cidr = "10.20.30.0/24"
+
   fw_instances = [
     {
       name = "prod-fw-instance"
@@ -155,27 +165,27 @@ module "prod_vpc_fw" {
   ]
 }
 
-# 生产环境路由重配置
+# Production route reconfiguration
 module "prod_route_reconfig" {
   source = "../components/security/cfw/fw-vpc-route-reconfig"
 
-  vpc_id     = module.prod_vpc_fw.vpc_instances.vpc_id
-  gateway_id = module.prod_vpc_fw.vpc_instances.gateway_id
+  vpc_id     = module.prod_vpc_fw.vpc_instances[0].vpc_id
+  gateway_id = module.prod_vpc_fw.vpc_instances[0].gateway_id
 }
 ```
 
-### 示例二：多VPC环境路由重配置
+### Example 2: Multi-VPC route reconfiguration
 
 ```hcl
-# 多VPC防火墙部署
+# Multi-VPC firewall deployment
 module "multi_vpc_fw" {
   source = "../components/security/cfw/fw-vpc"
 
   name        = "multi-vpc-fw"
   mode        = 0
-  switch_mode = 4  # 自定义路由
-  fw_cidr     = "auto"
-  
+  switch_mode = 4  # custom routing
+  fw_vpc_cidr = "auto"
+
   fw_instances = [
     {
       name = "multi-fw-instance"
@@ -192,166 +202,176 @@ module "multi_vpc_fw" {
   ]
 }
 
-# 多VPC路由重配置
+# Multi-VPC route reconfiguration
 module "multi_route_reconfig" {
   source = "../components/security/cfw/fw-vpc-route-reconfig"
 
-  vpc_id     = module.multi_vpc_fw.vpc_instances.vpc_id
-  gateway_id = module.multi_vpc_fw.vpc_instances.gateway_id
+  vpc_id     = module.multi_vpc_fw.vpc_instances[0].vpc_id
+  gateway_id = module.multi_vpc_fw.vpc_instances[0].gateway_id
 }
 ```
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 功能说明
+### Feature description
 
-#### 路由重配置功能
-- **自动路由优化**：自动重配置VPC防火墙相关路由表
-- **HAVIP集成**：使用高可用虚拟IP作为路由下一跳
-- **故障切换**：支持高可用性和故障切换能力
-- **性能优化**：优化网络流量路径，提升性能
+#### Route reconfiguration
+- **Automatic route optimization**: automatically reconfigure the route table entries associated with the VPC firewall.
+- **HAVIP integration**: use a High-Availability Virtual IP as the route next hop.
+- **Failover**: support high availability and failover capability.
+- **Performance optimization**: optimize network traffic paths and improve performance.
 
-#### HAVIP（高可用虚拟IP）
-- **高可用性**：提供虚拟IP的高可用性保障
-- **负载均衡**：支持流量负载均衡
-- **故障检测**：自动检测和切换故障节点
-- **透明切换**：对上层应用透明，无需修改配置
+#### HAVIP (High-Availability Virtual IP)
+- **High availability**: provides HA guarantee for the virtual IP.
+- **Load balancing**: supports traffic load balancing.
+- **Failure detection**: automatically detects and switches over failed nodes.
+- **Transparent switchover**: transparent to upper-layer applications, no configuration change required.
 
-### 工作流程
+### Workflow
 
-1. **获取VPC信息**：从VPC防火墙模块获取VPC ID和网关ID
-2. **路由分析**：分析当前路由配置和优化需求
-3. **重配置执行**：执行路由重配置操作
-4. **HAVIP配置**：配置高可用虚拟IP作为下一跳
-5. **验证测试**：验证路由重配置结果
+1. **Obtain VPC information**: get the VPC ID and gateway ID from the VPC firewall component.
+2. **Route analysis**: analyze the current route configuration and optimization needs.
+3. **Reconfiguration execution**: execute the route reconfiguration operation.
+4. **HAVIP configuration**: configure the HAVIP as the next hop.
+5. **Verification**: verify the route reconfiguration result.
 
-### 集成架构
+### Integration architecture
 
 ```
-+----------------+      +-----------------+      +-------------------+
-|   VPC防火墙模块  | ---> | 路由重配置模块   | ---> |    网络路由表      |
-| (fw-vpc)       |      | (fw-vpc-route)  |      |                   |
-+----------------+      +-----------------+      +-------------------+
++----------------+      +------------------------+      +-------------------+
+| VPC firewall   | ---> | Route reconfig         | ---> | Network route     |
+| (fw-vpc)       |      | (fw-vpc-route-reconfig)|      | table             |
++----------------+      +------------------------+      +-------------------+
        |                         |                         |
        v                         v                         v
-+----------------+      +-----------------+      +-------------------+
-|   VPC实例信息   |      |   HAVIP配置     |      |   优化后的路由     |
-+----------------+      +-----------------+      +-------------------+
++----------------+      +------------------------+      +-------------------+
+| VPC instance   |      | HAVIP config           |      | Optimized routes  |
+| info           |      |                        |      |                   |
++----------------+      +------------------------+      +-------------------+
 ```
 
-### 最佳实践
+### Best practices
 
-1. **部署顺序**：先部署VPC防火墙，再部署路由重配置
-2. **依赖管理**：确保路由重配置模块依赖VPC防火墙模块的输出
-3. **测试验证**：部署后验证路由配置和网络连通性
-4. **监控告警**：配置路由变更监控和异常告警
-5. **备份恢复**：定期备份路由配置，准备恢复方案
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **依赖关系**
-   - 本模块依赖VPC防火墙模块的输出
-   - 确保VPC防火墙已成功部署
-   - 验证VPC ID和网关ID的正确性
-
-2. **网络影响**
-   - 路由重配置可能影响网络连通性
-   - 建议在业务低峰期执行
-   - 准备回滚方案
-
-3. **HAVIP配置**
-   - 确认HAVIP功能已启用
-   - 检查HAVIP配额和限制
-   - 验证HAVIP的高可用性
-
-4. **权限要求**
-   - 需要VPC、CFW、HAVIP相关权限
-   - 验证操作权限是否充足
-   - 检查资源操作限制
-
-5. **地域限制**
-   - 确认地域支持HAVIP功能
-   - 检查地域间的网络连通性
-   - 验证跨地域部署需求
-
-6. **兼容性**
-   - 确认Terraform版本兼容性
-   - 检查Provider版本要求
-   - 验证模块版本兼容性
-
-7. **监控告警**
-   - 配置路由变更监控
-   - 设置异常告警阈值
-   - 监控网络性能指标
+1. **Deployment order**: deploy the VPC firewall first, then the route reconfiguration.
+2. **Dependency management**: ensure the route reconfiguration component depends on the VPC firewall output.
+3. **Test & verify**: verify the route configuration and network connectivity after deployment.
+4. **Monitoring & alerting**: configure route-change monitoring and anomaly alerts.
+5. **Backup & recovery**: back up route configuration regularly and prepare a recovery plan.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：VPC防火墙未找到
+1. **Dependencies**
+   - This component depends on the VPC firewall outputs.
+   - Ensure the VPC firewall is deployed successfully.
+   - Verify the correctness of the VPC ID and gateway ID.
+
+2. **Network impact**
+   - Route reconfiguration may affect network connectivity.
+   - Execute during off-peak business hours.
+   - Prepare a rollback plan.
+
+3. **HAVIP configuration**
+   - Confirm the HAVIP feature is enabled.
+   - Check the HAVIP quota and limits.
+   - Verify HAVIP high availability.
+
+4. **Permissions**
+   - Requires VPC, CFW, and HAVIP related permissions.
+   - Verify that operation permissions are sufficient.
+   - Check resource operation limits.
+
+5. **Regional limits**
+   - Confirm the region supports the HAVIP feature.
+   - Check cross-region network connectivity.
+   - Verify cross-region deployment requirements.
+
+6. **Compatibility**
+   - Confirm Terraform version compatibility.
+   - Check the provider version requirement.
+   - Verify module version compatibility.
+
+7. **Monitoring & alerting**
+   - Configure route-change monitoring.
+   - Set anomaly alert thresholds.
+   - Monitor network performance metrics.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: VPC firewall not found
+
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=VPC firewall not found
 ```
 
-**原因**：指定的VPC ID或网关ID不存在
-**解决方案**：
-- 检查VPC防火墙是否已部署
-- 验证VPC ID和网关ID的正确性
-- 确认VPC防火墙状态正常
+**Cause**: The specified VPC ID or gateway ID does not exist.
+**Solution**:
+- Check whether the VPC firewall is deployed.
+- Verify the correctness of the VPC ID and gateway ID.
+- Confirm the VPC firewall status is normal.
 
-#### 错误二：权限不足
+#### Error 2: Insufficient permissions
+
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查CFW、VPC、HAVIP相关权限
-- 申请必要权限
-- 验证资源操作权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check CFW, VPC, and HAVIP related permissions.
+- Request the necessary permissions.
+- Verify resource operation permissions.
 
-#### 错误三：HAVIP不支持
+#### Error 3: HAVIP not supported
+
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=HAVIP not supported
 ```
 
-**原因**：当前地域不支持HAVIP功能
-**解决方案**：
-- 检查地域是否支持HAVIP
-- 确认HAVIP功能已启用
-- 联系技术支持确认支持情况
+**Cause**: The current region does not support the HAVIP feature.
+**Solution**:
+- Check whether the region supports HAVIP.
+- Confirm the HAVIP feature is enabled.
+- Contact technical support to confirm support.
 
-#### 错误四：路由配置冲突
+#### Error 4: Route configuration conflict
+
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Route configuration conflict
 ```
 
-**原因**：路由配置存在冲突
-**解决方案**：
-- 检查现有路由配置
-- 解决路由冲突问题
-- 重新执行路由重配置
+**Cause**: A route configuration conflict exists.
+**Solution**:
+- Check the existing route configuration.
+- Resolve the route conflict.
+- Re-run the route reconfiguration.
 
-#### 错误五：网络超时
+#### Error 5: Network timeout
+
 ```
 Error: [TencentCloudSDKError] Code=RequestTimeout
 Message=Network timeout
 ```
 
-**原因**：网络连接超时
-**解决方案**：
-- 检查网络连通性
-- 重试操作
-- 调整超时时间配置
+**Cause**: Network connection timeout.
+**Solution**:
+- Check network connectivity.
+- Retry the operation.
+- Adjust the timeout configuration.
+
+## License
+
+See [LICENSE](../../../../LICENSE) for full details.

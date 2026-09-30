@@ -1,73 +1,79 @@
-````markdown
-# tencentcloud-waf-saas-instance 模块
+```markdown
+# tencentcloud-waf-saas-instance module
 
-此 Terraform 模块用于在腾讯云上创建 WAF SaaS 实例（`tencentcloud_waf_saas_instance`）。模块将常用计费/能力参数抽象为输入变量，便于在不同环境下复用与自动化部署。
+This Terraform module provisions a WAF SaaS instance on Tencent Cloud using the `tencentcloud_waf_saas_instance` resource. It exposes common billing and capability options as inputs for easy reuse and automation.
 
-## 说明
+## Overview
 
-该模块负责创建一个 WAF SaaS 实例，并可选择开启 API 安全、Bot 管理或弹性计费等能力。常见用途包括：购买新的 WAF SaaS 实例、为已存在环境快速创建隔离实例、以及在 IaC 流程中统一管理计费与到期策略。
+The module creates a WAF SaaS instance and can optionally enable API Security, Bot Management, or elastic billing. Typical use cases include provisioning new WAF instances, creating isolated instances for environments, and standardizing billing/expiration via IaC.
 
-## 目录结构
+## Directory structure
 
-模块目录中常见文件及其用途：
+# tencentcloud-waf-saas-instance module
 
-- `main.tf` — 模块主体，声明 `tencentcloud_waf_saas_instance` 资源并绑定输入变量。
-- `variables.tf` — 模块输入变量定义（类型、默认值与说明）。
-- `outputs.tf` — 模块输出（导出创建后的 `id`、`instance_id`、`status` 等）。
-- `versions.tf` — Terraform 与 provider 版本约束（若存在）。
-- `README.md` — 中文使用说明（本文件）。
-- `README_EN.md` — 英文使用说明（对应英文版）。
-- `examples/` — 若存在，放置示例调用与 `*.tfvars` 文件。
+This Terraform module provisions a WAF SaaS instance on Tencent Cloud using the `tencentcloud_waf_saas_instance` resource. It exposes common billing and capability options as inputs for easy reuse and automation.
 
-修改模块接口（新增变量或输出）时，请同时更新 `variables.tf` / `outputs.tf` 与本文件以保持一致。
+## Overview
 
-## 输入（Variables）
+The module creates a WAF SaaS instance and can optionally enable API Security, Bot Management, or elastic billing. Typical use cases include provisioning new WAF instances, creating isolated instances for environments, and standardizing billing/expiration via IaC.
 
-下面的变量来源于模块的 `variables.tf`：
+## Directory structure
 
-- `instance_name` (string) — WAF 实例名称（必填）。
-- `goods_category` (string) — 计费类型（必填）。支持值示例：`premium_saas`, `enterprise_saas`, `ultimate_saas`。
-- `api_security` (number, default 0) — 是否购买 API 安全：1 开启，0 关闭（可选）。
-- `auto_renew_flag` (number, default 0) — 自动续费标识：1 开启，0 关闭（可选）。
-- `bot_management` (number, default 0) — 是否购买 Bot 管理：1 开启，0 关闭（可选）。
-- `elastic_mode` (number, default 0) — 是否启用弹性计费：1 启用，0 禁用（可选）。
-- `qps_limit` (number, default null) — QPS 限额（仅当 `elastic_mode = 1` 时有效，最小值示例 10000）。
-- `real_region` (string, default "sg") — 实例对应的真实区域/节点标识（可选，模块中给出常见取值，参见 `variables.tf` 注释）。
-- `time_span` (number, default 1) — 购买时长，数值。
-- `time_unit` (string, default "m") — 时长单位：`d`/`m`/`y`（日/月/年）。
+Common files in the module and their purpose:
 
-示例：若需要弹性计费并设定 QPS 限额，请将 `elastic_mode = 1` 且设置 `qps_limit`（例如 20000）。
+- `main.tf` — Module entry; declares `tencentcloud_waf_saas_instance` resource and binds input variables.
+- `variables.tf` — Input variable definitions (types, defaults, and descriptions).
+- `outputs.tf` — Module outputs (exports such as `id`, `instance_id`, `status`, etc.).
+- `versions.tf` — Terraform/provider version constraints (if present).
+- `README.md` — Chinese documentation for the module.
+- `README_EN.md` — English documentation (this file).
+- `examples/` — Example usage and `*.tfvars` files (if present).
 
-## 输出（Outputs）
+When changing module inputs/outputs, update `variables.tf`/`outputs.tf` and documentation accordingly.
 
-模块在 `outputs.tf` 中导出的属性如下：
+## Inputs (Variables)
 
-- `id` — Terraform 资源 ID。
-- `instance_id` — WAF 实例 ID（用于后续为域名或策略绑定实例）。
-- `edition` — 实例版本/类型（例如 `clb` 或 `saas`）。
-- `status` — 实例状态（字符串或数字，取决于 provider 返回值）。
-- `begin_time` — 实例生效时间。
-- `valid_time` — 实例到期/有效时间。
+Variables are defined in `variables.tf`:
 
-## 常见使用示例
+- `instance_name` (string) — WAF instance name (required).
+- `goods_category` (string) — Billing category (required). Example supported values: `premium_saas`, `enterprise_saas`, `ultimate_saas`.
+- `api_security` (number, default 0) — Purchase API Security: 1 = yes, 0 = no.
+- `auto_renew_flag` (number, default 0) — Auto renew: 1 = enable, 0 = disable.
+- `bot_management` (number, default 0) — Purchase Bot Management: 1 = yes, 0 = no.
+- `elastic_mode` (number, default 0) — Enable elastic billing: 1 = enable, 0 = disable.
+- `qps_limit` (number, default null) — QPS limit (effective only when `elastic_mode = 1`, minimum recommended 10000).
+- `real_region` (string, default "sg") — Real region/node identifier (see `variables.tf` comment for supported values).
+- `time_span` (number, default 1) — Purchase duration value.
+- `time_unit` (string, default "m") — Time unit: `d`/`m`/`y` (day/month/year).
 
-下面给出若干典型调用场景，示例均为模块调用片段（简化）。根据实际使用请在调用方填写 `provider`、认证与 `terraform` 基本配置。
+Note: set `elastic_mode = 1` to enable `qps_limit`.
 
-### 1) 基本购买（最小化）
+## Outputs
 
-适用于只需创建基础 SaaS 实例的场景。
+The module exports the following outputs (see `outputs.tf`):
+
+- `id` — Terraform resource ID.
+- `instance_id` — WAF instance ID for subsequent domain/policy bindings.
+- `edition` — Instance edition/type (e.g., `clb` or `saas`).
+- `status` — Instance status.
+- `begin_time` — Instance start time.
+- `valid_time` — Instance validity/expiration time.
+
+## Examples
+
+Below are common invocation examples. These snippets assume you configured provider/authentication in the caller.
+
+### 1) Basic purchase
 
 ```hcl
 module "waf_instance_basic" {
-  source        = "../../modules/tencentcloud-waf-saas-instance"
-  instance_name = "waf-basic-01"
+  source         = "../../modules/tencentcloud-waf-saas-instance"
+  instance_name  = "waf-basic-01"
   goods_category = "premium_saas"
 }
 ```
 
-### 2) 包含 API 安全与 Bot 管控
-
-开启额外能力以保护 API 与应对 Bot 流量。
+### 2) With API Security and Bot Management
 
 ```hcl
 module "waf_instance_protect" {
@@ -79,45 +85,43 @@ module "waf_instance_protect" {
 }
 ```
 
-### 3) 弹性计费（带 QPS 限额）
+### 3) Elastic billing with QPS limit
 
-适用于按需伸缩或需要设置 QPS 上限的场景。注意：`qps_limit` 仅在 `elastic_mode = 1` 时生效，最小建议值 10000（以 provider 要求为准）。
+Only valid when `elastic_mode = 1`.
 
 ```hcl
 module "waf_instance_elastic" {
-  source        = "../../modules/tencentcloud-waf-saas-instance"
-  instance_name = "waf-elastic-01"
+  source         = "../../modules/tencentcloud-waf-saas-instance"
+  instance_name  = "waf-elastic-01"
   goods_category = "ultimate_saas"
-  elastic_mode  = 1
-  qps_limit     = 20000
-  real_region   = "gz"
+  elastic_mode   = 1
+  qps_limit      = 20000
+  real_region    = "gz"
 }
 ```
 
-### 4) 自动续费按月购买
+### 4) Auto-renew monthly
 
 ```hcl
 module "waf_instance_renew" {
-  source         = "../../modules/tencentcloud-waf-saas-instance"
-  instance_name  = "waf-auto-01"
-  goods_category = "premium_saas"
+  source          = "../../modules/tencentcloud-waf-saas-instance"
+  instance_name   = "waf-auto-01"
+  goods_category  = "premium_saas"
   auto_renew_flag = 1
-  time_span      = 1
-  time_unit      = "m"
+  time_span       = 1
+  time_unit       = "m"
 }
 ```
 
-## 注意事项
+## Notes
 
-- `qps_limit`：仅在弹性计费开启时生效，且有最小值限制，具体以腾讯云接口/文档为准。不要在 `elastic_mode = 0` 时设置该值。
-- `real_region`：变量注释列出了常见取值，请根据实际需求选择节点位置，影响线路/节点分配。
-- 生产环境中请配合合适的权限与账单配置创建实例，避免重复购买导致浪费。
+- `qps_limit`: effective only when `elastic_mode = 1`. Observe provider limits and minimums.
+- `real_region`: choose node location per `variables.tf` comments — it impacts node allocation and routing.
+- Creating instances triggers actual billing; review account/billing settings before apply.
 
-## 本地验证（快速）
+## Quick local test
 
-1. 在引用本模块的目录中填写变量或使用 `-var-file` 指定 `*.tfvars`。
-2. 运行 `terraform init`。
-3. 运行 `terraform plan` 查看将要创建的资源。
-4. 运行 `terraform apply` 创建实例（注意操作会触发真实计费）。
-
-````
+1. Provide variables or a `-var-file` referencing values.
+2. `terraform init`.
+3. `terraform plan`.
+4. `terraform apply` (this will create real billed resources).

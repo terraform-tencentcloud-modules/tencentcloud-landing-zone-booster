@@ -1,131 +1,146 @@
-# 腾讯云云防火墙（CFW）边缘防火墙模块
+# Tencent Cloud Cloud Firewall (CFW) Edge Firewall Component
 
-## 模块概述
+Terraform component under `components/security/cfw/fw-edge` for configuring and managing the Edge Firewall capability of Tencent Cloud Cloud Firewall (CFW) — as part of the `security` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中配置和管理云防火墙（Cloud Firewall，CFW）的边缘防火墙功能，主要提供以下核心能力：
+## Overview
 
-- **资产同步** - 自动同步云上资产信息到防火墙
-- **边缘开关管理** - 配置和管理边缘防火墙开关状态
-- **入站策略** - 定义和管理入站流量访问控制策略
-- **出站策略** - 定义和管理出站流量访问控制策略
-- **多模式支持** - 支持旁路和串行两种工作模式
-- **细粒度控制** - 基于IP、端口、协议、地域等多维度访问控制
+This component configures and manages the Cloud Firewall (CFW) edge firewall feature. Main capabilities:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudCFWFullAccess` | 云防火墙全权限 |
-| `QcloudCFWReadOnlyAccess` | 云防火墙只读权限 |
-| `QcloudVPCFullAccess` | VPC网络权限 |
-| `QcloudCVMFullAccess` | 云服务器权限 |
-| `QcloudEIPFullAccess` | 弹性公网IP权限 |
-
-### 其他要求
-
-- 需要先创建云防火墙实例
-- 需要确定边缘防火墙的工作模式（旁路/串行）
-- 需要规划网络拓扑和流量路径
-- 需要准备访问控制策略规则
-- 需要确认子网和公网IP配置
-- 需要确定策略生效范围
+- **Asset sync** – automatically synchronize cloud asset information to the firewall.
+- **Edge switch management** – configure and manage the edge firewall switch status.
+- **Inbound policy** – define and manage inbound traffic access-control policies.
+- **Outbound policy** – define and manage outbound traffic access-control policies.
+- **Multi-mode support** – bypass and serial working modes.
+- **Fine-grained control** – multi-dimensional access control based on IP, port, protocol, and region.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 边缘开关配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.1.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `switches` | `list(object)` | 是 | - | 边缘防火墙开关列表 |
+## Providers
 
-#### 开关对象字段说明
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `switch_enable` | `number` | 是 | - | 开关状态：0-关闭，1-开启 |
-| `switch_mode` | `number` | 是 | - | 工作模式：0-旁路模式，1-串行模式 |
-| `switch_public_addr` | `string` | 是 | - | 公网IP地址 |
-| `switch_subnet_id` | `string` | 否 | - | 子网ID（串行模式且开启时需要） |
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.82.61 |
 
-### 入站策略配置变量
+### IAM Permissions
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `inbound_policies` | `list(object)` | 否 | `[]` | 入站访问控制策略列表 |
+The executing principal needs the following Tencent Cloud permissions:
 
-#### 入站策略对象字段说明
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `port` | `string` | 是 | - | 端口：-1/-1-所有端口，80-端口80 |
-| `protocol` | `string` | 是 | - | 协议：TCP, UDP, ICMP, ANY, HTTP, HTTPS, SMTP, FTP, DNS等 |
-| `rule_action` | `string` | 是 | - | 动作：accept-允许，drop-拒绝，log-记录 |
-| `source_content` | `string` | 是 | - | 源地址：net:IP/CIDR(192.168.0.2) |
-| `source_type` | `string` | 是 | - | 源类型：net, location, vendor, template |
-| `target_content` | `string` | 是 | - | 目标地址：net:IP/CIDR(192.168.0.2) 或 domain:*.qq.com |
-| `target_type` | `string` | 是 | - | 目标类型：net, instance, tag, template, group |
-| `enable` | `string` | 否 | `true` | 规则状态：true-启用，false-禁用 |
-| `scope` | `string` | 否 | `ALL` | 生效范围：ALL-全局，地域代码-地域生效，实例ID-实例生效 |
-| `description` | `string` | 否 | `""` | 规则描述 |
-| `param_template_id` | `string` | 否 | - | 参数模板ID |
+| Permission | Description |
+|------------|-------------|
+| `QcloudCFWFullAccess` | Full access to Cloud Firewall |
+| `QcloudCFWReadOnlyAccess` | Read-only access to Cloud Firewall |
+| `QcloudVPCFullAccess` | Access to VPC |
+| `QcloudCVMFullAccess` | Access to CVM |
+| `QcloudEIPFullAccess` | Access to EIP |
 
-### 出站策略配置变量
+### Prerequisites
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `outbound_policies` | `list(object)` | 否 | `[]` | 出站访问控制策略列表 |
-
-#### 出站策略对象字段说明
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `port` | `string` | 是 | - | 端口：-1/-1-所有端口，80-端口80 |
-| `protocol` | `string` | 是 | - | 协议：TCP, UDP, ICMP, ANY, HTTP, HTTPS, SMTP, FTP, DNS等 |
-| `rule_action` | `string` | 是 | - | 动作：accept-允许，drop-拒绝，log-记录 |
-| `source_content` | `string` | 是 | - | 源地址：net:IP/CIDR(192.168.0.2) |
-| `source_type` | `string` | 是 | - | 源类型：net, instance, tag, template, group |
-| `target_content` | `string` | 是 | - | 目标地址：net:IP/CIDR(192.168.0.2) 或 domain:*.qq.com |
-| `target_type` | `string` | 是 | - | 目标类型：net, location, vendor, template |
-| `enable` | `string` | 否 | `true` | 规则状态：true-启用，false-禁用 |
-| `scope` | `string` | 否 | `ALL` | 生效范围：ALL-全局，地域代码-地域生效，实例ID-实例生效 |
-| `description` | `string` | 否 | `""` | 规则描述 |
-| `param_template_id` | `string` | 否 | - | 参数模板ID |
+- A Cloud Firewall instance must already be created.
+- Decide the edge firewall working mode (bypass / serial).
+- Plan the network topology and traffic path.
+- Prepare the access-control policy rules.
+- Confirm the subnet and public IP configuration.
+- Decide the rule effect scope.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### Edge switch configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_switches"></a> [switches](#input\_switches) | `list(object)` | yes | – | Edge firewall switch list. |
+
+#### Switch object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `switch_enable` | `number` | yes | – | Switch status: `0` = off, `1` = on. |
+| `switch_mode` | `number` | yes | – | Working mode: `0` = bypass, `1` = serial. |
+| `switch_public_addr` | `string` | yes | – | Public IP address. |
+| `switch_subnet_id` | `string` | no | – | Subnet ID (required when `switch_mode` = `1` and `switch_enable` = `1`, to create a private connection). |
+
+### Inbound policy configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_inbound_policies"></a> [inbound\_policies](#input\_inbound\_policies) | `list(object)` | no | `[]` | Inbound access-control policy list. |
+
+#### Inbound policy object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `port` | `string` | yes | – | Port: `-1/-1` = all ports, `80` = port 80. |
+| `protocol` | `string` | yes | – | Protocol. For inbound rules, optional: TCP, UDP, ICMP, ANY, HTTP, HTTPS, HTTP/HTTPS, SMTP, SMTPS, SMTP/SMTPS, FTP, DNS. |
+| `rule_action` | `string` | yes | – | Action: `accept` (allow), `drop` (deny), `log` (record). |
+| `source_content` | `string` | yes | – | Source address, e.g. `net:IP/CIDR(192.168.0.2)`. |
+| `source_type` | `string` | yes | – | Source type: for inbound rules, `net`, `location`, `vendor`, `template`. |
+| `target_content` | `string` | yes | – | Target address, e.g. `net:IP/CIDR(192.168.0.2)` or `domain:*.qq.com`. |
+| `target_type` | `string` | yes | – | Target type: for inbound rules, `net`, `instance`, `tag`, `template`, `group`. |
+| `enable` | `string` | no | `true` | Rule status: `true` = enabled, `false` = disabled. |
+| `scope` | `string` | no | `ALL` | Effect scope: `ALL` = global; a region code = region scope; an instance ID = instance scope. |
+| `description` | `string` | no | `""` | Rule description. |
+| `param_template_id` | `string` | no | – | Parameter template ID. |
+
+### Outbound policy configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_outbound_policies"></a> [outbound\_policies](#input\_outbound\_policies) | `list(object)` | no | `[]` | Outbound access-control policy list. |
+
+#### Outbound policy object
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `port` | `string` | yes | – | Port: `-1/-1` = all ports, `80` = port 80. |
+| `protocol` | `string` | yes | – | Protocol. For outbound rules, optional: TCP, UDP, ANY. |
+| `rule_action` | `string` | yes | – | Action: `accept` (allow), `drop` (deny), `log` (record). |
+| `source_content` | `string` | yes | – | Source address, e.g. `net:IP/CIDR(192.168.0.2)`. |
+| `source_type` | `string` | yes | – | Source type: for outbound rules, `net`, `instance`, `tag`, `template`, `group`. |
+| `target_content` | `string` | yes | – | Target address, e.g. `net:IP/CIDR(192.168.0.2)` or `domain:*.qq.com`. |
+| `target_type` | `string` | yes | – | Target type: for outbound rules, `net`, `location`, `vendor`, `template`. |
+| `enable` | `string` | no | `true` | Rule status: `true` = enabled, `false` = disabled. |
+| `scope` | `string` | no | `ALL` | Effect scope: `ALL` = global; a region code = region scope; an instance ID = instance scope. |
+| `description` | `string` | no | `""` | Rule description. |
+| `param_template_id` | `string` | no | – | Parameter template ID. |
+
+> **Note on domain targets**: To match a domain (e.g. `*.tencent.com`), set `target_content` to `domain:*.tencent.com` while keeping `target_type` as `net`. The `domain` value is not a `target_type` value — domain rules are expressed via the `domain:` prefix in `target_content`.
+
+## Outputs
+
+This component exposes no outputs.
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars`
 
 ```hcl
-# 边缘防火墙开关配置
+# Edge firewall switch configuration
 switches = [
   {
-    switch_enable      = 1  # 开启
-    switch_mode        = 1  # 串行模式
+    switch_enable      = 1  # on
+    switch_mode        = 1  # serial mode
     switch_public_addr = "203.0.113.10"
     switch_subnet_id   = "subnet-abcdef123456"
   },
   {
-    switch_enable      = 1  # 开启
-    switch_mode        = 0  # 旁路模式
+    switch_enable      = 1  # on
+    switch_mode        = 0  # bypass mode
     switch_public_addr = "203.0.113.11"
   }
 ]
 
-# 入站策略配置
+# Inbound policy configuration
 inbound_policies = [
   {
     port           = "80"
@@ -137,7 +152,7 @@ inbound_policies = [
     target_type    = "net"
     enable         = "true"
     scope          = "ALL"
-    description    = "允许公网访问Web服务"
+    description    = "Allow public access to web service"
   },
   {
     port           = "22"
@@ -149,11 +164,11 @@ inbound_policies = [
     target_type    = "net"
     enable         = "true"
     scope          = "ap-beijing"
-    description    = "允许内网SSH访问"
+    description    = "Allow internal SSH access"
   }
 ]
 
-# 出站策略配置
+# Outbound policy configuration
 outbound_policies = [
   {
     port           = "443"
@@ -162,10 +177,10 @@ outbound_policies = [
     source_content = "net:192.168.1.0/24"
     source_type    = "net"
     target_content = "domain:*.tencent.com"
-    target_type    = "domain"
+    target_type    = "net"
     enable         = "true"
     scope          = "ALL"
-    description    = "允许访问腾讯云服务"
+    description    = "Allow access to Tencent Cloud services"
   },
   {
     port           = "-1/-1"
@@ -177,32 +192,32 @@ outbound_policies = [
     target_type    = "net"
     enable         = "true"
     scope          = "cfwnat-123456"
-    description    = "禁止特定子网出站访问"
+    description    = "Block outbound traffic from a specific subnet"
   }
 ]
 ```
 
-### 生产环境配置示例
+### Production environment
 
 ```hcl
-# 生产环境边缘防火墙配置
+# Production edge firewall configuration
 switches = [
   {
     switch_enable      = 1
-    switch_mode        = 1  # 核心业务使用串行模式
+    switch_mode        = 1  # serial mode for core business
     switch_public_addr = "203.0.113.100"
     switch_subnet_id   = "subnet-prod-core"
   },
   {
     switch_enable      = 1
-    switch_mode        = 0  # 测试环境使用旁路模式
+    switch_mode        = 0  # bypass mode for test environment
     switch_public_addr = "203.0.113.101"
   }
 ]
 
-# 生产环境入站策略
+# Production inbound policies
 inbound_policies = [
-  # Web服务访问
+  # Web service access
   {
     port           = "80,443"
     protocol       = "TCP"
@@ -211,9 +226,9 @@ inbound_policies = [
     source_type    = "net"
     target_content = "net:10.10.1.0/24"
     target_type    = "net"
-    description    = "公网Web访问"
+    description    = "Public web access"
   },
-  # 管理访问
+  # Management access
   {
     port           = "22"
     protocol       = "TCP"
@@ -222,13 +237,13 @@ inbound_policies = [
     source_type    = "net"
     target_content = "net:10.10.0.0/16"
     target_type    = "net"
-    description    = "内网管理访问"
+    description    = "Internal management access"
   }
 ]
 
-# 生产环境出站策略
+# Production outbound policies
 outbound_policies = [
-  # 允许访问云服务
+  # Allow access to cloud services
   {
     port           = "443"
     protocol       = "TCP"
@@ -236,10 +251,10 @@ outbound_policies = [
     source_content = "net:10.10.0.0/16"
     source_type    = "net"
     target_content = "domain:*.tencentcloudapi.com"
-    target_type    = "domain"
-    description    = "访问腾讯云API"
+    target_type    = "net"
+    description    = "Access Tencent Cloud API"
   },
-  # 禁止危险出站
+  # Block dangerous outbound
   {
     port           = "-1/-1"
     protocol       = "ANY"
@@ -248,24 +263,24 @@ outbound_policies = [
     source_type    = "net"
     target_content = "net:0.0.0.0/0"
     target_type    = "net"
-    description    = "默认禁止所有出站"
+    description    = "Deny all outbound by default"
   }
 ]
 ```
 
-### 最小化配置示例
+### Minimal configuration
 
 ```hcl
-# 最小化边缘防火墙配置
+# Minimal edge firewall configuration
 switches = [
   {
     switch_enable      = 1
-    switch_mode        = 0  # 旁路模式
+    switch_mode        = 0  # bypass mode
     switch_public_addr = "203.0.113.50"
   }
 ]
 
-# 基础入站策略
+# Basic inbound policy
 inbound_policies = [
   {
     port           = "80,443"
@@ -278,7 +293,7 @@ inbound_policies = [
   }
 ]
 
-# 基础出站策略
+# Basic outbound policy
 outbound_policies = [
   {
     port           = "-1/-1"
@@ -294,23 +309,23 @@ outbound_policies = [
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：企业Web服务防护
+### Example 1: Enterprise web service protection
 
 ```hcl
-# Web服务边缘防护
+# Web service edge protection
 switches = [
   {
     switch_enable      = 1
-    switch_mode        = 1  # 串行模式深度防护
+    switch_mode        = 1  # serial mode for deep inspection
     switch_public_addr = "203.0.113.80"
     switch_subnet_id   = "subnet-web-tier"
   }
 ]
 
 inbound_policies = [
-  # HTTP/HTTPS访问
+  # HTTP/HTTPS access
   {
     port           = "80,443"
     protocol       = "TCP"
@@ -319,9 +334,9 @@ inbound_policies = [
     source_type    = "net"
     target_content = "net:10.20.1.0/24"
     target_type    = "net"
-    description    = "公网Web访问"
+    description    = "Public web access"
   },
-  # 阻止常见攻击端口
+  # Block common attack ports
   {
     port           = "22,23,135,139,445"
     protocol       = "TCP"
@@ -330,12 +345,12 @@ inbound_policies = [
     source_type    = "net"
     target_content = "net:10.20.0.0/16"
     target_type    = "net"
-    description    = "阻止管理端口外网访问"
+    description    = "Block external access to management ports"
   }
 ]
 
 outbound_policies = [
-  # 允许必要出站
+  # Allow required outbound
   {
     port           = "53"
     protocol       = "UDP"
@@ -344,7 +359,7 @@ outbound_policies = [
     source_type    = "net"
     target_content = "net:0.0.0.0/0"
     target_type    = "net"
-    description    = "DNS解析"
+    description    = "DNS resolution"
   },
   {
     port           = "443"
@@ -354,39 +369,39 @@ outbound_policies = [
     source_type    = "net"
     target_content = "net:0.0.0.0/0"
     target_type    = "net"
-    description    = "HTTPS出站"
+    description    = "HTTPS outbound"
   }
 ]
 ```
 
-### 示例二：多地域分布式防护
+### Example 2: Multi-region distributed protection
 
 ```hcl
-# 多地域边缘防护
+# Multi-region edge protection
 switches = [
-  # 北京地域
+  # Beijing region
   {
     switch_enable      = 1
     switch_mode        = 1
     switch_public_addr = "203.0.113.100"
     switch_subnet_id   = "subnet-bj-core"
   },
-  # 上海地域
+  # Shanghai region
   {
     switch_enable      = 1
     switch_mode        = 1
     switch_public_addr = "203.0.113.101"
     switch_subnet_id   = "subnet-sh-core"
   },
-  # 广州地域
+  # Guangzhou region
   {
     switch_enable      = 1
-    switch_mode        = 0  # 旁路模式监控
+    switch_mode        = 0  # bypass mode for monitoring
     switch_public_addr = "203.0.113.102"
   }
 ]
 
-# 统一入站策略
+# Unified inbound policy
 inbound_policies = [
   {
     port           = "443"
@@ -397,13 +412,13 @@ inbound_policies = [
     target_content = "net:10.0.0.0/8"
     target_type    = "net"
     scope          = "ALL"
-    description    = "全局HTTPS访问"
+    description    = "Global HTTPS access"
   }
 ]
 
-# 地域差异化出站策略
+# Region-specific outbound policies
 outbound_policies = [
-  # 北京地域出站策略
+  # Beijing region outbound policy
   {
     port           = "-1/-1"
     protocol       = "ANY"
@@ -413,9 +428,9 @@ outbound_policies = [
     target_content = "net:0.0.0.0/0"
     target_type    = "net"
     scope          = "ap-beijing"
-    description    = "北京地域全出站"
+    description    = "Beijing full outbound"
   },
-  # 上海地域出站策略
+  # Shanghai region outbound policy
   {
     port           = "443"
     protocol       = "TCP"
@@ -425,26 +440,26 @@ outbound_policies = [
     target_content = "net:0.0.0.0/0"
     target_type    = "net"
     scope          = "ap-shanghai"
-    description    = "上海地域HTTPS出站"
+    description    = "Shanghai HTTPS outbound"
   }
 ]
 ```
 
-### 示例三：零信任网络访问
+### Example 3: Zero-trust network access
 
 ```hcl
-# 零信任边缘防护
+# Zero-trust edge protection
 switches = [
   {
     switch_enable      = 1
-    switch_mode        = 1  # 串行模式
+    switch_mode        = 1  # serial mode
     switch_public_addr = "203.0.113.200"
     switch_subnet_id   = "subnet-zero-trust"
   }
 ]
 
 inbound_policies = [
-  # 仅允许特定IP段访问
+  # Allow only a specific IP range
   {
     port           = "-1/-1"
     protocol       = "ANY"
@@ -453,9 +468,9 @@ inbound_policies = [
     source_type    = "net"
     target_content = "net:10.100.0.0/16"
     target_type    = "net"
-    description    = "信任网络访问"
+    description    = "Trusted network access"
   },
-  # 默认拒绝所有入站
+  # Deny all inbound by default
   {
     port           = "-1/-1"
     protocol       = "ANY"
@@ -464,12 +479,12 @@ inbound_policies = [
     source_type    = "net"
     target_content = "net:10.100.0.0/16"
     target_type    = "net"
-    description    = "默认拒绝所有入站"
+    description    = "Deny all inbound by default"
   }
 ]
 
 outbound_policies = [
-  # 仅允许访问特定服务
+  # Allow only specific services
   {
     port           = "443"
     protocol       = "TCP"
@@ -477,10 +492,10 @@ outbound_policies = [
     source_content = "net:10.100.0.0/16"
     source_type    = "net"
     target_content = "domain:*.microsoft.com"
-    target_type    = "domain"
-    description    = "访问Microsoft服务"
+    target_type    = "net"
+    description    = "Access Microsoft services"
   },
-  # 默认拒绝所有出站
+  # Deny all outbound by default
   {
     port           = "-1/-1"
     protocol       = "ANY"
@@ -489,222 +504,225 @@ outbound_policies = [
     source_type    = "net"
     target_content = "net:0.0.0.0/0"
     target_type    = "net"
-    description    = "默认拒绝所有出站"
+    description    = "Deny all outbound by default"
   }
 ]
 ```
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 工作模式说明
+### Working mode
 
-#### 旁路模式（Switch Mode 0）
-- **特点**：流量不经过防火墙直接转发
-- **优势**：零延迟，不影响网络性能
-- **适用**：监控模式，日志记录，测试环境
-- **限制**：无法实时阻断攻击
+#### Bypass mode (switch_mode = 0)
+- **Characteristic**: traffic is forwarded directly without passing through the firewall.
+- **Advantage**: zero latency, no impact on network performance.
+- **Use case**: monitoring mode, logging, test environments.
+- **Limitation**: cannot block attacks in real time.
 
-#### 串行模式（Switch Mode 1）
-- **特点**：流量必须经过防火墙检测
-- **优势**：实时防护，可阻断攻击
-- **适用**：生产环境，高安全要求
-- **要求**：需要指定子网创建私有连接
-- **影响**：可能增加网络延迟
+#### Serial mode (switch_mode = 1)
+- **Characteristic**: traffic must pass through firewall inspection.
+- **Advantage**: real-time protection, can block attacks.
+- **Use case**: production environments, high-security requirements.
+- **Requirement**: requires a subnet to create a private connection.
+- **Impact**: may add network latency.
 
-### 策略配置指南
+### Policy configuration guide
 
-#### 端口配置
-- **所有端口**：`-1/-1`
-- **单个端口**：`80`、`443`、`22`
-- **端口范围**：`1000-2000`
-- **多个端口**：`80,443,8080`
+#### Port
+- **All ports**: `-1/-1`
+- **Single port**: `80`, `443`, `22`
+- **Port range**: `1000-2000`
+- **Multiple ports**: `80,443,8080`
 
-#### 协议选择
-- **入站协议**：TCP, UDP, ICMP, ANY, HTTP, HTTPS, SMTP, FTP, DNS等
-- **出站协议**：TCP, UDP, ANY
-- **协议组合**：HTTP/HTTPS, SMTP/SMTPS
+#### Protocol
+- **Inbound protocols**: TCP, UDP, ICMP, ANY, HTTP, HTTPS, HTTP/HTTPS, SMTP, SMTPS, SMTP/SMTPS, FTP, DNS.
+- **Outbound protocols**: TCP, UDP, ANY.
 
-#### 动作类型
-- **允许（accept）**：允许流量通过
-- **拒绝（drop）**：静默丢弃流量
-- **记录（log）**：记录流量但不阻止
+#### Action
+- **accept**: allow traffic.
+- **drop**: silently discard traffic.
+- **log**: record traffic without blocking.
 
-#### 地址类型
-- **网络地址（net）**：IP/CIDR格式
-- **实例（instance）**：云服务器实例
-- **标签（tag）**：资源标签
-- **模板（template）**：参数模板
-- **分组（group）**：安全组
-- **地域（location）**：地理区域
-- **厂商（vendor）**：云服务商
-- **域名（domain）**：域名规则
+#### Address type
+- **net**: IP/CIDR format.
+- **instance**: CVM instance.
+- **tag**: resource tag.
+- **template**: parameter template.
+- **group**: security group.
+- **location**: geographic region.
+- **vendor**: cloud service provider.
+- **domain**: domain rule (expressed via the `domain:` prefix in `target_content`).
 
-#### 生效范围
-- **全局（ALL）**：所有实例生效
-- **地域级**：特定地域生效（如：ap-beijing）
-- **实例级**：特定实例生效（如：cfwnat-xxx）
+#### Effect scope
+- **Global (ALL)**: effective for all instances.
+- **Region-level**: effective for a specific region (e.g. `ap-beijing`).
+- **Instance-level**: effective for a specific instance (e.g. `cfwnat-xxx`).
 
-### 最佳实践
+### Best practices
 
-1. **最小权限原则**：只开放必要的端口和协议
-2. **默认拒绝**：配置默认拒绝规则，显式允许必要流量
-3. **分层防护**：结合网络ACL、安全组、CFW多层防护
-4. **日志监控**：启用日志记录，定期审计策略
-5. **测试验证**：在生产环境前充分测试策略
-6. **版本控制**：使用Terraform管理策略版本
-7. **定期审查**：定期审查和优化策略规则
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **模式选择**
-   - 串行模式需要指定子网ID
-   - 旁路模式适合监控，串行模式适合防护
-   - 生产环境推荐使用串行模式
-
-2. **网络规划**
-   - 确认公网IP地址正确配置
-   - 检查子网路由表配置
-   - 验证网络连通性
-
-3. **策略配置**
-   - 避免过于宽松的策略
-   - 按业务需求最小化开放
-   - 测试策略避免业务中断
-
-4. **依赖关系**
-   - 策略配置依赖资产同步
-   - 确保CFW实例已创建
-   - 检查网络资源权限
-
-5. **性能影响**
-   - 串行模式可能增加延迟
-   - 复杂策略可能影响性能
-   - 监控防火墙性能指标
-
-6. **合规要求**
-   - 确保配置符合安全标准
-   - 保留足够的审计日志
-   - 遵循行业合规要求
-
-7. **变更管理**
-   - 生产环境变更前充分测试
-   - 制定回滚计划
-   - 记录变更操作日志
-
-8. **监控告警**
-   - 配置防火墙监控告警
-   - 监控策略命中情况
-   - 设置异常流量告警
-
-9. **备份恢复**
-   - 定期备份防火墙配置
-   - 测试配置恢复流程
-   - 保留历史配置版本
-
-10. **技术支持**
-    - 遇到问题联系腾讯云支持
-    - 提供详细的错误信息
-    - 准备网络拓扑图和相关配置
+1. **Least privilege**: only open necessary ports and protocols.
+2. **Default deny**: configure a default-deny rule and explicitly allow necessary traffic.
+3. **Layered defense**: combine network ACLs, security groups, and CFW.
+4. **Log monitoring**: enable logging and audit policies regularly.
+5. **Test & verify**: test policies thoroughly before production.
+6. **Version control**: manage policy versions with Terraform.
+7. **Periodic review**: review and optimize policy rules regularly.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：权限不足
+1. **Mode selection**
+   - Serial mode requires a subnet ID.
+   - Bypass mode suits monitoring; serial mode suits protection.
+   - Serial mode is recommended for production.
+
+2. **Network planning**
+   - Confirm the public IP is configured correctly.
+   - Check the subnet route-table configuration.
+   - Verify network connectivity.
+
+3. **Policy configuration**
+   - Avoid overly permissive policies.
+   - Minimize openings per business needs.
+   - Test policies to avoid service interruption.
+
+4. **Dependencies**
+   - Policy configuration depends on asset synchronization.
+   - Ensure the CFW instance is created.
+   - Check network resource permissions.
+
+5. **Performance impact**
+   - Serial mode may add latency.
+   - Complex policies may affect performance.
+   - Monitor firewall performance metrics.
+
+6. **Compliance**
+   - Ensure configuration meets security standards.
+   - Retain sufficient audit logs.
+   - Follow industry compliance requirements.
+
+7. **Change management**
+   - Test thoroughly before production changes.
+   - Define a rollback plan.
+   - Record change-operation logs.
+
+8. **Monitoring & alerting**
+   - Configure firewall monitoring alerts.
+   - Monitor policy hit counts.
+   - Set up abnormal-traffic alerts.
+
+9. **Backup & recovery**
+   - Back up firewall configuration regularly.
+   - Test the configuration recovery procedure.
+   - Keep historical configuration versions.
+
+10. **Technical support**
+    - Contact Tencent Cloud support when issues occur.
+    - Provide detailed error information.
+    - Prepare the network topology diagram and related configuration.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查CFW相关权限
-- 申请QcloudCFWFullAccess权限
-- 验证网络资源权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check CFW related permissions.
+- Request `QcloudCFWFullAccess`.
+- Verify network resource permissions.
 
-#### 错误二：网络配置错误
+#### Error 2: Network configuration error
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Network configuration error
 ```
 
-**原因**：子网或公网IP配置错误
-**解决方案**：
-- 检查公网IP地址是否正确
-- 验证子网ID是否存在
-- 检查网络连通性
+**Cause**: Subnet or public IP misconfiguration.
+**Solution**:
+- Check whether the public IP is correct.
+- Verify the subnet ID exists.
+- Check network connectivity.
 
-#### 错误三：策略配置错误
+#### Error 3: Policy configuration error
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Policy configuration error
 ```
 
-**原因**：策略参数格式或值错误
-**解决方案**：
-- 检查策略对象格式
-- 确认参数值符合要求
-- 验证协议和端口格式
+**Cause**: Wrong policy parameter format or value.
+**Solution**:
+- Check the policy object format.
+- Confirm parameter values meet requirements.
+- Validate protocol and port formats.
 
-#### 错误四：资源不存在
+#### Error 4: Resource not found
 
 ```
 Error: [TencentCloudSDKError] Code=ResourceNotFound
 Message=Resource not found
 ```
 
-**原因**：引用的资源不存在
-**解决方案**：
-- 检查子网、公网IP是否存在
-- 确认CFW实例已创建
-- 验证地域配置正确
+**Cause**: The referenced resource does not exist.
+**Solution**:
+- Check whether the subnet / public IP exists.
+- Confirm the CFW instance is created.
+- Verify region configuration.
 
-#### 错误五：模式冲突
+#### Error 5: Mode conflict
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Mode conflict
 ```
 
-**原因**：工作模式配置冲突
-**解决方案**：
-- 检查switch_mode值（0或1）
-- 确认串行模式已指定子网
-- 验证配置一致性
+**Cause**: Working mode configuration conflict.
+**Solution**:
+- Check the `switch_mode` value (0 or 1).
+- Confirm a subnet is specified for serial mode.
+- Verify configuration consistency.
 
-#### 错误六：资产未同步
+#### Error 6: Asset not synchronized
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Asset not synchronized
 ```
 
-**原因**：资产信息未同步到防火墙
-**解决方案**：
-- 等待资产同步完成
-- 检查sync_asset资源状态
-- 验证网络资源权限
+**Cause**: Asset information is not synchronized to the firewall.
+**Solution**:
+- Wait for asset synchronization to complete.
+- Check the `sync_asset` resource status.
+- Verify network resource permissions.
 
-#### 错误七：配额限制
+#### Error 7: Quota exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=LimitExceeded
 Message=Quota exceeded
 ```
 
-**原因**：超过资源配额限制
-**解决方案**：
-- 检查当前资源使用情况
-- 申请配额扩容
-- 优化策略配置
+**Cause**: The resource quota limit has been exceeded.
+**Solution**:
+- Check current resource usage.
+- Request a quota increase.
+- Optimize the policy configuration.
+
+## License
+
+See [LICENSE](../../../../LICENSE) for full details.

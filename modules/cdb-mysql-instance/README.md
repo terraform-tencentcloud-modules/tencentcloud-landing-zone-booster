@@ -1,91 +1,142 @@
-# terraform-tencentcloud-cvm
+# terraform-tencentcloud-cdb-mysql-instance
+Terraform module which creates a TencentDB for MySQL (CDB) instance on TencentCloud.
 
-## Getting started
+This module uses the following resources:
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- `tencentcloud_mysql_instance` — create the MySQL instance (with optional random generated root password).
+- `tencentcloud_mysql_instance_encryption_operation` — enable data encryption (optional).
+- `tencentcloud_mysql_backup_policy` — configure backup & binlog retention (optional).
+- `tencentcloud_mysql_database` — create databases (optional).
+- `tencentcloud_mysql_account` + `tencentcloud_mysql_privilege` — create accounts and grant privileges (optional).
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+> If `instance_id` is not provided, a new instance is created and a random 32-character root password is generated automatically. Otherwise the module manages an existing instance.
 
-## Add your files
+## Usage
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+```hcl
+module "mysql" {
+  source = "terraform-tencentcloud-modules/cdb-mysql-instance/tencentcloud"
 
+  instance_name = "mysql-test"
+  mem_size      = 2000          # Memory size in MB
+  volume_size   = 50            # Disk size in GB
+  engine_version = "8.0"
+
+  charge_type = "POSTPAID"
+  vpc_id      = "vpc-xxxxxxxx"
+  subnet_id   = "subnet-xxxxxxxx"
+
+  # Optional: create databases, accounts and privileges
+  databases = [
+    {
+      db_name            = "appdb"
+      character_set_name = "utf8mb4"
+    }
+  ]
+
+  mysql_accounts = [
+    {
+      name   = "appuser"
+      host   = "%"
+      global = ["SELECT", "INSERT", "UPDATE", "DELETE"]
+    }
+  ]
+
+  # Optional: backup policy
+  create_backup_policy = true
+  retention_period     = 7
+}
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/mango-engineering/tencent-poc/mango-infra-components/terraform-tencentcloud-cos.git
-git branch -M main
-git push -uf origin main
-```
 
-## Integrate with your tools
+## Examples
 
-- [ ] [Set up project integrations](https://gitlab.com/mango-engineering/tencent-poc/mango-infra-components/terraform-tencentcloud-cos/-/settings/integrations)
+- [Complete](https://github.com/terraform-tencentcloud-modules/terraform-tencentcloud-cdb-mysql-instance/tree/master/example)
 
-## Collaborate with your team
+## Requirements
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+| Name | Version |
+|------|---------|
+| terraform | >= 0.14 |
+| tencentcloud | > 1.18.1 |
+| random | >= 3.0 |
 
-## Test and Deploy
+## Inputs
 
-Use the built-in continuous integration in GitLab.
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| `instance_id` | The id of an existing MySQL instance. If null, a new instance is created. | `string` | `null` | no |
+| `instance_name` | The name of the MySQL instance (1-100 chars). | `string` | n/a | **yes** |
+| `mem_size` | Memory size (in MB). | `number` | n/a | **yes** |
+| `volume_size` | Disk size (in GB). | `number` | n/a | **yes** |
+| `cpu_cores` | CPU cores. Computed if omitted. | `number` | `null` | no |
+| `project_id` | Project ID. | `number` | `0` | no |
+| `charge_type` | Pay type: `PREPAID`, `POSTPAID`. | `string` | `POSTPAID` | no |
+| `prepaid_period` | Period (months) for PREPAID. One of 1-12, 24, 36. | `number` | `1` | no |
+| `auto_renew_flag` | Auto renew flag (0/1), only for PREPAID. | `number` | `0` | no |
+| `availability_zone` | Availability zone to use. | `string` | `null` | no |
+| `root_password` | Root account password (sensitive). Ignore for read-only/disaster recovery instances. | `string` | `null` | no |
+| `slave_deploy_mode` | AZ deploy mode: 0 - Single AZ; 1 - Multiple AZ. | `number` | `0` | no |
+| `first_slave_zone` | Zone of the first slave instance. | `string` | `null` | no |
+| `second_slave_zone` | Zone of the second slave instance. | `string` | `null` | no |
+| `slave_sync_mode` | Data replication mode: 0 - Async; 1 - Semisync; 2 - Strongsync. | `number` | `0` | no |
+| `intranet_port` | Intranet access port [1024-65535]. | `number` | `3306` | no |
+| `vpc_id` | ID of VPC. | `string` | `null` | no |
+| `subnet_id` | Private network ID. Required when `vpc_id` is set. | `string` | `null` | no |
+| `security_groups` | Security groups to use. | `list(string)` | `[]` | no |
+| `param_template_id` | Parameter template id. | `number` | `null` | no |
+| `fast_upgrade` | Fast upgrade on spec change (1 enabled, 0 disabled). | `number` | `null` | no |
+| `device_type` | Device type: `UNIVERSAL`, `EXCLUSIVE`, `BASIC_V2`, `CLOUD_NATIVE_CLUSTER`, `CLOUD_NATIVE_CLUSTER_EXCLUSIVE`. | `string` | `null` | no |
+| `disk_type` | Disk type (ForceNew): `CLOUD_SSD`, `CLOUD_HSSD`, `CLOUD_PREMIUM`. | `string` | `null` | no |
+| `force_delete` | Force delete directly (skip recycle bin). Only for PREPAID. | `bool` | `false` | no |
+| `wait_switch` | Switch method to new instance: 0 - immediate, 1 - in time window. | `number` | `0` | no |
+| `destroy_protect` | Destroy protection status: `on` / `off`. | `string` | `null` | no |
+| `cluster_topology` | Cluster Edition node topology (read_write_node + read_only_nodes). Required for cluster edition. | `list(object)` | `[]` | no |
+| `encryption_enabled` | Whether to enable data encryption. | `bool` | `false` | no |
+| `encryption_key_id` | Key ID for data encryption. | `string` | `null` | no |
+| `encryption_key_region` | Key region for data encryption. | `string` | `null` | no |
+| `parameters` | List of parameters (key-value map). | `map(string)` | `null` | no |
+| `internet_service` | Enable public network access: 0 - No, 1 - Yes. | `number` | `0` | no |
+| `engine_version` | Engine version: 5.5/5.6/5.7/8.0/8.4. | `string` | `5.7` | no |
+| `engine_type` | Engine type: `InnoDB` (default) or `RocksDB`. | `string` | `InnoDB` | no |
+| `upgrade_subversion` | Kernel subversion upgrade flag (1 upgrade subversion, 0 upgrade engine version). | `number` | `null` | no |
+| `max_deay_time` | Latency threshold (1~10). NOTE: provider schema typo (`deay`). | `number` | `null` | no |
+| `tags` | Instance tags. | `map(string)` | `{}` | no |
+| `create_backup_policy` | Whether to create a MySQL backup policy. | `bool` | `false` | no |
+| `backup_model` | Backup method: `physical` (physical backup). | `string` | `physical` | no |
+| `backup_time` | Backup time window "HH:mm-HH:mm" (4h interval). | `string` | `02:00-06:00` | no |
+| `retention_period` | Backup retention days [7-730]. | `number` | `7` | no |
+| `binlog_period` | Binlog retention days [7-1830]. | `number` | `7` | no |
+| `enable_binlog_standby` | Log backup standard storage policy: `off` / `on`. | `string` | `off` | no |
+| `binlog_standby_days` | Standard starting days for log backup storage (min 30). | `number` | `null` | no |
+| `databases` | Databases to create (`db_name`, `character_set_name`). | `list(object)` | `[]` | no |
+| `mysql_accounts` | Accounts to create with global/database/table/column privileges. | `list(object)` | `[]` | no |
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| `db_instance_id` | The instance id of the MySQL instance. |
+| `gtid` | Whether GTID is activated. |
+| `internet_host` | Host for public access. |
+| `internet_port` | Access port for public access. |
+| `intranet_ip` | Instance intranet IP. |
+| `locked` | Whether the instance is locked (0 - No, 1 - Yes). |
+| `status` | Instance status (0 - Creating, 1 - Running, 4 - Isolating, 5 - Isolated). |
+| `task_status` | Kind of operation currently being executed. |
+| `root_password` | Root password (sensitive). |
+| `backup_policy_id` | The id of the backup policy. |
+| `binlog_period` | Retention period for binlog in days. |
+| `account_ids` | Map of created account ids. |
+| `account_passwords` | Map of account passwords (sensitive). |
+| `mysql_privilege_ids` | Map of created privilege resource ids. |
 
 ***
 
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
 ## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+
+Created and maintained by [TencentCloud](https://github.com/terraform-providers/terraform-provider-tencentcloud)
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Mozilla Public License Version 2.0.
+See LICENSE for full details.

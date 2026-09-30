@@ -1,313 +1,313 @@
-# 腾讯云密钥管理系统（KMS）模块
+# Tencent Cloud Key Management Service (KMS) Component
 
-## 模块概述
+Terraform component under `components/security/kms` for deploying and managing the Key Management Service (KMS) in Tencent Cloud — as part of the `security` building block of the tencentcloud-landing-zone-booster framework.
 
-本模块用于在腾讯云中部署和管理密钥管理系统（Key Management Service，KMS），提供安全可靠的密钥管理和数据加密服务，主要功能包括：
+## Overview
 
-- **密钥管理** - 提供专业的密钥生命周期管理
-- **数据加密** - 支持数据密钥的生成和管理
-- **安全合规** - 符合金融级安全标准和合规要求
-- **计费管理** - 支持包年包月计费模式
-- **自动续费** - 支持自动续费功能配置
-- **专业版本** - 提供专业版KMS服务
-- **数据密钥配额** - 支持扩展数据密钥数量
-- **资源输出** - 输出KMS实例ID便于后续管理
+This component deploys and manages the Key Management Service (KMS), providing secure and reliable key management and data encryption services. Main features:
 
----
-
-## 前置要求
-
-### 环境要求
-
-| 工具 | 最低版本 | 说明 |
-|------|----------|------|
-| Terraform | `>= 1.3.0` | 基础设施即代码工具 |
-| tencentcloud provider | `>= 1.81.0` | 腾讯云 Terraform Provider |
-
-### 权限要求
-
-执行本模块需要具备以下腾讯云权限：
-
-| 权限名称 | 说明 |
-|----------|------|
-| `QcloudFinanceFullAccess` | 财务管理权限 |
-| `QcloudBillingReadOnlyAccess` | 账单只读权限 |
-| `QcloudKMSFullAccess` | KMS全权限 |
-| `QcloudTagFullAccess` | 标签管理权限 |
-
-### 其他要求
-
-- 需要确定部署地域和可用区
-- 需要选择KMS专业版功能
-- 需要确定数据密钥扩展数量
-- 需要确定计费周期和续费策略
-- 需要准备项目ID（如适用）
-- 需要确认自动续费设置
-- 需要规划实例数量
+- **Key management** – professional key lifecycle management.
+- **Data encryption** – generate and manage data keys.
+- **Security & compliance** – meets financial-grade security standards and compliance.
+- **Billing management** – subscription (PrePay) billing mode.
+- **Auto renewal** – configure auto-renewal.
+- **Professional edition** – professional edition KMS service.
+- **Data key quota** – expand the number of data keys.
+- **Resource output** – output the KMS instance ID for later management.
 
 ---
 
-## 变量说明
+## Requirements
 
-### 必需配置变量
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.1.0 |
+| <a name="requirement_tencentcloud"></a> [tencentcloud](#requirement\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `region` | `string` | 是 | - | 部署地域 |
-| `zone` | `string` | 是 | - | 可用区 |
-| `pay_mode` | `string` | 否 | `PrePay` | 付费模式（仅支持PrePay） |
+## Providers
 
-### 产品参数配置变量
+| Name | Version |
+|------|---------|
+| <a name="provider_tencentcloud"></a> [tencentcloud](#provider\_tencentcloud) | >= 1.82.61 |
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `parameter` | `object` | 是 | - | 产品详细参数对象 |
+### IAM Permissions
 
-### 参数对象字段说明
+The executing principal needs the following Tencent Cloud permissions:
 
-| 字段名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `sv_kms_pg_pro` | `bool` | 否 | `true` | KMS专业版功能 |
-| `sv_kms_exp_data_key` | `number` | 否 | `1000` | 扩展数据密钥数量 |
-| `goodsNum` | `number` | 否 | `1` | 商品数量（实例数） |
-| `autoRenewFlag` | `number` | 否 | `0` | 自动续费标识 |
+| Permission | Description |
+|------------|-------------|
+| `QcloudFinanceFullAccess` | Financial management access |
+| `QcloudBillingReadOnlyAccess` | Billing read-only access |
+| `QcloudKMSFullAccess` | Full access to KMS |
+| `QcloudTagFullAccess` | Tag management access |
 
-### 可选配置变量
+### Prerequisites
 
-| 变量名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| `project_id` | `number` | 否 | `0` | 项目ID |
-| `period` | `number` | 否 | `1` | 购买时长（最大36） |
-| `period_unit` | `string` | 否 | `m` | 购买时间单位（m:月, y:年） |
-| `renew_flag` | `string` | 否 | `NOTIFY_AND_MANUAL_RENEW` | 续费标志 |
-| `create_timeout` | `string` | 否 | `20m` | 创建超时时间 |
-
-### 续费标志选项
-
-| 值 | 说明 |
-|----|------|
-| `NOTIFY_AND_MANUAL_RENEW` | 通知并手动续费 |
-| `NOTIFY_AND_AUTO_RENEW` | 通知并自动续费 |
-| `DISABLE_NOTIFY_AND_MANUAL_RENEW` | 禁用通知和手动续费 |
-
-### 自动续费标识说明
-
-| 值 | 说明 |
-|----|------|
-| `0` | 不自动续费 |
-| `1` | 自动续费 |
+- Decide the deployment region and availability zone.
+- Select the KMS professional edition feature.
+- Decide the number of extended data keys.
+- Decide the billing period and renewal strategy.
+- Prepare the project ID if applicable.
+- Confirm the auto-renewal settings.
+- Plan the number of instances.
 
 ---
 
-## 变量配置
+## Inputs
 
-### terraform.tfvars 示例
+### Required configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_region"></a> [region](#input\_region) | `string` | yes | – | Deployment region. |
+| <a name="input_zone"></a> [zone](#input\_zone) | `string` | yes | – | Availability zone. |
+| <a name="input_parameter"></a> [parameter](#input\_parameter) | `object` | yes | – | Product detail parameter object. All of its sub-fields are optional (see below). |
+
+### Optional configuration
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_pay_mode"></a> [pay\_mode](#input\_pay\_mode) | `string` | no | `PrePay` | Payment mode. Only `PrePay` (subscription) is supported. |
+| <a name="input_project_id"></a> [project\_id](#input\_project\_id) | `number` | no | `0` | Project ID. |
+| <a name="input_period"></a> [period](#input\_period) | `number` | no | `1` | Purchase duration, max value is `36`. |
+| <a name="input_period_unit"></a> [period\_unit](#input\_period\_unit) | `string` | no | `m` | Purchase duration unit: `m` (month), `y` (year). |
+| <a name="input_renew_flag"></a> [renew\_flag](#input\_renew\_flag) | `string` | no | `NOTIFY_AND_MANUAL_RENEW` | Renewal flag: `NOTIFY_AND_MANUAL_RENEW` (manual), `NOTIFY_AND_AUTO_RENEW` (auto), `DISABLE_NOTIFY_AND_MANUAL_RENEW` (disabled). |
+| <a name="input_create_timeout"></a> [create\_timeout](#input\_create\_timeout) | `string` | no | `20m` | Create timeout. |
+
+### `parameter` object fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `goodsNum` | `number` | `1` | Goods quantity (number of instances). |
+| `autoRenewFlag` | `number` | `0` | Auto-renewal flag: `0` = disabled, `1` = enabled. |
+| `sv_kms_pg_pro` | `bool` | `true` | KMS professional edition feature. |
+| `sv_kms_exp_data_key` | `number` | `1000` | Number of extended data keys. |
+
+### Renewal flag options
+
+| Value | Description |
+|-------|-------------|
+| `NOTIFY_AND_MANUAL_RENEW` | Notify and manually renew. |
+| `NOTIFY_AND_AUTO_RENEW` | Notify and automatically renew. |
+| `DISABLE_NOTIFY_AND_MANUAL_RENEW` | Disable notification and manual renewal. |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_instance_id"></a> [instance\_id](#output\_instance\_id) | KMS instance ID. |
+
+---
+
+## Configuration Examples
+
+### `terraform.tfvars`
 
 ```hcl
-# 基础配置
+# Basic configuration
 region   = "ap-guangzhou"
 zone     = "ap-guangzhou-1"
 pay_mode = "PrePay"
 
-# 计费配置
+# Billing configuration
 period      = 12
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 产品参数配置
+# Product parameter configuration
 parameter = {
-  sv_kms_pg_pro       = true    # 启用KMS专业版
-  sv_kms_exp_data_key = 5000    # 5000个扩展数据密钥
-  autoRenewFlag       = 1       # 启用自动续费
-  goodsNum            = 1       # 1个实例
+  sv_kms_pg_pro       = true    # enable KMS professional edition
+  sv_kms_exp_data_key = 5000    # 5000 extended data keys
+  autoRenewFlag       = 1       # enable auto renewal
+  goodsNum            = 1       # 1 instance
 }
 
-# 可选配置
+# Optional configuration
 project_id     = 123456
 create_timeout = "30m"
 ```
 
-### 生产环境配置示例
+### Production environment configuration
 
 ```hcl
-# 生产环境配置
+# Production environment configuration
 region   = "ap-shanghai"
 zone     = "ap-shanghai-2"
 pay_mode = "PrePay"
 
-# 生产环境KMS配置
+# Production KMS configuration
 parameter = {
-  sv_kms_pg_pro       = true    # 专业版KMS
-  sv_kms_exp_data_key = 10000   # 10000个数据密钥配额
-  autoRenewFlag       = 1       # 自动续费确保服务连续性
-  goodsNum            = 2       # 2个实例冗余部署
+  sv_kms_pg_pro       = true    # professional edition KMS
+  sv_kms_exp_data_key = 10000   # 10000 data key quota
+  autoRenewFlag       = 1       # auto renewal for continuity
+  goodsNum            = 2       # 2 instances (redundant)
 }
 
-# 长期订阅
+# Long-term subscription
 period      = 36
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 项目关联
+# Project association
 project_id = 10086
 ```
 
-### 开发测试环境配置
+### Development / testing environment
 
 ```hcl
-# 开发环境配置
+# Development environment configuration
 region = "ap-beijing"
 zone   = "ap-beijing-3"
 
-# 开发环境KMS配置
+# Development KMS configuration
 parameter = {
-  sv_kms_pg_pro       = true    # 启用专业版
-  sv_kms_exp_data_key = 1000    # 默认1000个数据密钥
-  autoRenewFlag       = 0       # 手动续费
-  goodsNum            = 1       # 单实例
+  sv_kms_pg_pro       = true    # professional edition
+  sv_kms_exp_data_key = 1000    # default 1000 data keys
+  autoRenewFlag       = 0       # manual renewal
+  goodsNum            = 1       # single instance
 }
 
-# 短期订阅
+# Short-term subscription
 period      = 1
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_MANUAL_RENEW"
 ```
 
-### 高可用配置示例
+### High-availability configuration
 
 ```hcl
-# 高可用配置
+# High-availability configuration
 region   = "ap-guangzhou"
 zone     = "ap-guangzhou-1"
 pay_mode = "PrePay"
 
-# 高可用KMS配置
+# High-availability KMS configuration
 parameter = {
-  sv_kms_pg_pro       = true    # 专业版
-  sv_kms_exp_data_key = 20000   # 20000个数据密钥
-  autoRenewFlag       = 1       # 自动续费
-  goodsNum            = 3       # 3个实例高可用
+  sv_kms_pg_pro       = true    # professional edition
+  sv_kms_exp_data_key = 20000   # 20000 data keys
+  autoRenewFlag       = 1       # auto renewal
+  goodsNum            = 3       # 3 instances for HA
 }
 
-# 年度订阅
+# Annual subscription
 period      = 2
 period_unit = "y"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 延长创建超时时间
+# Extend create timeout
 create_timeout = "45m"
 ```
 
-### 最小化配置示例
+### Minimal configuration
 
 ```hcl
-# 最小化基础配置
+# Minimal base configuration
 region = "ap-shanghai"
 zone   = "ap-shanghai-1"
 
-# 仅使用默认参数
+# Use default parameters only
 parameter = {
   goodsNum = 1
 }
 
-# 使用所有默认值：专业版启用、1000数据密钥、手动续费、1个月、20分钟超时
+# All defaults used: professional edition enabled, 1000 data keys, manual renewal, 1 month, 20m timeout
 ```
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 示例一：金融级安全配置
+### Example 1: Finance-grade security configuration
 
 ```hcl
-# 金融级安全配置
+# Finance-grade security configuration
 region   = "ap-shanghai"
 zone     = "ap-shanghai-2"
 pay_mode = "PrePay"
 
-# 金融级KMS配置
+# Finance-grade KMS configuration
 parameter = {
-  sv_kms_pg_pro       = true    # 必须启用专业版
-  sv_kms_exp_data_key = 50000   # 大量数据密钥支持
-  autoRenewFlag       = 1       # 确保服务连续性
-  goodsNum            = 2       # 冗余部署
+  sv_kms_pg_pro       = true    # professional edition is mandatory
+  sv_kms_exp_data_key = 50000   # large data key pool
+  autoRenewFlag       = 1       # ensure continuity
+  goodsNum            = 2       # redundant deployment
 }
 
-# 长期稳定订阅
+# Long-term stable subscription
 period      = 36
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 明确项目归属
+# Explicit project ownership
 project_id = 88888
 ```
 
-### 示例二：多业务线共享配置
+### Example 2: Multi-business-line shared configuration
 
 ```hcl
-# 多业务线共享配置
+# Multi-business-line shared configuration
 region   = "ap-beijing"
 zone     = "ap-beijing-1"
 pay_mode = "PrePay"
 
-# 共享KMS配置
+# Shared KMS configuration
 parameter = {
-  sv_kms_pg_pro       = true    # 专业版
-  sv_kms_exp_data_key = 30000   # 支持多业务线
-  autoRenewFlag       = 1       # 自动续费
-  goodsNum            = 1       # 集中管理
+  sv_kms_pg_pro       = true    # professional edition
+  sv_kms_exp_data_key = 30000   # supports multiple business lines
+  autoRenewFlag       = 1       # auto renewal
+  goodsNum            = 1       # centralized management
 }
 
-# 年度订阅便于预算管理
+# Annual subscription for budget management
 period      = 1
 period_unit = "y"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 成本中心项目
+# Cost-center project
 project_id = 99999
 ```
 
-### 示例三：合规性要求配置
+### Example 3: Compliance-required configuration
 
 ```hcl
-# 合规性配置
+# Compliance configuration
 region   = "ap-guangzhou"
 zone     = "ap-guangzhou-3"
 pay_mode = "PrePay"
 
-# 合规KMS配置
+# Compliance KMS configuration
 parameter = {
-  sv_kms_pg_pro       = true    # 专业版满足合规
-  sv_kms_exp_data_key = 15000   # 充足的数据密钥
-  autoRenewFlag       = 1       # 确保服务不中断
-  goodsNum            = 2       # 高可用部署
+  sv_kms_pg_pro       = true    # professional edition meets compliance
+  sv_kms_exp_data_key = 15000   # sufficient data keys
+  autoRenewFlag       = 1       # ensure no interruption
+  goodsNum            = 2       # HA deployment
 }
 
-# 长期订阅满足审计要求
+# Long-term subscription for audit requirements
 period      = 24
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_AUTO_RENEW"
 
-# 合规项目标识
+# Compliance project identifier
 project_id = 77777
 ```
 
-### 示例四：成本优化配置
+### Example 4: Cost-optimized configuration
 
 ```hcl
-# 成本优化配置
+# Cost-optimized configuration
 region = "ap-chongqing"
 zone   = "ap-chongqing-1"
 
-# 成本优化KMS配置
+# Cost-optimized KMS configuration
 parameter = {
-  sv_kms_pg_pro       = true    # 保持专业版
-  sv_kms_exp_data_key = 1000    # 最小数据密钥数量
-  autoRenewFlag       = 0       # 手动续费控制成本
-  goodsNum            = 1       # 单实例
+  sv_kms_pg_pro       = true    # keep professional edition
+  sv_kms_exp_data_key = 1000    # minimum data key count
+  autoRenewFlag       = 0       # manual renewal to control cost
+  goodsNum            = 1       # single instance
 }
 
-# 月度订阅灵活调整
+# Monthly subscription for flexible adjustment
 period      = 1
 period_unit = "m"
 renew_flag  = "NOTIFY_AND_MANUAL_RENEW"
@@ -315,217 +315,221 @@ renew_flag  = "NOTIFY_AND_MANUAL_RENEW"
 
 ---
 
-## 配置说明
+## Configuration Notes
 
-### 功能版本说明
+### Feature editions
 
-#### KMS专业版（Professional Edition）
-- **功能**：提供完整的密钥管理功能，包括密钥轮换、访问控制、审计日志等
-- **适用场景**：生产环境、合规要求、金融级安全
-- **默认值**：启用（true）
-- **推荐**：所有环境都应启用专业版
+#### KMS Professional Edition
+- **Feature**: full key management — key rotation, access control, audit logs, etc.
+- **Use case**: production, compliance, finance-grade security.
+- **Default**: enabled (`true`).
+- **Recommendation**: enable professional edition in all environments.
 
-#### 数据密钥扩展（Extended Data Keys）
-- **功能**：增加可管理的数据密钥数量
-- **默认值**：1000个
-- **扩展范围**：可根据业务需求增加
-- **成本影响**：数量越多费用越高
-- **推荐**：根据实际加密需求配置
+#### Extended Data Keys
+- **Feature**: increase the number of manageable data keys.
+- **Default**: 1000.
+- **Range**: scalable per business needs.
+- **Cost impact**: more keys cost more.
+- **Recommendation**: configure per actual encryption needs.
 
-### 计费策略说明
+### Billing strategy
 
-#### 包年包月模式（PrePay）
-- **计费方式**：预付费
-- **优势**：长期使用成本较低
-- **适用**：稳定业务环境
+#### PrePay (subscription)
+- **Model**: prepaid.
+- **Advantage**: lower long-term cost.
+- **Use case**: stable business environments.
 
-#### 自动续费配置
-- **自动续费（1）**：避免服务中断，确保连续性
-- **手动续费（0）**：更灵活的成本控制
-- **推荐**：生产环境建议自动续费
+#### Auto-renewal configuration
+- **Auto renewal (`1`)**: avoid service interruption, ensure continuity.
+- **Manual renewal (`0`)**: more flexible cost control.
+- **Recommendation**: enable auto renewal in production.
 
-#### 订阅周期选择
-- **月度（m）**：灵活性高，适合测试环境
-- **年度（y）**：成本优势，适合生产环境
-- **最大周期**：36个月
+#### Subscription period
+- **Monthly (`m`)**: high flexibility, for test environments.
+- **Annual (`y`)**: cost advantage, for production.
+- **Max period**: 36 months.
 
-### 部署建议
+### Deployment recommendations
 
-#### 单实例部署
-- **适用场景**：开发测试、中小业务
-- **优势**：成本低，部署简单
-- **风险**：单点故障
+#### Single-instance deployment
+- **Use case**: dev/test, small workloads.
+- **Advantage**: low cost, simple deployment.
+- **Risk**: single point of failure.
 
-#### 多实例部署
-- **适用场景**：生产环境、高可用要求
-- **优势**：冗余备份，高可用性
-- **成本**：较高
+#### Multi-instance deployment
+- **Use case**: production, high-availability requirements.
+- **Advantage**: redundancy, high availability.
+- **Cost**: higher.
 
-#### 地域选择建议
+#### Region selection
 
-| 地域 | 编码 | 适用场景 | 延迟 |
-|------|------|----------|------|
-| **华南地区** | ap-guangzhou | 华南用户访问 | 低 |
-| **华东地区** | ap-shanghai | 华东用户访问 | 低 |
-| **华北地区** | ap-beijing | 华北用户访问 | 低 |
-| **西南地区** | ap-chongqing | 西南用户访问 | 中 |
+| Region | Code | Use case | Latency |
+|--------|------|----------|---------|
+| **South China** | ap-guangzhou | South China users | Low |
+| **East China** | ap-shanghai | East China users | Low |
+| **North China** | ap-beijing | North China users | Low |
+| **Southwest** | ap-chongqing | Southwest users | Medium |
 
-### 安全最佳实践
+### Security best practices
 
-1. **专业版启用**：所有环境启用KMS专业版
-2. **自动续费**：生产环境启用自动续费避免中断
-3. **充足配额**：根据业务需求配置足够的数据密钥数量
-4. **高可用部署**：生产环境考虑多实例部署
-5. **定期审计**：定期检查KMS使用情况和安全配置
-6. **访问控制**：严格管理KMS访问权限
-
----
-
-## 注意事项
-
-> ⚠️ **重要提示，操作前请仔细阅读**
-
-1. **版本兼容性**
-   - KMS专业版是推荐配置
-   - 确认功能版本符合业务需求
-   - 不同版本功能差异可能影响加密方案
-
-2. **地域限制**
-   - KMS服务有地域属性
-   - 确认目标地域支持KMS服务
-   - 跨地域密钥管理需要特殊配置
-
-3. **权限验证**
-   - 确认有足够的权限创建KMS实例
-   - 检查账户额度限制
-   - 验证财务权限和KMS权限
-
-4. **计费确认**
-   - 包年包月需要预付费用
-   - 数据密钥数量影响费用
-   - 确认自动续费设置
-
-5. **配额规划**
-   - 合理规划数据密钥数量
-   - 避免过度配置造成浪费
-   - 考虑业务增长需求
-
-6. **密钥管理**
-   - 制定密钥管理策略
-   - 定期轮换加密密钥
-   - 备份重要密钥材料
-
-7. **测试验证**
-   - 部署后测试KMS功能
-   - 验证加密解密操作
-   - 检查权限控制
-
-8. **监控配置**
-   - 配置KMS服务监控
-   - 设置使用量告警
-   - 监控安全事件
-
-9. **续费管理**
-   - 关注续费时间和费用
-   - 设置续费提醒
-   - 定期评估续费策略
-
-10. **合规性考虑**
-    - 确保配置符合安全合规要求
-    - 保留密钥操作审计日志
-    - 遵循数据加密规范
+1. **Professional edition**: enable KMS professional edition in all environments.
+2. **Auto renewal**: enable auto renewal in production to avoid interruption.
+3. **Sufficient quota**: configure enough data keys per business needs.
+4. **High availability**: consider multi-instance deployment in production.
+5. **Periodic audit**: regularly review KMS usage and security config.
+6. **Access control**: strictly manage KMS access permissions.
 
 ---
 
-## 故障排除
+## Important Notes
 
-### 常见错误及解决方案
+> ⚠️ **Important: read carefully before making changes**
 
-#### 错误一：权限不足
+1. **Edition compatibility**
+   - KMS professional edition is the recommended config.
+   - Confirm the feature edition meets business needs.
+   - Different editions may affect the encryption scheme.
+
+2. **Region limits**
+   - KMS is region-specific.
+   - Confirm the target region supports KMS.
+   - Cross-region key management requires special configuration.
+
+3. **Permission verification**
+   - Confirm sufficient permissions to create a KMS instance.
+   - Check account quota limits.
+   - Verify finance and KMS permissions.
+
+4. **Billing confirmation**
+   - PrePay requires upfront payment.
+   - Data key count affects cost.
+   - Confirm auto-renewal settings.
+
+5. **Quota planning**
+   - Plan the data key count reasonably.
+   - Avoid over-provisioning and waste.
+   - Consider business growth.
+
+6. **Key management**
+   - Define a key-management policy.
+   - Rotate encryption keys regularly.
+   - Back up important key material.
+
+7. **Test & verify**
+   - Test KMS features after deployment.
+   - Verify encrypt/decrypt operations.
+   - Check access control.
+
+8. **Monitoring**
+   - Configure KMS service monitoring.
+   - Set usage alerts.
+   - Monitor security events.
+
+9. **Renewal management**
+   - Watch renewal time and cost.
+   - Set renewal reminders.
+   - Periodically review the renewal strategy.
+
+10. **Compliance**
+    - Ensure configuration meets security/compliance requirements.
+    - Retain key-operation audit logs.
+    - Follow data-encryption regulations.
+
+---
+
+## Troubleshooting
+
+### Common errors and solutions
+
+#### Error 1: Insufficient permissions
 
 ```
 Error: [TencentCloudSDKError] Code=PermissionDenied
 Message=Insufficient permissions
 ```
 
-**原因**：当前账号权限不足
-**解决方案**：
-- 检查KMS相关权限
-- 申请QcloudKMSFullAccess权限
-- 验证财务相关权限
+**Cause**: The current account lacks sufficient permissions.
+**Solution**:
+- Check KMS related permissions.
+- Request `QcloudKMSFullAccess`.
+- Verify finance related permissions.
 
-#### 错误二：额度限制
+#### Error 2: Quota limit
 
 ```
 Error: [TencentCloudSDKError] Code=LimitExceeded
 Message=Resource limit exceeded
 ```
 
-**原因**：达到资源数量或额度限制
-**解决方案**：
-- 检查当前KMS实例数量
-- 申请提高资源额度
-- 减少数据密钥数量配置
+**Cause**: Reached resource count or quota limit.
+**Solution**:
+- Check the current number of KMS instances.
+- Request a quota increase.
+- Reduce the data key count configuration.
 
-#### 错误三：地域不可用
+#### Error 3: Region unavailable
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Region not available
 ```
 
-**原因**：选择的地域不支持KMS
-**解决方案**：
-- 检查地域可用性
-- 选择支持的地域
-- 联系腾讯云支持
+**Cause**: The selected region does not support KMS.
+**Solution**:
+- Check region availability.
+- Choose a supported region.
+- Contact Tencent Cloud support.
 
-#### 错误四：参数错误
+#### Error 4: Invalid parameter
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Invalid parameter
 ```
 
-**原因**：参数配置错误
-**解决方案**：
-- 检查parameter对象格式
-- 验证参数值有效性
-- 参考示例配置
+**Cause**: Wrong parameter configuration.
+**Solution**:
+- Check the `parameter` object format.
+- Validate parameter values.
+- Refer to the example configuration.
 
-#### 错误五：计费模式不支持
+#### Error 5: Pay mode not supported
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Pay mode not supported
 ```
 
-**原因**：使用了不支持的计费模式
-**解决方案**：
-- 确认使用PrePay模式
-- 检查pay_mode参数
+**Cause**: An unsupported billing mode was used.
+**Solution**:
+- Confirm `PrePay` mode is used.
+- Check the `pay_mode` parameter.
 
-#### 错误六：超时错误
+#### Error 6: Timeout
 
 ```
 Error: timeout while waiting for state to become 'success'
 ```
 
-**原因**：创建操作超时
-**解决方案**：
-- 增加create_timeout值
-- 检查网络连接
-- 联系腾讯云支持
+**Cause**: The create operation timed out.
+**Solution**:
+- Increase the `create_timeout` value.
+- Check network connectivity.
+- Contact Tencent Cloud support.
 
-#### 错误七：数据密钥数量超限
+#### Error 7: Data key count exceeded
 
 ```
 Error: [TencentCloudSDKError] Code=InvalidParameter
 Message=Data key count exceeded
 ```
 
-**原因**：数据密钥数量超过限制
-**解决方案**：
-- 减少sv_kms_exp_data_key值
-- 联系腾讯云申请更高配额
-- 检查当前配额使用情况
+**Cause**: The data key count exceeds the limit.
+**Solution**:
+- Reduce the `sv_kms_exp_data_key` value.
+- Contact Tencent Cloud for a higher quota.
+- Check the current quota usage.
+
+## License
+
+See [LICENSE](../../../../LICENSE) for full details.
