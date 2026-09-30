@@ -32,17 +32,34 @@ output "clb_log_topic_id" {
 ################################################################################
 ### CLB Listener Outputs
 ################################################################################
+# Output the listener id of each listener, keyed by its index in var.clb_listeners
+output "listener_ids" {
+  description = "Map of listener index to listener id."
+  value = {
+    for idx, listener in tencentcloud_clb_listener.this : idx => listener.listener_id
+  }
+}
 
-################################################################################
-### CLB Listener Rule Outputs
-################################################################################
-
+# Output the full attributes of each listener, keyed by its index in var.clb_listeners
+output "listeners" {
+  description = "Map of listener index to full listener attributes."
+  value       = tencentcloud_clb_listener.this
+}
 
 ################################################################################
 ### CLB Redirection Outputs
 ################################################################################
-
+output "redirection_ids" {
+  description = "List of clb redirection ids."
+  value       = values(tencentcloud_clb_redirection.redirection)[*].id
+}
 
 ################################################################################
-### CLB Attachment Outputs
+### CLB Customized Config Outputs
 ################################################################################
+output "custom_config_ids" {
+  description = "Map of custom config index to config id."
+  value = {
+    for idx, c in tencentcloud_clb_customized_config.config : idx => c.id
+  }
+}
