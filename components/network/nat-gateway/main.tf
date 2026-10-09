@@ -95,6 +95,7 @@ resource "tencentcloud_route_table_entry" "route_entry" {
   destination_cidr_block = "0.0.0.0/0"
   next_type              = "NAT"
   next_hub               = tencentcloud_nat_gateway.nat_gateway[each.key].id
+  description            = each.value.rt_entry_desc
 
   lifecycle {
     ignore_changes = [

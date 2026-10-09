@@ -16,6 +16,7 @@ variable "nat_gateways" {
     public_ips           = optional(list(string), [])
     route_table_entry    = optional(bool, false)
     publish_to_ccn       = optional(bool, false)
+    rt_entry_desc        = optional(string)
     eips = optional(list(object({
       name                       = optional(string, "Unnamed")
       type                       = optional(string, "EIP")
