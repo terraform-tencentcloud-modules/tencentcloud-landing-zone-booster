@@ -1,3 +1,112 @@
+## October 09, 2026
+
+## Summary
+
+This release extends the NAT Gateway network component with optional default-route creation and optional publication of the created routes to Cloud Connect Network (CCN).
+
+The new behavior is opt-in for each NAT Gateway and remains disabled by default.
+
+## Added
+
+### Main VPC route-table discovery
+
+- Added the `tencentcloud_vpc_route_tables.route_tables` data source.
+- Queries the route table associated with the main route table of `var.vpc_id`.
+- Derives `local.default_route_table_id` from the route table marked as default.
+
+### NAT Gateway default-route management
+
+- Added the `tencentcloud_route_table_entry.route_entry` resource.
+- Creates an optional `0.0.0.0/0` route in the VPC default route table for each configured NAT Gateway.
+- Uses the corresponding NAT Gateway as the route next hop:
+  - `next_type = "NAT"`
+  - `next_hub = <nat_gateway_id>`
+- Ignores external changes to the route entry's `disabled` state because this setting may be managed automatically by other Tencent Cloud services, such as Cloud Firewall (CFW).
+
+### CCN route publication
+
+- Added `local.publish_to_ccn_ids` to collect route-item IDs that are eligible for CCN publication.
+- Added `tencentcloud_vpc_notify_routes.notify_one` to publish the first eligible route.
+- Added `tencentcloud_vpc_notify_routes.notify_others` to publish any additional eligible routes after the first publication resource.
+- Publishes each selected route item through a separate `tencentcloud_vpc_notify_routes` resource.
+
+### New NAT Gateway options
+
+Added the following optional attributes to each object in `var.nat_gateways`:
+
+```hcl
+route_table_entry = optional(bool, false)
+publish_to_ccn    = optional(bool, false)
+```
+
+- `route_table_entry`: creates a default route through the NAT Gateway.
+- `publish_to_ccn`: publishes the created route to CCN when `route_table_entry` is also enabled.
+
+## Changed
+
+- Extended the NAT Gateway component from resource provisioning and flow monitoring to optional VPC route orchestration.
+- Added an explicit dependency from additional CCN route-publication resources to the first publication resource.
+- Normalized whitespace in the `public_ips` variable definition.
+
+## Compatibility
+
+This change does not modify existing behavior unless the new options are enabled. Both new attributes default to `false`, so existing NAT Gateway definitions remain compatible without configuration changes.
+
+## Operational Considerations
+
+> [!WARNING]
+> Enabling these options changes VPC routing behavior and may affect traffic flow across NAT Gateway, CFW, and CCN paths.
+
+- `route_table_entry = true` attempts to create `0.0.0.0/0` in the VPC default route table. An existing route with the same destination may cause a conflict or an API error.
+- `publish_to_ccn = true` is effective only when `route_table_entry = true` because only routes created by this component are collected for publication.
+- Publishing `0.0.0.0/0` to CCN can influence route selection in attached networks. Review route priorities and overlapping routes before applying.
+- The main/default VPC route table must be discoverable. If no matching route table is returned, route creation receives an empty route-table ID and fails when enabled.
+- The `disabled` attribute is intentionally excluded from drift reconciliation. Changes made by CFW or another Tencent Cloud service will not be reverted by Terraform.
+- `notify_others` depends on `notify_one`, but multiple additional publication resources may still be processed in parallel. Confirm that the Tencent Cloud API accepts concurrent publication requests when more than two routes are enabled.
+
+## Configuration Example
+
+```hcl
+nat_gateways = {
+  primary = {
+    name                = "primary-nat-gateway"
+    route_table_entry   = true
+    publish_to_ccn      = true
+    enable_flow_monitor = true
+  }
+}
+```
+
+## Migration Notes
+
+No migration is required for existing configurations because the new attributes are optional and disabled by default.
+
+To enable the new behavior:
+
+1. Confirm that `var.vpc_id` identifies the intended VPC.
+2. Verify the VPC default route table and check for an existing `0.0.0.0/0` route.
+3. Set `route_table_entry = true` for each NAT Gateway that should become a default-route next hop.
+4. Set `publish_to_ccn = true` only when that route should also be advertised to CCN.
+5. Review CFW routing and route-disable behavior before applying.
+6. Run `terraform plan` and inspect all route-table and CCN notification changes.
+7. Apply in a non-production environment before enabling the route in production.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform validate` for the NAT Gateway component.
+- [ ] Confirm the data source returns the expected main/default route table.
+- [ ] Verify existing NAT Gateway configurations produce no changes when both new options remain `false`.
+- [ ] Confirm `route_table_entry = true` creates exactly one `0.0.0.0/0` route for the selected NAT Gateway.
+- [ ] Confirm no conflicting default route already exists.
+- [ ] Verify `publish_to_ccn = true` publishes the created route when route creation is enabled.
+- [ ] Verify `publish_to_ccn = true` with `route_table_entry = false` creates no CCN notification resource.
+- [ ] Test multiple NAT Gateways with CCN publication enabled.
+- [ ] Confirm CFW-managed changes to the route `disabled` state do not produce Terraform drift.
+- [ ] Review CCN route priorities and overlapping CIDR advertisements.
+- [ ] Confirm the final plan contains no unintended route replacement or traffic-path changes.
+
+
 ## September 30, 2026
 
 ## Summary

@@ -13,7 +13,9 @@ variable "nat_gateways" {
     concurrent           = optional(number, 1000000)
     public_bandwidth_out = optional(number)
     enable_flow_monitor  = optional(bool, false)
-    public_ips           = optional(list(string), []) 
+    public_ips           = optional(list(string), [])
+    route_table_entry    = optional(bool, false)
+    publish_to_ccn       = optional(bool, false)
     eips = optional(list(object({
       name                       = optional(string, "Unnamed")
       type                       = optional(string, "EIP")
