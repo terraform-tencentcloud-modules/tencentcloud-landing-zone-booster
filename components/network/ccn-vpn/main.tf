@@ -113,7 +113,7 @@ resource "tencentcloud_vpn_connection" "vpn_connection" {
 # CCN Attachment
 ################################################################################
 resource "tencentcloud_ccn_attachment_v2" "ccn_vpn_attachment" {
-  count = var.attached_ccn_id != null ? 1 : 0
+  count = var.attach_ccn ? 1 : 0
 
   ccn_id          = var.attached_ccn_id
   ccn_uin         = var.attached_ccn_uin

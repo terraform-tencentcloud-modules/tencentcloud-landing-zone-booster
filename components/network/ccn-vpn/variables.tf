@@ -149,6 +149,12 @@ variable "vpn_connections" {
 ################################################################################
 # Attached CCN Variables
 ################################################################################
+variable "attach_ccn" {
+  description = "Whether to attach this VPC to CCN."
+  type        = bool
+  default     = true
+}
+
 variable "attached_ccn_id" {
   description = "Controls if VPN Gateway should be created"
   type        = string
