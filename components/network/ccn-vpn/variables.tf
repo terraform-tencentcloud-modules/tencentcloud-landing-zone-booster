@@ -149,15 +149,16 @@ variable "vpn_connections" {
 ################################################################################
 # Attached CCN Variables
 ################################################################################
-variable "ccn_uin" {
-  description = "(Optional, String, ForceNew) Uin of the ccn attached. If not set, which means the uin of this account. This parameter is used with case when attaching ccn of other account to the instance of this account. For now only support instance type VPC."
+variable "attached_ccn_id" {
+  description = "Controls if VPN Gateway should be created"
   type        = string
   default     = null
 }
 
-variable "attached_ccn_id" {
-  description = "Controls if VPN Gateway should be created"
+variable "attached_ccn_uin" {
+  description = "(Optional, String, ForceNew) Uin of the ccn attached. If not set, which means the uin of this account. This parameter is used with case when attaching ccn of other account to the instance of this account. For now only support instance type VPC."
   type        = string
+  default     = null
 }
 
 variable "attached_ccn_region" {
@@ -171,10 +172,7 @@ variable "attached_ccn_description" {
   default     = null
 }
 
-################################################################################
-# CCN route table associate Variables
-################################################################################
-variable "route_table_id" {
+variable "ccn_route_table_id" {
   description = "The ID of ccn route table which to associate."
   type        = string
   default     = null

@@ -1,3 +1,87 @@
+## October 13, 2026
+
+## Summary
+
+This release updates the Tencent Cloud CCN VPN component and the reusable CCN route-table module. The changes revise CCN VPN orchestration, module inputs and outputs, route-table resource configuration, and module documentation.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resource behavior, variable changes, output compatibility, defaults, and state impact must be verified against the complete `git diff` before release.
+
+## Updated
+
+### CCN VPN component
+
+Updated:
+
+* `components/network/ccn-vpn/main.tf`
+* `components/network/ccn-vpn/variables.tf`
+
+The changes affect the CCN VPN component's resource orchestration and input interface. Review the complete diff for:
+
+* New, renamed, removed, or retyped variables.
+* Changes to CCN, VPN Gateway, VPN connection, or route dependencies.
+* Updated integration with the CCN route-table module.
+* Conditional resource creation and `for_each` keys.
+* Default values that may alter existing plans.
+
+### CCN route-table module
+
+Updated:
+
+* `modules/ccn-route-table/main.tf`
+* `modules/ccn-route-table/variables.tf`
+* `modules/ccn-route-table/outputs.tf`
+* `modules/ccn-route-table/README.md`
+
+The changes revise the module's resource implementation, public input and output contracts, and usage documentation.
+
+Review the complete diff for:
+
+* CCN route-table and route-entry behavior.
+* Route destination, next-hop, priority, and advertisement settings.
+* Changes to resource addressing or `for_each` keys.
+* New or changed outputs consumed by Terraform or Terragrunt dependencies.
+* Updated examples, prerequisites, and module usage guidance.
+
+## Compatibility Considerations
+
+Potential compatibility risks include:
+
+* Calling configurations failing because of renamed, removed, or newly required inputs.
+* Terraform or Terragrunt dependencies failing because of changed or removed outputs.
+* Resource recreation caused by changes to route identifiers, `for_each` keys, or immutable arguments.
+* Existing CCN routes being replaced, duplicated, withdrawn, or republished.
+* Routing changes affecting communication between VPN-connected networks and CCN attachments.
+
+If Terraform resource addresses have changed, use `moved` blocks or `terraform state mv` instead of allowing existing routes to be destroyed and recreated.
+
+## Migration Notes
+
+1. Compare the previous and updated CCN VPN variable definitions.
+2. Update all callers for renamed, removed, retyped, or newly required inputs.
+3. Compare the previous and updated CCN route-table outputs.
+4. Update Terraform and Terragrunt dependencies that consume changed outputs.
+5. Check whether route resource addresses or `for_each` keys have changed.
+6. Add `moved` blocks or migrate Terraform state where existing resources changed addresses.
+7. Review CCN route priorities, destination CIDRs, and next-hop configuration.
+8. Run `terraform plan` in a non-production environment before upgrading production stacks.
+
+## Validation Checklist
+
+* [ ] Run `terraform fmt -check -recursive`.
+* [ ] Run `terraform init -upgrade` for affected stacks.
+* [ ] Run `terraform validate` for the CCN VPN component and CCN route-table module.
+* [ ] Verify all CCN VPN inputs match the updated variable contract.
+* [ ] Verify all downstream dependencies use valid route-table outputs.
+* [ ] Confirm CCN route destinations, next hops, and priorities are correct.
+* [ ] Confirm no duplicate or overlapping routes are introduced.
+* [ ] Confirm VPN-connected networks remain reachable through CCN.
+* [ ] Check the plan for unexpected route deletion, replacement, or recreation.
+* [ ] Verify Terraform state migration if resource addresses changed.
+* [ ] Confirm the README examples match the final module interface.
+* [ ] Review the production plan before applying.
+
+
 ## October 09, 2026
 
 ## Summary

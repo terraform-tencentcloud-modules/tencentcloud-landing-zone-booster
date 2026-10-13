@@ -1,25 +1,19 @@
-locals {
-  route_table_id  = [ for k, rt in tencentcloud_ccn_route_table.route_tables : rt.id ][0]
-  route_table_ids = { for k, rt in tencentcloud_ccn_route_table.route_tables : k => rt.id }
-}
-
 # create ccn route tables for each attachment vpc
-resource "tencentcloud_ccn_route_table" "route_tables" {
-  for_each = { for rt in var.route_tables : rt.name => rt }
-
+resource "tencentcloud_ccn_route_table" "route_table" {
   ccn_id      = var.ccn_id
-  name        = each.value.name
-  description = each.value.desc
+  name        = var.ccn_route_table.name
+  description = var.ccn_route_table.desc
 }
 
 # create route table input policies
 resource "tencentcloud_ccn_route_table_input_policies" "input_policies" {
-  for_each = { for rt_policy in var.input_policies : rt_policy.route_table_name => rt_policy }
+  count = length(var.ccn_route_table.input_policies) > 0 ? 1 : 0
 
   ccn_id         = var.ccn_id
-  route_table_id = tencentcloud_ccn_route_table.route_tables["${each.value.route_table_name}"].id
+  route_table_id = tencentcloud_ccn_route_table.route_table.id
+
   dynamic "policies" {
-    for_each = each.value.policies
+    for_each = var.ccn_route_table.input_policies
     content {
       action      = policies.value.action
       description = policies.value.desc
@@ -37,12 +31,13 @@ resource "tencentcloud_ccn_route_table_input_policies" "input_policies" {
 
 # route table associate instance
 resource "tencentcloud_ccn_route_table_associate_instance_config" "associate" {
-  for_each = { for instance in var.associate_instances : instance.route_table_name => instance }
+  count = length(var.ccn_route_table.associate_instances) > 0 ? 1 : 0
 
   ccn_id         = var.ccn_id
-  route_table_id = tencentcloud_ccn_route_table.route_tables["${each.value.route_table_name}"].id
+  route_table_id = tencentcloud_ccn_route_table.route_table.id
+
   dynamic "instances" {
-    for_each = each.value.instances
+    for_each = var.ccn_route_table.associate_instances
     content {
       instance_id   = instances.value.instance_id
       instance_type = instances.value.instance_type
@@ -52,13 +47,13 @@ resource "tencentcloud_ccn_route_table_associate_instance_config" "associate" {
 
 # create route table broadcast policy for each route table
 resource "tencentcloud_ccn_route_table_broadcast_policies" "broadcast_policies" {
-  for_each = { for rt_name in var.broadcast_policies : rt_name.route_table_name => rt_name }
+  count = length(var.ccn_route_table.broadcast_policies) > 0 ? 1 : 0
 
   ccn_id         = var.ccn_id
-  route_table_id = tencentcloud_ccn_route_table.route_tables["${each.value.route_table_name}"].id
+  route_table_id = tencentcloud_ccn_route_table.route_table.id
 
   dynamic "policies" {
-    for_each = each.value.policies
+    for_each = var.ccn_route_table.broadcast_policies
     content {
       action      = policies.value.action
       description = policies.value.desc

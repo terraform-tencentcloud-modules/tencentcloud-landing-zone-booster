@@ -113,11 +113,13 @@ resource "tencentcloud_vpn_connection" "vpn_connection" {
 # CCN Attachment
 ################################################################################
 resource "tencentcloud_ccn_attachment_v2" "ccn_vpn_attachment" {
-  ccn_uin         = var.ccn_uin
+  count = var.attached_ccn_id != null ? 1 : 0
+
   ccn_id          = var.attached_ccn_id
+  ccn_uin         = var.attached_ccn_uin
   instance_id     = tencentcloud_vpn_gateway.vpn_gateway.id
   instance_type   = "VPNGW"
   instance_region = var.attached_ccn_region
   description     = var.attached_ccn_description
-  route_table_id  = var.route_table_id
+  route_table_id  = var.ccn_route_table_id
 }

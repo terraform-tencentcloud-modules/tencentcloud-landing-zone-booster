@@ -1,7 +1,4 @@
 output "route_table_id" {
-  value = local.route_table_id
-}
-
-output "route_table_ids" {
-  value = local.route_table_ids
+  description = "The ID of the CCN route table"
+  value       = tencentcloud_ccn_route_table.route_table.id
 }
