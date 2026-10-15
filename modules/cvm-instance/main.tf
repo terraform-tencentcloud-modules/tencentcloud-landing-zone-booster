@@ -44,6 +44,8 @@ resource "tencentcloud_instance" "instance" {
   system_disk_name          = var.system_disk_name
   system_disk_type          = var.system_disk_type
   system_disk_size          = var.system_disk_size
+  system_disk_encrypt       = var.system_disk_encrypt
+  system_disk_kms_key_id    = var.system_disk_kms_key_id
   system_disk_resize_online = var.system_disk_resize_online
 
   dynamic "data_disks" {

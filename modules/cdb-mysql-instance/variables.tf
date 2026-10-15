@@ -180,6 +180,23 @@ variable "disk_type" {
   }
 }
 
+variable "disk_encryption" {
+  description = <<-EOT
+    Whether to enable disk encryption for the CDB instance. Valid value: `on` (enable disk encryption);
+    otherwise disk encryption is not enabled. Only cloud-disk edition instances support this feature.
+    NOTE: This parameter can only be set at creation time and cannot be modified (ForceNew).
+    Defaults to `null` (NOT "") so the attribute stays Computed and no diff is produced.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.disk_encryption == null || contains(["on", "off"], var.disk_encryption)
+    error_message = "disk_encryption must be `on` (enable) or `off` (disable); leave it null to use the CDB default."
+  }
+}
+
+
 # ---------------- Behavior ----------------
 variable "force_delete" {
   description = "Force delete directly (skip recycle bin). Only for PREPAID."

@@ -32,50 +32,100 @@ variable "tags" {
 }
 
 ################################################################################
-# Config
+# Config Aggregator
 ################################################################################
-variable "config_enabled" {
-  type        = bool
-  description = "Config switch."
-  default     = true
+variable "aggregator_name" {
+  description = "Aggregator name."
+  type        = string
 }
 
+variable "aggregator_description" {
+  description = "Aggregator description."
+  type        = string
+}
+
+variable "aggregator_type" {
+  description = "Aggregator type. Valid values: \"RD\" (global aggregator, members derived from resource directory), \"CUSTOM\" (custom aggregator, must specify aggregator_accounts with at least one member). ForceNew."
+  type        = string
+
+  validation {
+    condition     = contains(["RD", "CUSTOM"], var.aggregator_type)
+    error_message = "The type of an aggregator must be either \"RD\" or \"CUSTOM\"."
+  }
+}
+
+variable "aggregator_owner_uin" {
+  description = "Creator UIN of the aggregator. Required by Describe/Update/Delete APIs. ForceNew."
+  type        = string
+}
+
+variable "aggregator_accounts" {
+  description = "Member accounts of the aggregator. Required when type = \"CUSTOM\" (at least one); ignored when type = \"RD\" (members derived from the resource directory). Up to 100 entries."
+  type = list(object({
+    member_uin  = number
+    member_name = string
+  }))
+  default = []
+
+  validation {
+    condition     = var.aggregator_type == "RD" || (var.aggregator_type == "CUSTOM" && length(var.aggregator_accounts) > 0)
+    error_message = "When type is \"CUSTOM\", aggregator_accounts must contain at least one member account; when type is \"RD\", aggregator_accounts must be empty (members are derived from the resource directory)."
+  }
+}
+
+################################################################################
+# Config Deliver
+################################################################################
 variable "deliver_enabled" {
+  description = "Delivery switch. Valid values: false (0 - disabled), true (1 - enabled)."
   type        = bool
-  description = "Delivery switch."
   default     = true
 }
 
 variable "deliver_name" {
+  description = "Delivery service name (optional)."
   type        = string
-  description = "Delivery service name."
+  default     = null
+}
+
+variable "target_arn" {
+  description = "Resource ARN. COS format: qcs::cos:$region:$account:prefix/$appid/$BucketName. CLS format: qcs::cls:$region:$account:cls/topicId. (optional)"
+  type        = string
+  default     = null
+}
+
+variable "deliver_prefix" {
+  description = "Log prefix for stored delivery content (optional)."
+  type        = string
+  default     = null
+}
+
+variable "deliver_type" {
+  description = "Delivery type. Valid values: COS, CLS. Defaults to COS on the cloud side when omitted."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.deliver_type == null || contains(["COS", "CLS"], var.deliver_type)
+    error_message = "deliver_type must be COS or CLS."
+  }
+}
+
+variable "deliver_uin" {
+  description = "Member account uin that supports cross-account delivery. Only the delegated administrator can be used. Default 0 means delivery to the administrator account (optional)."
+  type        = number
+  default     = 0
 }
 
 variable "deliver_content_type" {
+  description = "Delivery content type. Valid values: 1 (configuration change), 2 (resource list), 3 (all). Defaults to 1 on the cloud side when omitted."
   type        = number
-  description = "Delivery content type. Valid values: 1 (configuration change), 2 (resource list), 3 (all)."
-  default     = 1
+  default     = null
 
   validation {
     condition     = var.deliver_content_type == null || contains([1, 2, 3], var.deliver_content_type)
-    error_message = "deliver_content_type must be one of 1, 2, or 3."
+    error_message = "deliver_content_type must be 1 (configuration change), 2 (resource list) or 3 (all)."
   }
-}
-
-variable "deliver_target_type" {
-  type        = string
-  description = "Delivery type. Valid values: COS, CLS."
-
-  validation {
-    condition     = var.deliver_target_type != null && contains(["COS", "CLS"], var.deliver_target_type)
-    error_message = "deliver_target_type must be 'COS' or 'CLS'."
-  }
-}
-
-variable "deliver_log_prefix" {
-  type        = string
-  description = "Log prefix for stored delivery content."
-  default     = "config-log"
 }
 
 ################################################################################
@@ -166,7 +216,7 @@ variable "cls_logset_name" {
 }
 
 variable "cls_logset_tags" {
-  description = "Tag description list."
+  description = "Tags"
   type        = map(string)
   default     = null
 }

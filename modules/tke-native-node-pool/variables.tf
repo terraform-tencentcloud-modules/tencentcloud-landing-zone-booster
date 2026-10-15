@@ -78,8 +78,8 @@ variable "native_node_pools" {
     system_disk = object({
       disk_type  = string # Cloud disk type. `CLOUD_PREMIUM`: Premium Cloud Storage, `CLOUD_SSD`: cloud SSD disk, `CLOUD_BSSD`: Basic SSD, `CLOUD_HSSD`: Enhanced SSD.
       disk_size  = number # Cloud disk size (G).
-      #encrypt    = optional(string) # Encrypt System Drive. Allow value: `ENCRYPT`.
-      #kms_key_id = optional(string) # Kms key ID.
+      encrypt    = optional(string) # Encrypt System Drive. Allow value: `ENCRYPT`.
+      kms_key_id = optional(string) # Kms key ID.
     })
 
     # ---------------------
@@ -138,29 +138,17 @@ variable "native_node_pools" {
     #   `CLOUD_HSSD`   : Enhanced SSD,
     #   `CLOUD_TSSD`   : Tremendous SSD,
     #   `LOCAL_NVME`   : local NVME disk.
-    # file_system: File system (ext3/ext4/xfs).
-    # disk_size:   Cloud disk size (G).
-    # Whether to automatically format the disk and mount it.
-    # Mount device name or partition name.
-    # Mount directory.
-    # Pass in this parameter to create an encrypted cloud disk. The value is fixed to `ENCRYPT`.
-    # Customize the key when purchasing an encrypted disk.
-    # When this parameter is passed in, the Encrypt parameter is not empty.
-    # Snapshot ID. If passed in, the cloud disk will be created based on this snapshot.
-    # The snapshot type must be a data disk snapshot.
-    # Cloud disk performance, unit: MB/s.
-    # Use this parameter to purchase additional performance for the cloud disk.
     data_disks = optional(list(object({
       disk_type              = string
-      disk_size              = number
-      auto_format_and_mount  = bool
-      file_system            = optional(string)
-      disk_partition         = optional(string)
-      mount_target           = optional(string)
-      encrypt                = optional(string)
-      kms_key_id             = optional(string)
-      snapshot_id            = optional(string)
-      throughput_performance = optional(number)
+      disk_size              = number # Cloud disk size (G).
+      auto_format_and_mount  = bool   # Whether to automatically format the disk and mount it.
+      file_system            = optional(string) # File system (ext3/ext4/xfs).
+      disk_partition         = optional(string) # Mount device name or partition name.
+      mount_target           = optional(string) # Mount directory.
+      encrypt                = optional(string) # Pass in this parameter to create an encrypted cloud disk. The value is fixed to `ENCRYPT`.
+      kms_key_id             = optional(string) # Customize the key when purchasing an encrypted disk. When this parameter is passed in, the Encrypt parameter is not empty.
+      snapshot_id            = optional(string) # Snapshot ID. If passed in, the cloud disk will be created based on this snapshot. The snapshot type must be a data disk snapshot.
+      throughput_performance = optional(number) # Cloud disk performance, unit: MB/s. Use this parameter to purchase additional performance for the cloud disk.
     })), [])
   }))
   default = []

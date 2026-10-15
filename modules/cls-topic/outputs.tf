@@ -1,7 +1,3 @@
-output "logset_id" {
-  value = tencentcloud_cls_logset.logset.id
-}
-
 output "topic_id" {
   value = tencentcloud_cls_topic.topic.id
 }

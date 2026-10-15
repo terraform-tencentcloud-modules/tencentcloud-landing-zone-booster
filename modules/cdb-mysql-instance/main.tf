@@ -58,7 +58,8 @@ resource "tencentcloud_mysql_instance" "this" {
   param_template_id = var.param_template_id
   fast_upgrade     = var.fast_upgrade
   device_type      = var.device_type
-  disk_type        = var.disk_type # ForceNew
+  disk_type        = var.disk_type       # ForceNew
+  disk_encryption  = var.disk_encryption # ForceNew
 
   # ---------------- HA / Zone ----------------
   availability_zone = var.availability_zone

@@ -1,5 +1,5 @@
 resource "tencentcloud_cos_bucket" "bucket" {
-  count = var.deliver_target_type == "COS" ? 1 : 0
+  count = var.deliver_type == "COS" ? 1 : 0
 
   bucket            = "${var.cos_bucket}-${local.app_id}"
   acl               = var.cos_bucket_acl
@@ -58,7 +58,7 @@ resource "tencentcloud_cos_bucket" "bucket" {
 }
 
 resource "tencentcloud_cos_bucket_policy" "cos_bucket_policy" {
-  count = var.deliver_target_type == "COS" ? 1 : 0
+  count = var.deliver_type == "COS" ? 1 : 0
 
   bucket = "${var.cos_bucket}-${local.app_id}"
   policy = jsonencode({

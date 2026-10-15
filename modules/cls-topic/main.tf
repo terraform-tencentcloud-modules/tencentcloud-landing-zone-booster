@@ -1,10 +1,5 @@
-resource "tencentcloud_cls_logset" "logset" {
-  logset_name   = var.logset_name
-  tags          = var.logset_tags
-}
-
 resource "tencentcloud_cls_topic" "topic" {
-  logset_id            = tencentcloud_cls_logset.logset.id
+  logset_id            = var.logset_id
   topic_name           = var.topic_name
   partition_count      = var.partition_count
   auto_split           = var.auto_split

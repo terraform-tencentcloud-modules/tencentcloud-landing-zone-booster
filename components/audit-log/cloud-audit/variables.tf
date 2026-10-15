@@ -175,7 +175,7 @@ variable "cls_logset_name" {
 }
 
 variable "cls_logset_tags" {
-  description = "Tag description list."
+  description = "Tags"
   type        = map(string)
   default     = null
 }

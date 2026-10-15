@@ -96,6 +96,18 @@ variable "system_disk_size" {
   default     = 50
 }
 
+variable "system_disk_encrypt" {
+  type        = bool
+  description = "Whether the system disk is encrypted. Valid values: true (encrypted), false (not encrypted). Default value: false."
+  default     = false
+}
+
+variable "system_disk_kms_key_id" {
+  type        = string
+  description = "Custom KMS key ID for system disk encryption."
+  default     = null
+}
+
 variable "system_disk_resize_online" {
   type        = bool
   description = "Resize online."

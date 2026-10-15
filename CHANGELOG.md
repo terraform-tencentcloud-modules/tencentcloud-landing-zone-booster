@@ -1,3 +1,243 @@
+## October 15, 2026
+
+## Summary
+
+This release expands Tencent Cloud Config automation, decomposes the legacy CLS module into dedicated Logset and Topic modules, and introduces TKE encryption-protection support. It also updates CloudAudit, Config, CDB for MySQL, CVM, and TKE native node-pool implementations.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resources, variables, outputs, defaults, provider constraints, and replacement behavior must be verified against the complete `git diff` before release.
+
+## Added
+
+### Dedicated CLS modules
+
+Added two standalone modules to replace the combined legacy CLS module:
+
+* `modules/cls-logset` — manages CLS Logset resources independently.
+* `modules/cls-topic` — manages CLS Topic resources and their Logset dependencies independently.
+
+This separation provides clearer ownership boundaries and allows Logsets and Topics to be composed, reused, and managed independently.
+
+### Tencent Cloud Config modules
+
+Added dedicated modules for Tencent Cloud Config governance and compliance workflows:
+
+* `modules/config-aggregator` — manages Config aggregators.
+* `modules/config-alarm-policy` — manages alarm or notification policies for Config events.
+* `modules/config-compliance-pack` — manages compliance packs.
+* `modules/config-deliver` — manages Config delivery configuration.
+* `modules/config-recorder` — manages the Config resource recorder.
+* `modules/config-remediation` — manages remediation configuration.
+* `modules/config-rule` — manages Config rules.
+* `modules/config-update-aggregate-deliver` — updates aggregate delivery configuration.
+* `modules/config-update-deliver` — updates delivery configuration.
+
+The new modules establish reusable Terraform boundaries for recording resources, evaluating compliance, aggregating results, delivering data, raising alarms, and remediating non-compliant resources.
+
+### TKE encryption protection
+
+Added:
+
+* `modules/tke-encryption-protection`
+
+The module introduces a reusable Terraform boundary for configuring encryption protection for Tencent Kubernetes Engine resources.
+
+Before adoption, verify the protected resource scope, KMS dependencies, CAM permissions, key lifecycle, and whether the module modifies an existing cluster in place or requires replacement.
+
+## Changed
+
+### CloudAudit component
+
+Updated:
+
+* `components/audit-log/cloud-audit/cls.tf`
+* `components/audit-log/cloud-audit/variables.tf`
+* `components/audit-log/cloud-audit/versions.tf`
+
+The CloudAudit component has been updated to align its CLS integration, input contract, and provider constraints with the new dedicated CLS module structure.
+
+Review the full diff for:
+
+* Replacement of legacy `modules/cls` references.
+* Logset and Topic dependency wiring.
+* Changed CLS variables or outputs.
+* Updated Tencent Cloud provider requirements.
+* Terraform address changes requiring state migration.
+
+### Tencent Cloud Config component
+
+Updated:
+
+* `components/audit-log/config/main.tf`
+* `components/audit-log/config/cls.tf`
+* `components/audit-log/config/cos.tf`
+* `components/audit-log/config/variables.tf`
+* `components/audit-log/config/outputs.tf`
+* `components/audit-log/config/versions.tf`
+
+The Config component now spans core configuration, CLS delivery, COS delivery, variables, outputs, and provider constraints. These updates are expected to integrate the new Config modules and refine component-level orchestration.
+
+Review the full diff for:
+
+* Config recorder, aggregator, rule, compliance-pack, delivery, alarm, and remediation integration.
+* CLS and COS delivery dependencies.
+* New, renamed, removed, or retyped variables.
+* New or changed outputs consumed by Terraform or Terragrunt.
+* Changes to conditional resources and `for_each` keys.
+* Provider-version changes.
+
+### CDB for MySQL instance module
+
+Updated:
+
+* `modules/cdb-mysql-instance/main.tf`
+* `modules/cdb-mysql-instance/variables.tf`
+* `modules/cdb-mysql-instance/version.tf`
+
+The update changes CDB for MySQL resource configuration, its input interface, and version constraints. Review the plan carefully for arguments that may force instance replacement or affect availability, networking, storage, backup, encryption, or database parameters.
+
+### CVM instance module
+
+Updated:
+
+* `modules/cvm-instance/main.tf`
+* `modules/cvm-instance/variables.tf`
+
+The update changes CVM provisioning behavior and the module input contract. Review image, instance type, system disk, data disk, network, security group, user data, metadata, and lifecycle changes before upgrading existing instances.
+
+### TKE native node-pool module
+
+Updated:
+
+* `modules/tke-native-node-pool/main.tf`
+* `modules/tke-native-node-pool/variables.tf`
+
+The update changes native node-pool resource configuration and variables. Review scaling, instance specifications, subnet selection, security groups, labels, taints, runtime, disk, login, and lifecycle settings for potential node rotation or replacement.
+
+## Removed
+
+### Legacy combined CLS module
+
+Removed the complete legacy module:
+
+```text
+modules/cls/
+```
+
+Deleted files:
+
+* `modules/cls/README.md`
+* `modules/cls/main.tf`
+* `modules/cls/outputs.tf`
+* `modules/cls/variables.tf`
+* `modules/cls/versions.tf`
+
+Use the dedicated `modules/cls-logset` and `modules/cls-topic` modules instead.
+
+## Breaking Changes
+
+> [!WARNING]
+> Removing `modules/cls` is a breaking source-path and Terraform module-interface change.
+
+Consumers using the previous source path must migrate to the new CLS modules. Depending on their implementation, they may also need to update:
+
+* Module source paths.
+* Input variables.
+* Output references.
+* Dependency wiring between Logsets and Topics.
+* Terraform resource addresses and state.
+
+Without state migration, Terraform may propose destroying resources under the removed module and recreating them under the new module paths.
+
+Additional compatibility risks may exist in the updated CloudAudit, Config, CDB for MySQL, CVM, and TKE native node-pool interfaces. Validate the full diff before classifying those updates as backward compatible.
+
+## Migration Notes
+
+### CLS module migration
+
+1. Inventory every reference to `modules/cls` in Terraform and Terragrunt configurations.
+2. Replace the legacy module with `modules/cls-logset` and `modules/cls-topic` as required.
+3. Pass the Logset ID from the Logset module to the Topic module explicitly.
+4. Map legacy CLS inputs and outputs to the new module contracts.
+5. Use Terraform `moved` blocks, `terraform state mv`, or import to preserve existing Logsets and Topics.
+6. Verify CloudAudit and Config delivery dependencies use the new CLS outputs.
+
+Example migration pattern:
+
+```bash
+terraform state mv \
+  'module.cls.tencentcloud_cls_logset.this' \
+  'module.cls_logset.tencentcloud_cls_logset.this'
+
+terraform state mv \
+  'module.cls.tencentcloud_cls_topic.this' \
+  'module.cls_topic.tencentcloud_cls_topic.this'
+```
+
+> Replace the example addresses with the actual resource addresses returned by `terraform state list` and the final module implementation.
+
+### Config module adoption
+
+1. Confirm whether Config recorders, aggregators, rules, compliance packs, deliveries, and remediation resources already exist.
+2. Import existing resources before managing them through the new modules.
+3. Establish explicit dependencies between the recorder, rules, compliance packs, delivery destinations, alarms, and remediation configuration.
+4. Verify CLS and COS destinations, retention, encryption, and CAM permissions.
+5. Review output changes before updating downstream Terragrunt dependencies.
+
+### Database, compute, and TKE updates
+
+1. Compare old and new variable definitions for CDB for MySQL, CVM, and TKE native node pools.
+2. Check the Terraform plan for replacement of database instances, CVM instances, node pools, or worker nodes.
+3. Test TKE encryption protection with the intended KMS key and execution identity.
+4. Validate backup and rollback procedures before applying changes to production workloads.
+
+## Security and Operational Considerations
+
+* Apply least-privilege CAM policies to Config, CLS, COS, KMS, CDB, CVM, and TKE resources.
+* Confirm that Config delivery destinations use encryption and restricted access.
+* Ensure Terraform state containing infrastructure identifiers or sensitive configuration is encrypted and access controlled.
+* Review KMS key deletion protection, rotation, and cross-account access before enabling TKE encryption protection.
+* Treat CDB, CVM, and TKE replacement as potentially disruptive until the final plan proves otherwise.
+* Verify CLS Topic retention and indexing settings after migration from the combined module.
+
+## Validation Checklist
+
+### General
+
+* [ ] Run `terraform fmt -check -recursive`.
+* [ ] Run `terraform init -upgrade` for affected stacks.
+* [ ] Run `terraform validate` for every new and updated module.
+* [ ] Review provider-version changes and lock-file updates.
+* [ ] Review production plans for unintended destruction or replacement.
+
+### CLS and audit logging
+
+* [ ] Locate every consumer of the removed `modules/cls` source path.
+* [ ] Confirm Logsets and Topics map correctly to the new modules.
+* [ ] Migrate or import existing CLS resources before applying.
+* [ ] Verify CloudAudit logs are delivered to the intended CLS Topic.
+* [ ] Verify Config data is delivered to the intended CLS and COS destinations.
+* [ ] Confirm retention, indexing, encryption, and access policies.
+
+### Tencent Cloud Config
+
+* [ ] Verify the Config recorder scope and supported resource types.
+* [ ] Verify aggregator membership and account scope.
+* [ ] Validate rules and compliance-pack assignments.
+* [ ] Test delivery and aggregate-delivery configuration.
+* [ ] Test alarm policies and notification paths.
+* [ ] Test remediation behavior in a non-production environment.
+* [ ] Confirm repeated applies are idempotent.
+
+### CDB, CVM, and TKE
+
+* [ ] Confirm the CDB plan contains no unintended replacement, storage reduction, or availability impact.
+* [ ] Confirm the CVM plan contains no unintended instance replacement or disk recreation.
+* [ ] Confirm the TKE node-pool plan contains no unexpected node rotation or capacity loss.
+* [ ] Verify TKE encryption-protection KMS and CAM prerequisites.
+* [ ] Validate workload availability and rollback procedures before production rollout.
+
+
 ## October 13, 2026
 
 ## Summary

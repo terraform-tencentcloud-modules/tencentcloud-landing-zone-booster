@@ -6,15 +6,9 @@ variable "region" {
 }
 
 # logset
-variable "logset_name" {
-  description = "The logset name."
+variable "logset_id" {
+  description = "The logset ID."
   type        = string
-}
-
-variable "logset_tags" {
-  description = "Tag description list."
-  type        = map(string)
-  default     = null
 }
 
 # topic

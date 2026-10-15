@@ -2,7 +2,14 @@ resource "tencentcloud_cls_logset" "logset" {
   count = var.cloudaudit_storage_type == "cls" ? 1 : 0
 
   logset_name   = var.cls_logset_name
-  tags          = var.cls_logset_tags
+  
+  dynamic "tag_list" {
+    for_each = var.cls_logset_tags == null ? {} : var.cls_logset_tags
+    content {
+      key   = tag_list.key
+      value = tag_list.value
+    }
+  }
 }
 
 resource "tencentcloud_cls_topic" "topic" {

@@ -1,12 +1,19 @@
 resource "tencentcloud_cls_logset" "logset" {
-  count = var.deliver_target_type == "CLS" ? 1 : 0
+  count = var.deliver_type == "CLS" ? 1 : 0
 
   logset_name = var.cls_logset_name
-  tags        = var.cls_logset_tags
+
+  dynamic "tag_list" {
+    for_each = var.cls_logset_tags == null ? {} : var.cls_logset_tags
+    content {
+      key   = tag_list.key
+      value = tag_list.value
+    }
+  }
 }
 
 resource "tencentcloud_cls_topic" "topic" {
-  count = var.deliver_target_type == "CLS" ? 1 : 0
+  count = var.deliver_type == "CLS" ? 1 : 0
 
   logset_id            = tencentcloud_cls_logset.logset[0].id
   topic_name           = var.cls_topic_name
@@ -25,7 +32,7 @@ resource "tencentcloud_cls_topic" "topic" {
 }
 
 resource "tencentcloud_cls_index" "index" {
-  count = var.deliver_target_type == "CLS" && var.cls_create_index ? 1 : 0
+  count = var.deliver_type == "CLS" && var.cls_create_index ? 1 : 0
 
   topic_id                = tencentcloud_cls_topic.topic[0].id
   status                  = var.cls_index_status
