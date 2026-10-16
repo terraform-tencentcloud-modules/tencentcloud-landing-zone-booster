@@ -29,53 +29,96 @@ resource "tencentcloud_cls_index" "index" {
         content {
           case_sensitive = full_text.value.case_sensitive
           tokenizer      = full_text.value.tokenizer
-          contain_z_h    = lookup(full_text.value,"contain_z_h",true)
+          contain_z_h    = lookup(full_text.value, "contain_z_h", true)
         }
       }
 
-      dynamic "key_value"{
+      dynamic "key_value" {
         for_each = lookup(rule.value, "key_value", [])
         content {
           case_sensitive = key_value.value.case_sensitive
-          dynamic "key_values"{
+          dynamic "key_values" {
             for_each = lookup(key_value.value, "key_values", [])
             content {
               key = key_values.value.key
-              dynamic "value"{
+              dynamic "value" {
                 for_each = lookup(key_values.value, "value", [])
                 content {
-                  type        = value.value.type
-                  tokenizer   = value.value.tokenizer
-                  sql_flag    = value.value.sql_flag
-                  contain_z_h = value.value.contain_z_h
+                  type                      = value.value.type
+                  tokenizer                 = lookup(value.value, "tokenizer", null)
+                  sql_flag                  = lookup(value.value, "sql_flag", null)
+                  contain_z_h               = lookup(value.value, "contain_z_h", null)
+                  alias                     = lookup(value.value, "alias", null)
+                  open_index_for_child_only = lookup(value.value, "open_index_for_child_only", null)
+                  dynamic "child_node" {
+                    for_each = lookup(value.value, "child_node", [])
+                    content {
+                      key = child_node.value.key
+                      dynamic "value" {
+                        for_each = lookup(child_node.value, "value", [])
+                        content {
+                          type                      = value.value.type
+                          tokenizer                 = lookup(value.value, "tokenizer", null)
+                          sql_flag                  = lookup(value.value, "sql_flag", null)
+                          contain_z_h               = lookup(value.value, "contain_z_h", null)
+                          alias                     = lookup(value.value, "alias", null)
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
           }
         }
       }
+
       dynamic "tag" {
         for_each = lookup(rule.value, "tag", [])
         content {
           case_sensitive = tag.value.case_sensitive
-          dynamic "key_values"{
+          dynamic "key_values" {
             for_each = lookup(tag.value, "key_values", [])
             content {
               key = key_values.value.key
-              dynamic "value"{
+              dynamic "value" {
                 for_each = lookup(key_values.value, "value", [])
                 content {
-                  type        = value.value.type
-                  tokenizer   = value.value.tokenizer
-                  sql_flag    = value.value.sql_flag
-                  contain_z_h = value.value.contain_z_h
+                  type                      = value.value.type
+                  tokenizer                 = lookup(value.value, "tokenizer", null)
+                  sql_flag                  = lookup(value.value, "sql_flag", null)
+                  contain_z_h               = lookup(value.value, "contain_z_h", null)
+                  alias                     = lookup(value.value, "alias", null)
+                  open_index_for_child_only = lookup(value.value, "open_index_for_child_only", null)
+                  dynamic "child_node" {
+                    for_each = lookup(value.value, "child_node", [])
+                    content {
+                      key = child_node.value.key
+                      dynamic "value" {
+                        for_each = lookup(child_node.value, "value", [])
+                        content {
+                          type                      = value.value.type
+                          tokenizer                 = lookup(value.value, "tokenizer", null)
+                          sql_flag                  = lookup(value.value, "sql_flag", null)
+                          contain_z_h               = lookup(value.value, "contain_z_h", null)
+                          alias                     = lookup(value.value, "alias", null)
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
           }
+        }
+      }
+
+      dynamic "dynamic_index" {
+        for_each = lookup(rule.value, "dynamic_index", [])
+        content {
+          status = dynamic_index.value.status
         }
       }
     }
   }
 }
-

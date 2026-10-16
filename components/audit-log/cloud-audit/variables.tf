@@ -280,10 +280,23 @@ variable "cls_rules" {
       key_values     = optional(list(object({
         key   = string                 # When a key value or metafield index needs to be configured for a field, the metafield Key does not need to be prefixed with __TAG__. and is consistent with the one when logs are uploaded. __TAG__. will be prefixed automatically for display in the console.
         value = optional(list(object({ # Field index description information.
-          type        = string           # Field type. Valid values: long, text, double.
-          tokenizer   = optional(string) # Field delimiter, which is meaningful only if the field type is text. Each character in the entered string represents a delimiter.
-          sql_flag    = optional(bool)   # Whether the analysis feature is enabled for the field.
-          contain_z_h = optional(bool)   # Whether Chinese characters are contained.
+          type                      = string           # Field type. Valid values: long, text, double.
+          tokenizer                 = optional(string) # Field delimiter, which is meaningful only if the field type is text. Each character in the entered string represents a delimiter.
+          sql_flag                  = optional(bool)   # Whether the analysis feature is enabled for the field.
+          contain_z_h               = optional(bool)   # Whether Chinese characters are contained.
+          alias                     = optional(string) # Field alias.
+          open_index_for_child_only = optional(bool)   # Only enable index for child nodes, this field itself is not enabled. Note: only json type fields can configure this parameter.
+          # Json child node list (recursive, up to 3 levels supported here; provider supports up to 5).
+          child_node = optional(list(object({
+            key = string # Field name of the json child node.
+            value = optional(list(object({
+              type                      = string
+              tokenizer                 = optional(string)
+              sql_flag                  = optional(bool)
+              contain_z_h               = optional(bool)
+              alias                     = optional(string)
+            })), [])
+          })), [])
         })), [])
       })), [])
     })), [])
@@ -293,10 +306,23 @@ variable "cls_rules" {
       key_values     = optional(list(object({ # Key-Value pair information of the index to be created. Up to 100 key-value pairs can be configured.
         key   = string        # When a key value or metafield index needs to be configured for a field, the metafield Key does not need to be prefixed with __TAG__. and is consistent with the one when logs are uploaded. __TAG__. will be prefixed automatically for display in the console.
         value = optional(list(object({ # Field index description information.
-          type        = string           # Field type. Valid values: long, text, double.
-          tokenizer   = optional(string) # Field delimiter, which is meaningful only if the field type is text. Each character in the entered string represents a delimiter.
-          sql_flag    = optional(bool)   # Whether the analysis feature is enabled for the field.
-          contain_z_h = optional(bool)   # Whether Chinese characters are contained.
+          type                      = string           # Field type. Valid values: long, text, double.
+          tokenizer                 = optional(string) # Field delimiter, which is meaningful only if the field type is text. Each character in the entered string represents a delimiter.
+          sql_flag                  = optional(bool)   # Whether the analysis feature is enabled for the field.
+          contain_z_h               = optional(bool)   # Whether Chinese characters are contained.
+          alias                     = optional(string) # Field alias.
+          open_index_for_child_only = optional(bool)   # Only enable index for child nodes, this field itself is not enabled. Note: only json type fields can configure this parameter.
+          # Json child node list (recursive, up to 3 levels supported here; provider supports up to 5).
+          child_node = optional(list(object({
+            key = string # Field name of the json child node.
+            value = optional(list(object({
+              type                      = string
+              tokenizer                 = optional(string)
+              sql_flag                  = optional(bool)
+              contain_z_h               = optional(bool)
+              alias                     = optional(string)
+            })), [])
+          })), [])
         })), [])
       })), [])
     })), [])

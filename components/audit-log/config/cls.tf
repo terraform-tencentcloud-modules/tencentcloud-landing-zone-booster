@@ -46,7 +46,7 @@ resource "tencentcloud_cls_index" "index" {
         for_each = lookup(rule.value, "full_text", [])
         content {
           case_sensitive = full_text.value.case_sensitive
-          tokenizer      = lookup(full_text.value, "tokenizer", null)
+          tokenizer      = full_text.value.tokenizer
           contain_z_h    = lookup(full_text.value, "contain_z_h", true)
         }
       }
@@ -71,7 +71,7 @@ resource "tencentcloud_cls_index" "index" {
                   dynamic "child_node" {
                     for_each = lookup(value.value, "child_node", [])
                     content {
-                      key = lookup(child_node.value, "key", null)
+                      key = child_node.value.key
                       dynamic "value" {
                         for_each = lookup(child_node.value, "value", [])
                         content {
@@ -80,7 +80,6 @@ resource "tencentcloud_cls_index" "index" {
                           sql_flag                  = lookup(value.value, "sql_flag", null)
                           contain_z_h               = lookup(value.value, "contain_z_h", null)
                           alias                     = lookup(value.value, "alias", null)
-                          open_index_for_child_only = lookup(value.value, "open_index_for_child_only", null)
                         }
                       }
                     }
@@ -112,7 +111,7 @@ resource "tencentcloud_cls_index" "index" {
                   dynamic "child_node" {
                     for_each = lookup(value.value, "child_node", [])
                     content {
-                      key = lookup(child_node.value, "key", null)
+                      key = child_node.value.key
                       dynamic "value" {
                         for_each = lookup(child_node.value, "value", [])
                         content {
@@ -121,7 +120,6 @@ resource "tencentcloud_cls_index" "index" {
                           sql_flag                  = lookup(value.value, "sql_flag", null)
                           contain_z_h               = lookup(value.value, "contain_z_h", null)
                           alias                     = lookup(value.value, "alias", null)
-                          open_index_for_child_only = lookup(value.value, "open_index_for_child_only", null)
                         }
                       }
                     }

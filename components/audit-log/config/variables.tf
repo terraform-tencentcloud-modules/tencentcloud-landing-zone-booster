@@ -332,74 +332,69 @@ variable "cls_metadata_flag" {
 }
 
 variable "cls_rules" {
-  description = "Index rule. Mirrors the `rule` block of tencentcloud_cls_index (resource_tc_cls_index.go)."
+  description = "Index rule."
   type = set(object({
-    # Full-text index configuration. tokenizer/contain_z_h are Optional in the provider.
-    full_text = list(object({
-      case_sensitive = bool
-      tokenizer      = optional(string)
-      contain_z_h    = optional(bool, true)
-    }))
-
-    # Key-value index configuration.
-    key_value = list(object({
-      case_sensitive = bool
-      key_values = list(object({
-        key = string
-        value = list(object({
-          type                      = string
-          tokenizer                 = optional(string)
-          sql_flag                  = optional(bool)
-          contain_z_h               = optional(bool)
-          alias                     = optional(string)
-          open_index_for_child_only = optional(bool)
-          # JSON child node index. Terraform has no recursive types, so only one
-          # level of nesting is modeled here (the provider supports up to 5 levels).
+    # Full-Text index configuration.
+    full_text = optional(list(object({
+      case_sensitive = bool   # Case sensitive.
+      tokenizer      = string # Full-Text index delimiter. Each character in the string represents a delimiter.
+      contain_z_h    = bool   # Whether Chinese characters are contained.
+    })), [])
+    # Key-Value index configuration.
+    key_value = optional(list(object({
+      case_sensitive = bool # Case sensitivity.
+      key_values     = optional(list(object({
+        key   = string                 # When a key value or metafield index needs to be configured for a field, the metafield Key does not need to be prefixed with __TAG__. and is consistent with the one when logs are uploaded. __TAG__. will be prefixed automatically for display in the console.
+        value = optional(list(object({ # Field index description information.
+          type                      = string           # Field type. Valid values: long, text, double.
+          tokenizer                 = optional(string) # Field delimiter, which is meaningful only if the field type is text. Each character in the entered string represents a delimiter.
+          sql_flag                  = optional(bool)   # Whether the analysis feature is enabled for the field.
+          contain_z_h               = optional(bool)   # Whether Chinese characters are contained.
+          alias                     = optional(string) # Field alias.
+          open_index_for_child_only = optional(bool)   # Only enable index for child nodes, this field itself is not enabled. Note: only json type fields can configure this parameter.
+          # Json child node list (recursive, up to 3 levels supported here; provider supports up to 5).
           child_node = optional(list(object({
-            key = optional(string)
-            value = list(object({
+            key = string # Field name of the json child node.
+            value = optional(list(object({
               type                      = string
               tokenizer                 = optional(string)
               sql_flag                  = optional(bool)
               contain_z_h               = optional(bool)
               alias                     = optional(string)
-              open_index_for_child_only = optional(bool)
-            }))
-          })))
-        }))
-      }))
-    }))
-
-    # Metafield (tag) index configuration.
-    tag = list(object({
-      case_sensitive = bool
-      key_values = list(object({
-        key = string
-        value = list(object({
-          type                      = string
-          tokenizer                 = optional(string)
-          sql_flag                  = optional(bool)
-          contain_z_h               = optional(bool)
-          alias                     = optional(string)
-          open_index_for_child_only = optional(bool)
+            })), [])
+          })), [])
+        })), [])
+      })), [])
+    })), [])
+    # Tag index configuration.
+    tag = optional(list(object({
+      case_sensitive = bool                   # Case sensitivity.
+      key_values     = optional(list(object({ # Key-Value pair information of the index to be created. Up to 100 key-value pairs can be configured.
+        key   = string        # When a key value or metafield index needs to be configured for a field, the metafield Key does not need to be prefixed with __TAG__. and is consistent with the one when logs are uploaded. __TAG__. will be prefixed automatically for display in the console.
+        value = optional(list(object({ # Field index description information.
+          type                      = string           # Field type. Valid values: long, text, double.
+          tokenizer                 = optional(string) # Field delimiter, which is meaningful only if the field type is text. Each character in the entered string represents a delimiter.
+          sql_flag                  = optional(bool)   # Whether the analysis feature is enabled for the field.
+          contain_z_h               = optional(bool)   # Whether Chinese characters are contained.
+          alias                     = optional(string) # Field alias.
+          open_index_for_child_only = optional(bool)   # Only enable index for child nodes, this field itself is not enabled. Note: only json type fields can configure this parameter.
+          # Json child node list (recursive, up to 3 levels supported here; provider supports up to 5).
           child_node = optional(list(object({
-            key = optional(string)
-            value = list(object({
+            key = string # Field name of the json child node.
+            value = optional(list(object({
               type                      = string
               tokenizer                 = optional(string)
               sql_flag                  = optional(bool)
               contain_z_h               = optional(bool)
               alias                     = optional(string)
-              open_index_for_child_only = optional(bool)
-            }))
-          })))
-        }))
-      }))
-    }))
-
-    # Dynamic (auto) key-value index. If empty, the feature is disabled.
+            })), [])
+          })), [])
+        })), [])
+      })), [])
+    })), [])
+    # The key value index is automatically configured. If it is empty, it means that the function is not enabled.
     dynamic_index = optional(list(object({
-      status = bool
+      status = bool # index automatic configuration switch.
     })), [])
   }))
   default = []
