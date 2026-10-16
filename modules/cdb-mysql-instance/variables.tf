@@ -207,9 +207,9 @@ variable "force_delete" {
 variable "wait_switch" {
   description = "Switch method to new instance. 0 immediate, 1 in time window."
   type        = number
-  default     = 0
+  default     = null
   validation {
-    condition     = contains([0, 1], var.wait_switch)
+    condition     = var.wait_switch == null || contains([0, 1], var.wait_switch)
     error_message = "wait_switch must be 0 or 1."
   }
 }
