@@ -20,7 +20,7 @@ variable "logset_tags" {
   }
 
   validation {
-    condition     = var.logset_tags == null || alltrue([for k, v in var.logset_tags : k != "" && t.value != ""])
+    condition     = var.logset_tags == null || alltrue([for k, v in var.logset_tags : k != "" && v != ""])
     error_message = "Both `key` and `value` are required for every entry in logset_tags."
   }
 }
