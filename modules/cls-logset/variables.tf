@@ -11,10 +11,7 @@ variable "logset_tags" {
       CLS API are kept and produce no diff. Passing `[]` means "explicitly clear all tags".
   EOT
 
-  type = list(object({
-    key   = string # Tag key.   (Required in provider schema)
-    value = string # Tag value. (Required in provider schema)
-  }))
+  type    = map(string)
   default = null
 
   validation {
@@ -23,12 +20,7 @@ variable "logset_tags" {
   }
 
   validation {
-    condition     = var.logset_tags == null || length(distinct([for t in var.logset_tags : t.key])) == length(var.logset_tags)
-    error_message = "Duplicate keys are not allowed in logset_tags."
-  }
-
-  validation {
-    condition     = var.logset_tags == null || alltrue([for t in var.logset_tags : t.key != "" && t.value != ""])
+    condition     = var.logset_tags == null || alltrue([for k, v in var.logset_tags : k != "" && t.value != ""])
     error_message = "Both `key` and `value` are required for every entry in logset_tags."
   }
 }
