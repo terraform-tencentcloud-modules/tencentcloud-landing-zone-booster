@@ -4,6 +4,7 @@
 variable "postgres_instance" {
   description = "The postgres instance input variables"
   type = object({
+    project_id        = optional(number, 0)      # Project ID
     name              = string # Instance name
     availability_zone = string # The availability zone of the instance.
 
@@ -26,9 +27,9 @@ variable "postgres_instance" {
     max_standby_archive_delay   = optional(number)     # Units are milliseconds if not specified.
     max_standby_streaming_delay = optional(number)     # Units are milliseconds if not specified.
 
-    charset         = optional(string, "UTF8") # Database character set. Default is UTF8.
-    security_groups = optional(set(string))    # Security group ID list.
-    project_id      = optional(number, 0)      # Project ID
+    charset              = optional(string, "UTF8") # Database character set. Default is UTF8.
+    security_groups      = optional(set(string))    # Security group ID list.
+    public_access_switch = optional(bool, false)    # Indicates whether to enable the access to an instance from public network or not.
 
     # backup plan
     backup_plan = optional(object({

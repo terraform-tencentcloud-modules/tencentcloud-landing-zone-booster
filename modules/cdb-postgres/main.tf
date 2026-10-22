@@ -16,6 +16,7 @@ resource "tencentcloud_postgresql_instance" "master" {
   charset                     = var.postgres_instance.charset
   project_id                  = var.postgres_instance.project_id
   security_groups             = var.postgres_instance.security_groups
+  public_access_switch        = var.postgres_instance.public_access_switch
   cpu                         = var.postgres_instance.cpu
   memory                      = var.postgres_instance.memory
   storage                     = var.postgres_instance.storage
