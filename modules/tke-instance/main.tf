@@ -65,14 +65,14 @@ resource "tencentcloud_kubernetes_cluster" "cluster" {
     enabled                    = var.enable_event_persistence
     log_set_id                 = var.event_log_set_id
     topic_id                   = var.event_log_topic_id
-    delete_event_log_and_topic = var.event_log_topic_id == null
+    delete_event_log_and_topic = var.delete_event_log_and_topic
   }
 
   cluster_audit {
     enabled                    = var.enable_cluster_audit_log
     log_set_id                 = var.cluster_audit_log_set_id
     topic_id                   = var.cluster_audit_log_topic_id
-    delete_audit_log_and_topic = var.cluster_audit_log_topic_id == null
+    delete_audit_log_and_topic = var.delete_audit_log_and_topic
   }
 
   labels = var.labels

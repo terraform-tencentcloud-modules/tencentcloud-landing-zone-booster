@@ -105,19 +105,7 @@ variable "enable_event_persistence" {
   description = "Specify weather the Event Persistence enabled. "
 }
 
-variable "enable_cluster_audit_log" {
-  type        = bool
-  default     = false
-  description = "Specify weather the Cluster Audit enabled. NOTE: Enable Cluster Audit will also auto install Log Agent."
-}
-
 variable "event_log_set_id" {
-  type        = string
-  default     = null
-  description = "Specify id of existing CLS log set, or auto create a new set by leave it empty. "
-}
-
-variable "cluster_audit_log_set_id" {
   type        = string
   default     = null
   description = "Specify id of existing CLS log set, or auto create a new set by leave it empty. "
@@ -129,10 +117,34 @@ variable "event_log_topic_id" {
   description = "Specify id of existing CLS log topic, or auto create a new topic by leave it empty."
 }
 
+variable "delete_event_log_and_topic" {
+  type        = bool
+  default     = null
+  description = "when you want to close the cluster event persistence or delete the cluster, you can use this parameter to determine whether the event persistence log set and topic created by default will be deleted."
+}
+
+variable "enable_cluster_audit_log" {
+  type        = bool
+  default     = false
+  description = "Specify weather the Cluster Audit enabled. NOTE: Enable Cluster Audit will also auto install Log Agent."
+}
+
+variable "cluster_audit_log_set_id" {
+  type        = string
+  default     = null
+  description = "Specify id of existing CLS log set, or auto create a new set by leave it empty. "
+}
+
 variable "cluster_audit_log_topic_id" {
   type        = string
   default     = null
   description = "Specify id of existing CLS log topic, or auto create a new topic by leave it empty. "
+}
+
+variable "delete_audit_log_and_topic" {
+  type        = bool
+  default     = null
+  description = "when you want to close the cluster audit log or delete the cluster, you can use this parameter to determine whether the audit log set and topic created by default will be deleted."
 }
 
 variable "cluster_service_cidr" {
