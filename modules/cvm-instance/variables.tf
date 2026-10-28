@@ -1,3 +1,9 @@
+variable "create_kms_strategy" {
+  type        = bool
+  description = "Create KMS strategy for CVM instance disk encryption"
+  default     = false
+}
+
 ################################################################################
 # data: tencentcloud_instance_types and tencentcloud_images
 ################################################################################
