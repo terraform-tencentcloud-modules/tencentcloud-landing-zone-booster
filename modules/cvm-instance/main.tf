@@ -129,6 +129,11 @@ resource "tencentcloud_instance" "instance" {
   disable_api_termination = var.disable_api_termination
 
   tags = var.tags
+
+  depends_on = [
+    tencentcloud_cam_role.QcsRole,
+    tencentcloud_cam_role_policy_attachment.role_policies
+  ]
 }
 
 resource "tencentcloud_cbs_storage" "cbs" {
