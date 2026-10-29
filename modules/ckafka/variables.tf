@@ -82,15 +82,16 @@ variable "topics" {
 variable "routes" {
   description = "A map of CKafka VPC routes (access points) to create. Each route references a CKafka instance via `instance_key`."
   type = map(object({
-    instance_key   = string
-    vip_type       = number # 3: vpc routing; 4: standard support routing; 7: profession support routing
-    vpc_id         = optional(string)
-    subnet_id      = optional(string)
-    access_type    = optional(number) # 0: PLAINTEXT, 1: SASL_PLAINTEXT, 2: SSL, 3: SASL_SSL
-    auth_flag      = optional(number)
-    caller_appid   = optional(number)
-    public_network = optional(number)
-    ip             = optional(string)
+    instance_key       = string
+    vip_type           = number # 3: vpc routing; 4: standard support routing; 7: profession support routing
+    vpc_id             = optional(string)
+    subnet_id          = optional(string)
+    access_type        = optional(number) # 0: PLAINTEXT, 1: SASL_PLAINTEXT, 2: SSL, 3: SASL_SSL
+    auth_flag          = optional(number)
+    caller_appid       = optional(number)
+    public_network     = optional(number)
+    ip                 = optional(string)
+    security_group_ids = optional(list(string))
   }))
   default = {}
 }

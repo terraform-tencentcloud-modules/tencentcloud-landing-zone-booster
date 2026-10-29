@@ -94,15 +94,16 @@ resource "tencentcloud_ckafka_topic" "this" {
 resource "tencentcloud_ckafka_route" "this" {
   for_each = var.routes
 
-  instance_id    = tencentcloud_ckafka_instance.this[each.value.instance_key].id
-  vip_type       = each.value.vip_type
-  vpc_id         = each.value.vpc_id
-  subnet_id      = each.value.subnet_id
-  access_type    = each.value.access_type
-  auth_flag      = each.value.auth_flag
-  caller_appid   = each.value.caller_appid
-  public_network = each.value.public_network
-  ip             = each.value.ip
+  instance_id        = tencentcloud_ckafka_instance.this[each.value.instance_key].id
+  vip_type           = each.value.vip_type
+  vpc_id             = each.value.vpc_id
+  subnet_id          = each.value.subnet_id
+  access_type        = each.value.access_type
+  auth_flag          = each.value.auth_flag
+  caller_appid       = each.value.caller_appid
+  public_network     = each.value.public_network
+  ip                 = each.value.ip
+  security_group_ids = each.value.security_group_ids
 
   depends_on = [tencentcloud_ckafka_instance.this]
 }
