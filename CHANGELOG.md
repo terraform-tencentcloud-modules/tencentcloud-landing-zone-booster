@@ -1,3 +1,265 @@
+## November 03, 2026
+
+## Summary
+
+This release refactors the TKE authorization module to support multiple CAM users and roles in a single module invocation. Authorization targets can now be specified directly by UIN or resolved dynamically from a CAM user or role name.
+
+The module also introduces per-target permission lists, a shared default cluster ID, and input validation for authorization targets and cluster selection.
+
+## Added
+
+### Multiple authorization targets
+
+Added the `authz_permissions` map, allowing the module to manage multiple TKE authorization targets independently:
+
+```hcl
+authz_permissions = {
+  developer = {
+    target_name = "developer-user"
+    target_type = "user"
+
+    permissions = [
+      {
+        role_name = "tke:dev"
+        role_type = "cluster"
+      }
+    ]
+  }
+}
+```
+
+Each map entry can define:
+
+* A CAM user or role UIN through `target_uin`.
+* A CAM user or role name through `target_name`.
+* The name-based target category through `target_type` (`user` or `role`).
+* A dedicated list of TKE cluster or namespace permissions.
+
+### CAM user and role lookup
+
+Added automatic target resolution for name-based authorization:
+
+* `tencentcloud_cam_users.users` resolves CAM users by name.
+* `tencentcloud_cam_role_detail.roles` resolves CAM roles by name.
+* `local.resolved_target_uin` selects the explicitly supplied UIN or the identifier returned by the applicable CAM data source.
+
+An explicit, non-empty `target_uin` takes precedence over name-based lookup.
+
+### Default cluster selection
+
+Added `default_cluster_id` as a shared fallback for permission entries that do not specify `cluster_id`:
+
+```hcl
+cluster_id = coalesce(permissions.value.cluster_id, var.default_cluster_id)
+```
+
+Individual permission entries can continue to override the default by providing their own cluster ID.
+
+### Input validation
+
+Added validation to ensure that:
+
+* Every permission has a cluster ID when `default_cluster_id` is not set.
+* Every authorization target specifies at least one of `target_uin` or `target_name`.
+* Name-based targets specify a valid `target_type` of `user` or `role`.
+
+## Changed
+
+### Resource addressing and creation model
+
+Changed `tencentcloud_kubernetes_user_permissions.authz` from a single count-based resource to map-based `for_each` resources:
+
+```hcl
+# Previous
+resource "tencentcloud_kubernetes_user_permissions" "authz" {
+  count = var.authz_uin == null ? 0 : 1
+}
+
+# Current
+resource "tencentcloud_kubernetes_user_permissions" "authz" {
+  for_each = var.authz_permissions
+}
+```
+
+Each authorization target is now represented by its `authz_permissions` map key, enabling multiple CAM users and roles to be managed by one module instance.
+
+### Permission ownership
+
+Permissions are now nested under each authorization target instead of being supplied through one module-wide list. This makes the relationship between a CAM principal and its TKE permissions explicit.
+
+### Module input interface
+
+Replaced the previous variables:
+
+* `authz_uin`
+* `cluster_id`
+* `permissions`
+
+with:
+
+* `default_cluster_id`
+* `authz_permissions`
+
+## Removed
+
+Removed the previous single-target input model:
+
+```hcl
+authz_uin  = "..."
+cluster_id = "..."
+permissions = [
+  # ...
+]
+```
+
+Consumers must migrate to the new map-based `authz_permissions` interface.
+
+## Breaking Changes
+
+> [!WARNING]
+> This is a breaking module-interface and Terraform resource-address change.
+
+The following changes require consumer updates:
+
+* `authz_uin` has been removed.
+* `cluster_id` has been renamed to `default_cluster_id`.
+* The module-wide `permissions` variable has been removed.
+* Authorization targets and their permissions must now be provided through `authz_permissions`.
+* The resource address changes from a count index to a map key.
+
+For example:
+
+```text
+module.tke_authz.tencentcloud_kubernetes_user_permissions.authz[0]
+```
+
+becomes:
+
+```text
+module.tke_authz.tencentcloud_kubernetes_user_permissions.authz["developer"]
+```
+
+Without state migration, Terraform may propose deleting the existing authorization resource and creating a new keyed resource.
+
+## Migration Example
+
+Previous configuration:
+
+```hcl
+module "tke_authz" {
+  source = ".../modules/tke-authz"
+
+  authz_uin  = "100000000001"
+  cluster_id = "cls-example"
+
+  permissions = [
+    {
+      role_name = "tke:dev"
+      role_type = "cluster"
+    }
+  ]
+}
+```
+
+Updated configuration:
+
+```hcl
+module "tke_authz" {
+  source = ".../modules/tke-authz"
+
+  default_cluster_id = "cls-example"
+
+  authz_permissions = {
+    developer = {
+      target_uin = "100000000001"
+
+      permissions = [
+        {
+          role_name = "tke:dev"
+          role_type = "cluster"
+        }
+      ]
+    }
+  }
+}
+```
+
+Migrate the existing resource state before applying:
+
+```bash
+terraform state mv \
+  'module.tke_authz.tencentcloud_kubernetes_user_permissions.authz[0]' \
+  'module.tke_authz.tencentcloud_kubernetes_user_permissions.authz["developer"]'
+```
+
+Replace the module path and map key with the actual addresses used by the calling stack.
+
+## Review Notes
+
+### Empty `target_uin` handling
+
+The lookup maps currently include name-based targets only when `target_uin == null`, while `local.resolved_target_uin` treats both `null` and an empty string as absent.
+
+A configuration such as the following can therefore pass validation but fail during lookup because the corresponding data-source instance is not created:
+
+```hcl
+authz_permissions = {
+  developer = {
+    target_uin  = ""
+    target_name = "developer-user"
+    target_type = "user"
+  }
+}
+```
+
+Consider treating both `null` and `""` consistently when building the user and role lookup maps:
+
+```hcl
+user_permissions = {
+  for k, v in var.authz_permissions : k => v
+  if (v.target_uin == null || v.target_uin == "") &&
+     v.target_type == "user" &&
+     v.target_name != null && v.target_name != ""
+}
+```
+
+Apply equivalent logic to `role_permissions`.
+
+### Lookup result safety
+
+The implementation reads the first returned user or role directly:
+
+```hcl
+data.tencentcloud_cam_users.users[k].user_list[0].uin
+data.tencentcloud_cam_role_detail.roles[k].role_info[0].role_id
+```
+
+Confirm the provider schemas and behavior when no exact match is returned. Consider adding preconditions or validation so that missing or ambiguous CAM principals produce a clear error rather than an invalid-index failure or an unintended match.
+
+### Map-key stability
+
+The keys in `authz_permissions` become part of Terraform resource addresses. Renaming a key requires a `moved` block or `terraform state mv`, even when the target principal and permissions remain unchanged.
+
+## Validation Checklist
+
+* [ ] Run `terraform fmt -check` for the module.
+* [ ] Run `terraform init -upgrade` and `terraform validate`.
+* [ ] Test an explicit CAM user UIN.
+* [ ] Test an explicit CAM role UIN.
+* [ ] Test CAM user lookup by `target_name`.
+* [ ] Test CAM role lookup by `target_name`.
+* [ ] Test multiple users and roles in one module invocation.
+* [ ] Verify `default_cluster_id` fallback behavior.
+* [ ] Verify per-permission `cluster_id` overrides.
+* [ ] Verify cluster-level and namespace-level permissions.
+* [ ] Verify custom-role permissions and namespace handling.
+* [ ] Test missing and invalid `target_type` values.
+* [ ] Test `target_uin = ""` with name-based lookup.
+* [ ] Test behavior when a CAM user or role cannot be found.
+* [ ] Migrate existing count-based resource state to the new map key.
+* [ ] Confirm the final plan contains no unintended authorization removal.
+
+
 ## October 15, 2026
 
 ## Summary
