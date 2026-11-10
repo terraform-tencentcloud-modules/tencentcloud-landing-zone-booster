@@ -1,0 +1,11 @@
+source_content = "0.0.0.0/0"
+source_type    = "net"
+target_content = jsonencode({"Key":"test","Value":"dddd"})
+target_type    = "tag"
+protocol       = "TCP"
+rule_action    = "drop"
+port           = "-1/-1"
+direction      = 1
+enable         = "true"
+description    = "policy description."
+scope          = "all"

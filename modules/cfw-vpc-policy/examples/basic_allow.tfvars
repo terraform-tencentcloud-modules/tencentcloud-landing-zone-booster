@@ -1,0 +1,8 @@
+description = "Allow all traffic from internal net"
+dest_content = "net:0.0.0.0/0"
+dest_type = "net"
+port = "-1"
+protocol = "ANY"
+rule_action = "accept"
+source_content = "net:10.0.0.0/16"
+source_type = "net"

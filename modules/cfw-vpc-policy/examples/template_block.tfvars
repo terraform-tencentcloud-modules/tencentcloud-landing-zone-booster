@@ -1,0 +1,8 @@
+description = "Block traffic using a template destination"
+dest_content = "template:TEMPLATE_ID_PLACEHOLDER"
+dest_type = "template"
+port = "-1"
+protocol = "ANY"
+rule_action = "drop"
+source_content = "net:0.0.0.0/0"
+source_type = "net"

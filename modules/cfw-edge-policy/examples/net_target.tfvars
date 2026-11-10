@@ -1,0 +1,11 @@
+source_content = "1.1.1.1/0"
+source_type    = "net"
+target_content = "0.0.0.0/0"
+target_type    = "net"
+protocol       = "TCP"
+rule_action    = "drop"
+port           = "-1/-1"
+direction      = 1
+enable         = "true"
+description    = "policy description."
+scope          = "all"

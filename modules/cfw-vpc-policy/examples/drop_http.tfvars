@@ -1,0 +1,8 @@
+description = "Drop HTTP access to example domain from specific source net"
+dest_content = "domain:*.example.com"
+dest_type = "net"
+port = "80"
+protocol = "HTTP"
+rule_action = "drop"
+source_content = "net:203.0.113.0/24"
+source_type = "net"
