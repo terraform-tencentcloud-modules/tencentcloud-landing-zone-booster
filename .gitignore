@@ -1,0 +1,55 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfbackup
+.terraform/
+.terragrunt-cache
+.terraform.lock.hcl
+terraform-provider-tencentcloud
+terraform-provider-qcloud
+terraform_private.txt
+terraform_public.txt
+debug.tf
+
+# macOS
+.DS_Store
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.tfvars
+terraform.tfvars
+
+# Scripts
+env.sh
+clear.sh
+quick_build.sh
+debug.sh
+dev_watch.sh
+export_env.sh
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Other files
+*.log
+*.exe
+gendoc/gendoc
+dist/

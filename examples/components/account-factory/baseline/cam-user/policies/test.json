@@ -1,0 +1,9 @@
+{
+  "action": [
+    "name/sts:AssumeRole"
+  ],
+  "effect": "allow",
+  "resource": [
+    "*"
+  ]
+}

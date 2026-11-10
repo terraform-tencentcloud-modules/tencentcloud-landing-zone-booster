@@ -1,0 +1,3037 @@
+## November 03, 2026
+
+## Summary
+
+This release refactors the TKE authorization module to support multiple CAM users and roles in a single module invocation. Authorization targets can now be specified directly by UIN or resolved dynamically from a CAM user or role name.
+
+The module also introduces per-target permission lists, a shared default cluster ID, and input validation for authorization targets and cluster selection.
+
+## Added
+
+### Multiple authorization targets
+
+Added the `authz_permissions` map, allowing the module to manage multiple TKE authorization targets independently:
+
+```hcl
+authz_permissions = {
+  developer = {
+    target_name = "developer-user"
+    target_type = "user"
+
+    permissions = [
+      {
+        role_name = "tke:dev"
+        role_type = "cluster"
+      }
+    ]
+  }
+}
+```
+
+Each map entry can define:
+
+* A CAM user or role UIN through `target_uin`.
+* A CAM user or role name through `target_name`.
+* The name-based target category through `target_type` (`user` or `role`).
+* A dedicated list of TKE cluster or namespace permissions.
+
+### CAM user and role lookup
+
+Added automatic target resolution for name-based authorization:
+
+* `tencentcloud_cam_users.users` resolves CAM users by name.
+* `tencentcloud_cam_role_detail.roles` resolves CAM roles by name.
+* `local.resolved_target_uin` selects the explicitly supplied UIN or the identifier returned by the applicable CAM data source.
+
+An explicit, non-empty `target_uin` takes precedence over name-based lookup.
+
+### Default cluster selection
+
+Added `default_cluster_id` as a shared fallback for permission entries that do not specify `cluster_id`:
+
+```hcl
+cluster_id = coalesce(permissions.value.cluster_id, var.default_cluster_id)
+```
+
+Individual permission entries can continue to override the default by providing their own cluster ID.
+
+### Input validation
+
+Added validation to ensure that:
+
+* Every permission has a cluster ID when `default_cluster_id` is not set.
+* Every authorization target specifies at least one of `target_uin` or `target_name`.
+* Name-based targets specify a valid `target_type` of `user` or `role`.
+
+## Changed
+
+### Resource addressing and creation model
+
+Changed `tencentcloud_kubernetes_user_permissions.authz` from a single count-based resource to map-based `for_each` resources:
+
+```hcl
+# Previous
+resource "tencentcloud_kubernetes_user_permissions" "authz" {
+  count = var.authz_uin == null ? 0 : 1
+}
+
+# Current
+resource "tencentcloud_kubernetes_user_permissions" "authz" {
+  for_each = var.authz_permissions
+}
+```
+
+Each authorization target is now represented by its `authz_permissions` map key, enabling multiple CAM users and roles to be managed by one module instance.
+
+### Permission ownership
+
+Permissions are now nested under each authorization target instead of being supplied through one module-wide list. This makes the relationship between a CAM principal and its TKE permissions explicit.
+
+### Module input interface
+
+Replaced the previous variables:
+
+* `authz_uin`
+* `cluster_id`
+* `permissions`
+
+with:
+
+* `default_cluster_id`
+* `authz_permissions`
+
+## Removed
+
+Removed the previous single-target input model:
+
+```hcl
+authz_uin  = "..."
+cluster_id = "..."
+permissions = [
+  # ...
+]
+```
+
+Consumers must migrate to the new map-based `authz_permissions` interface.
+
+## Breaking Changes
+
+> [!WARNING]
+> This is a breaking module-interface and Terraform resource-address change.
+
+The following changes require consumer updates:
+
+* `authz_uin` has been removed.
+* `cluster_id` has been renamed to `default_cluster_id`.
+* The module-wide `permissions` variable has been removed.
+* Authorization targets and their permissions must now be provided through `authz_permissions`.
+* The resource address changes from a count index to a map key.
+
+For example:
+
+```text
+module.tke_authz.tencentcloud_kubernetes_user_permissions.authz[0]
+```
+
+becomes:
+
+```text
+module.tke_authz.tencentcloud_kubernetes_user_permissions.authz["developer"]
+```
+
+Without state migration, Terraform may propose deleting the existing authorization resource and creating a new keyed resource.
+
+## Migration Example
+
+Previous configuration:
+
+```hcl
+module "tke_authz" {
+  source = ".../modules/tke-authz"
+
+  authz_uin  = "100000000001"
+  cluster_id = "cls-example"
+
+  permissions = [
+    {
+      role_name = "tke:dev"
+      role_type = "cluster"
+    }
+  ]
+}
+```
+
+Updated configuration:
+
+```hcl
+module "tke_authz" {
+  source = ".../modules/tke-authz"
+
+  default_cluster_id = "cls-example"
+
+  authz_permissions = {
+    developer = {
+      target_uin = "100000000001"
+
+      permissions = [
+        {
+          role_name = "tke:dev"
+          role_type = "cluster"
+        }
+      ]
+    }
+  }
+}
+```
+
+Migrate the existing resource state before applying:
+
+```bash
+terraform state mv \
+  'module.tke_authz.tencentcloud_kubernetes_user_permissions.authz[0]' \
+  'module.tke_authz.tencentcloud_kubernetes_user_permissions.authz["developer"]'
+```
+
+Replace the module path and map key with the actual addresses used by the calling stack.
+
+## Review Notes
+
+### Empty `target_uin` handling
+
+The lookup maps currently include name-based targets only when `target_uin == null`, while `local.resolved_target_uin` treats both `null` and an empty string as absent.
+
+A configuration such as the following can therefore pass validation but fail during lookup because the corresponding data-source instance is not created:
+
+```hcl
+authz_permissions = {
+  developer = {
+    target_uin  = ""
+    target_name = "developer-user"
+    target_type = "user"
+  }
+}
+```
+
+Consider treating both `null` and `""` consistently when building the user and role lookup maps:
+
+```hcl
+user_permissions = {
+  for k, v in var.authz_permissions : k => v
+  if (v.target_uin == null || v.target_uin == "") &&
+     v.target_type == "user" &&
+     v.target_name != null && v.target_name != ""
+}
+```
+
+Apply equivalent logic to `role_permissions`.
+
+### Lookup result safety
+
+The implementation reads the first returned user or role directly:
+
+```hcl
+data.tencentcloud_cam_users.users[k].user_list[0].uin
+data.tencentcloud_cam_role_detail.roles[k].role_info[0].role_id
+```
+
+Confirm the provider schemas and behavior when no exact match is returned. Consider adding preconditions or validation so that missing or ambiguous CAM principals produce a clear error rather than an invalid-index failure or an unintended match.
+
+### Map-key stability
+
+The keys in `authz_permissions` become part of Terraform resource addresses. Renaming a key requires a `moved` block or `terraform state mv`, even when the target principal and permissions remain unchanged.
+
+## Validation Checklist
+
+* [ ] Run `terraform fmt -check` for the module.
+* [ ] Run `terraform init -upgrade` and `terraform validate`.
+* [ ] Test an explicit CAM user UIN.
+* [ ] Test an explicit CAM role UIN.
+* [ ] Test CAM user lookup by `target_name`.
+* [ ] Test CAM role lookup by `target_name`.
+* [ ] Test multiple users and roles in one module invocation.
+* [ ] Verify `default_cluster_id` fallback behavior.
+* [ ] Verify per-permission `cluster_id` overrides.
+* [ ] Verify cluster-level and namespace-level permissions.
+* [ ] Verify custom-role permissions and namespace handling.
+* [ ] Test missing and invalid `target_type` values.
+* [ ] Test `target_uin = ""` with name-based lookup.
+* [ ] Test behavior when a CAM user or role cannot be found.
+* [ ] Migrate existing count-based resource state to the new map key.
+* [ ] Confirm the final plan contains no unintended authorization removal.
+
+
+## October 15, 2026
+
+## Summary
+
+This release expands Tencent Cloud Config automation, decomposes the legacy CLS module into dedicated Logset and Topic modules, and introduces TKE encryption-protection support. It also updates CloudAudit, Config, CDB for MySQL, CVM, and TKE native node-pool implementations.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resources, variables, outputs, defaults, provider constraints, and replacement behavior must be verified against the complete `git diff` before release.
+
+## Added
+
+### Dedicated CLS modules
+
+Added two standalone modules to replace the combined legacy CLS module:
+
+* `modules/cls-logset` — manages CLS Logset resources independently.
+* `modules/cls-topic` — manages CLS Topic resources and their Logset dependencies independently.
+
+This separation provides clearer ownership boundaries and allows Logsets and Topics to be composed, reused, and managed independently.
+
+### Tencent Cloud Config modules
+
+Added dedicated modules for Tencent Cloud Config governance and compliance workflows:
+
+* `modules/config-aggregator` — manages Config aggregators.
+* `modules/config-alarm-policy` — manages alarm or notification policies for Config events.
+* `modules/config-compliance-pack` — manages compliance packs.
+* `modules/config-deliver` — manages Config delivery configuration.
+* `modules/config-recorder` — manages the Config resource recorder.
+* `modules/config-remediation` — manages remediation configuration.
+* `modules/config-rule` — manages Config rules.
+* `modules/config-update-aggregate-deliver` — updates aggregate delivery configuration.
+* `modules/config-update-deliver` — updates delivery configuration.
+
+The new modules establish reusable Terraform boundaries for recording resources, evaluating compliance, aggregating results, delivering data, raising alarms, and remediating non-compliant resources.
+
+### TKE encryption protection
+
+Added:
+
+* `modules/tke-encryption-protection`
+
+The module introduces a reusable Terraform boundary for configuring encryption protection for Tencent Kubernetes Engine resources.
+
+Before adoption, verify the protected resource scope, KMS dependencies, CAM permissions, key lifecycle, and whether the module modifies an existing cluster in place or requires replacement.
+
+## Changed
+
+### CloudAudit component
+
+Updated:
+
+* `components/audit-log/cloud-audit/cls.tf`
+* `components/audit-log/cloud-audit/variables.tf`
+* `components/audit-log/cloud-audit/versions.tf`
+
+The CloudAudit component has been updated to align its CLS integration, input contract, and provider constraints with the new dedicated CLS module structure.
+
+Review the full diff for:
+
+* Replacement of legacy `modules/cls` references.
+* Logset and Topic dependency wiring.
+* Changed CLS variables or outputs.
+* Updated Tencent Cloud provider requirements.
+* Terraform address changes requiring state migration.
+
+### Tencent Cloud Config component
+
+Updated:
+
+* `components/audit-log/config/main.tf`
+* `components/audit-log/config/cls.tf`
+* `components/audit-log/config/cos.tf`
+* `components/audit-log/config/variables.tf`
+* `components/audit-log/config/outputs.tf`
+* `components/audit-log/config/versions.tf`
+
+The Config component now spans core configuration, CLS delivery, COS delivery, variables, outputs, and provider constraints. These updates are expected to integrate the new Config modules and refine component-level orchestration.
+
+Review the full diff for:
+
+* Config recorder, aggregator, rule, compliance-pack, delivery, alarm, and remediation integration.
+* CLS and COS delivery dependencies.
+* New, renamed, removed, or retyped variables.
+* New or changed outputs consumed by Terraform or Terragrunt.
+* Changes to conditional resources and `for_each` keys.
+* Provider-version changes.
+
+### CDB for MySQL instance module
+
+Updated:
+
+* `modules/cdb-mysql-instance/main.tf`
+* `modules/cdb-mysql-instance/variables.tf`
+* `modules/cdb-mysql-instance/version.tf`
+
+The update changes CDB for MySQL resource configuration, its input interface, and version constraints. Review the plan carefully for arguments that may force instance replacement or affect availability, networking, storage, backup, encryption, or database parameters.
+
+### CVM instance module
+
+Updated:
+
+* `modules/cvm-instance/main.tf`
+* `modules/cvm-instance/variables.tf`
+
+The update changes CVM provisioning behavior and the module input contract. Review image, instance type, system disk, data disk, network, security group, user data, metadata, and lifecycle changes before upgrading existing instances.
+
+### TKE native node-pool module
+
+Updated:
+
+* `modules/tke-native-node-pool/main.tf`
+* `modules/tke-native-node-pool/variables.tf`
+
+The update changes native node-pool resource configuration and variables. Review scaling, instance specifications, subnet selection, security groups, labels, taints, runtime, disk, login, and lifecycle settings for potential node rotation or replacement.
+
+## Removed
+
+### Legacy combined CLS module
+
+Removed the complete legacy module:
+
+```text
+modules/cls/
+```
+
+Deleted files:
+
+* `modules/cls/README.md`
+* `modules/cls/main.tf`
+* `modules/cls/outputs.tf`
+* `modules/cls/variables.tf`
+* `modules/cls/versions.tf`
+
+Use the dedicated `modules/cls-logset` and `modules/cls-topic` modules instead.
+
+## Breaking Changes
+
+> [!WARNING]
+> Removing `modules/cls` is a breaking source-path and Terraform module-interface change.
+
+Consumers using the previous source path must migrate to the new CLS modules. Depending on their implementation, they may also need to update:
+
+* Module source paths.
+* Input variables.
+* Output references.
+* Dependency wiring between Logsets and Topics.
+* Terraform resource addresses and state.
+
+Without state migration, Terraform may propose destroying resources under the removed module and recreating them under the new module paths.
+
+Additional compatibility risks may exist in the updated CloudAudit, Config, CDB for MySQL, CVM, and TKE native node-pool interfaces. Validate the full diff before classifying those updates as backward compatible.
+
+## Migration Notes
+
+### CLS module migration
+
+1. Inventory every reference to `modules/cls` in Terraform and Terragrunt configurations.
+2. Replace the legacy module with `modules/cls-logset` and `modules/cls-topic` as required.
+3. Pass the Logset ID from the Logset module to the Topic module explicitly.
+4. Map legacy CLS inputs and outputs to the new module contracts.
+5. Use Terraform `moved` blocks, `terraform state mv`, or import to preserve existing Logsets and Topics.
+6. Verify CloudAudit and Config delivery dependencies use the new CLS outputs.
+
+Example migration pattern:
+
+```bash
+terraform state mv \
+  'module.cls.tencentcloud_cls_logset.this' \
+  'module.cls_logset.tencentcloud_cls_logset.this'
+
+terraform state mv \
+  'module.cls.tencentcloud_cls_topic.this' \
+  'module.cls_topic.tencentcloud_cls_topic.this'
+```
+
+> Replace the example addresses with the actual resource addresses returned by `terraform state list` and the final module implementation.
+
+### Config module adoption
+
+1. Confirm whether Config recorders, aggregators, rules, compliance packs, deliveries, and remediation resources already exist.
+2. Import existing resources before managing them through the new modules.
+3. Establish explicit dependencies between the recorder, rules, compliance packs, delivery destinations, alarms, and remediation configuration.
+4. Verify CLS and COS destinations, retention, encryption, and CAM permissions.
+5. Review output changes before updating downstream Terragrunt dependencies.
+
+### Database, compute, and TKE updates
+
+1. Compare old and new variable definitions for CDB for MySQL, CVM, and TKE native node pools.
+2. Check the Terraform plan for replacement of database instances, CVM instances, node pools, or worker nodes.
+3. Test TKE encryption protection with the intended KMS key and execution identity.
+4. Validate backup and rollback procedures before applying changes to production workloads.
+
+## Security and Operational Considerations
+
+* Apply least-privilege CAM policies to Config, CLS, COS, KMS, CDB, CVM, and TKE resources.
+* Confirm that Config delivery destinations use encryption and restricted access.
+* Ensure Terraform state containing infrastructure identifiers or sensitive configuration is encrypted and access controlled.
+* Review KMS key deletion protection, rotation, and cross-account access before enabling TKE encryption protection.
+* Treat CDB, CVM, and TKE replacement as potentially disruptive until the final plan proves otherwise.
+* Verify CLS Topic retention and indexing settings after migration from the combined module.
+
+## Validation Checklist
+
+### General
+
+* [ ] Run `terraform fmt -check -recursive`.
+* [ ] Run `terraform init -upgrade` for affected stacks.
+* [ ] Run `terraform validate` for every new and updated module.
+* [ ] Review provider-version changes and lock-file updates.
+* [ ] Review production plans for unintended destruction or replacement.
+
+### CLS and audit logging
+
+* [ ] Locate every consumer of the removed `modules/cls` source path.
+* [ ] Confirm Logsets and Topics map correctly to the new modules.
+* [ ] Migrate or import existing CLS resources before applying.
+* [ ] Verify CloudAudit logs are delivered to the intended CLS Topic.
+* [ ] Verify Config data is delivered to the intended CLS and COS destinations.
+* [ ] Confirm retention, indexing, encryption, and access policies.
+
+### Tencent Cloud Config
+
+* [ ] Verify the Config recorder scope and supported resource types.
+* [ ] Verify aggregator membership and account scope.
+* [ ] Validate rules and compliance-pack assignments.
+* [ ] Test delivery and aggregate-delivery configuration.
+* [ ] Test alarm policies and notification paths.
+* [ ] Test remediation behavior in a non-production environment.
+* [ ] Confirm repeated applies are idempotent.
+
+### CDB, CVM, and TKE
+
+* [ ] Confirm the CDB plan contains no unintended replacement, storage reduction, or availability impact.
+* [ ] Confirm the CVM plan contains no unintended instance replacement or disk recreation.
+* [ ] Confirm the TKE node-pool plan contains no unexpected node rotation or capacity loss.
+* [ ] Verify TKE encryption-protection KMS and CAM prerequisites.
+* [ ] Validate workload availability and rollback procedures before production rollout.
+
+
+## October 13, 2026
+
+## Summary
+
+This release updates the Tencent Cloud CCN VPN component and the reusable CCN route-table module. The changes revise CCN VPN orchestration, module inputs and outputs, route-table resource configuration, and module documentation.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resource behavior, variable changes, output compatibility, defaults, and state impact must be verified against the complete `git diff` before release.
+
+## Updated
+
+### CCN VPN component
+
+Updated:
+
+* `components/network/ccn-vpn/main.tf`
+* `components/network/ccn-vpn/variables.tf`
+
+The changes affect the CCN VPN component's resource orchestration and input interface. Review the complete diff for:
+
+* New, renamed, removed, or retyped variables.
+* Changes to CCN, VPN Gateway, VPN connection, or route dependencies.
+* Updated integration with the CCN route-table module.
+* Conditional resource creation and `for_each` keys.
+* Default values that may alter existing plans.
+
+### CCN route-table module
+
+Updated:
+
+* `modules/ccn-route-table/main.tf`
+* `modules/ccn-route-table/variables.tf`
+* `modules/ccn-route-table/outputs.tf`
+* `modules/ccn-route-table/README.md`
+
+The changes revise the module's resource implementation, public input and output contracts, and usage documentation.
+
+Review the complete diff for:
+
+* CCN route-table and route-entry behavior.
+* Route destination, next-hop, priority, and advertisement settings.
+* Changes to resource addressing or `for_each` keys.
+* New or changed outputs consumed by Terraform or Terragrunt dependencies.
+* Updated examples, prerequisites, and module usage guidance.
+
+## Compatibility Considerations
+
+Potential compatibility risks include:
+
+* Calling configurations failing because of renamed, removed, or newly required inputs.
+* Terraform or Terragrunt dependencies failing because of changed or removed outputs.
+* Resource recreation caused by changes to route identifiers, `for_each` keys, or immutable arguments.
+* Existing CCN routes being replaced, duplicated, withdrawn, or republished.
+* Routing changes affecting communication between VPN-connected networks and CCN attachments.
+
+If Terraform resource addresses have changed, use `moved` blocks or `terraform state mv` instead of allowing existing routes to be destroyed and recreated.
+
+## Migration Notes
+
+1. Compare the previous and updated CCN VPN variable definitions.
+2. Update all callers for renamed, removed, retyped, or newly required inputs.
+3. Compare the previous and updated CCN route-table outputs.
+4. Update Terraform and Terragrunt dependencies that consume changed outputs.
+5. Check whether route resource addresses or `for_each` keys have changed.
+6. Add `moved` blocks or migrate Terraform state where existing resources changed addresses.
+7. Review CCN route priorities, destination CIDRs, and next-hop configuration.
+8. Run `terraform plan` in a non-production environment before upgrading production stacks.
+
+## Validation Checklist
+
+* [ ] Run `terraform fmt -check -recursive`.
+* [ ] Run `terraform init -upgrade` for affected stacks.
+* [ ] Run `terraform validate` for the CCN VPN component and CCN route-table module.
+* [ ] Verify all CCN VPN inputs match the updated variable contract.
+* [ ] Verify all downstream dependencies use valid route-table outputs.
+* [ ] Confirm CCN route destinations, next hops, and priorities are correct.
+* [ ] Confirm no duplicate or overlapping routes are introduced.
+* [ ] Confirm VPN-connected networks remain reachable through CCN.
+* [ ] Check the plan for unexpected route deletion, replacement, or recreation.
+* [ ] Verify Terraform state migration if resource addresses changed.
+* [ ] Confirm the README examples match the final module interface.
+* [ ] Review the production plan before applying.
+
+
+## October 09, 2026
+
+## Summary
+
+This release extends the NAT Gateway network component with optional default-route creation and optional publication of the created routes to Cloud Connect Network (CCN).
+
+The new behavior is opt-in for each NAT Gateway and remains disabled by default.
+
+## Added
+
+### Main VPC route-table discovery
+
+- Added the `tencentcloud_vpc_route_tables.route_tables` data source.
+- Queries the route table associated with the main route table of `var.vpc_id`.
+- Derives `local.default_route_table_id` from the route table marked as default.
+
+### NAT Gateway default-route management
+
+- Added the `tencentcloud_route_table_entry.route_entry` resource.
+- Creates an optional `0.0.0.0/0` route in the VPC default route table for each configured NAT Gateway.
+- Uses the corresponding NAT Gateway as the route next hop:
+  - `next_type = "NAT"`
+  - `next_hub = <nat_gateway_id>`
+- Ignores external changes to the route entry's `disabled` state because this setting may be managed automatically by other Tencent Cloud services, such as Cloud Firewall (CFW).
+
+### CCN route publication
+
+- Added `local.publish_to_ccn_ids` to collect route-item IDs that are eligible for CCN publication.
+- Added `tencentcloud_vpc_notify_routes.notify_one` to publish the first eligible route.
+- Added `tencentcloud_vpc_notify_routes.notify_others` to publish any additional eligible routes after the first publication resource.
+- Publishes each selected route item through a separate `tencentcloud_vpc_notify_routes` resource.
+
+### New NAT Gateway options
+
+Added the following optional attributes to each object in `var.nat_gateways`:
+
+```hcl
+route_table_entry = optional(bool, false)
+publish_to_ccn    = optional(bool, false)
+```
+
+- `route_table_entry`: creates a default route through the NAT Gateway.
+- `publish_to_ccn`: publishes the created route to CCN when `route_table_entry` is also enabled.
+
+## Changed
+
+- Extended the NAT Gateway component from resource provisioning and flow monitoring to optional VPC route orchestration.
+- Added an explicit dependency from additional CCN route-publication resources to the first publication resource.
+- Normalized whitespace in the `public_ips` variable definition.
+
+## Compatibility
+
+This change does not modify existing behavior unless the new options are enabled. Both new attributes default to `false`, so existing NAT Gateway definitions remain compatible without configuration changes.
+
+## Operational Considerations
+
+> [!WARNING]
+> Enabling these options changes VPC routing behavior and may affect traffic flow across NAT Gateway, CFW, and CCN paths.
+
+- `route_table_entry = true` attempts to create `0.0.0.0/0` in the VPC default route table. An existing route with the same destination may cause a conflict or an API error.
+- `publish_to_ccn = true` is effective only when `route_table_entry = true` because only routes created by this component are collected for publication.
+- Publishing `0.0.0.0/0` to CCN can influence route selection in attached networks. Review route priorities and overlapping routes before applying.
+- The main/default VPC route table must be discoverable. If no matching route table is returned, route creation receives an empty route-table ID and fails when enabled.
+- The `disabled` attribute is intentionally excluded from drift reconciliation. Changes made by CFW or another Tencent Cloud service will not be reverted by Terraform.
+- `notify_others` depends on `notify_one`, but multiple additional publication resources may still be processed in parallel. Confirm that the Tencent Cloud API accepts concurrent publication requests when more than two routes are enabled.
+
+## Configuration Example
+
+```hcl
+nat_gateways = {
+  primary = {
+    name                = "primary-nat-gateway"
+    route_table_entry   = true
+    publish_to_ccn      = true
+    enable_flow_monitor = true
+  }
+}
+```
+
+## Migration Notes
+
+No migration is required for existing configurations because the new attributes are optional and disabled by default.
+
+To enable the new behavior:
+
+1. Confirm that `var.vpc_id` identifies the intended VPC.
+2. Verify the VPC default route table and check for an existing `0.0.0.0/0` route.
+3. Set `route_table_entry = true` for each NAT Gateway that should become a default-route next hop.
+4. Set `publish_to_ccn = true` only when that route should also be advertised to CCN.
+5. Review CFW routing and route-disable behavior before applying.
+6. Run `terraform plan` and inspect all route-table and CCN notification changes.
+7. Apply in a non-production environment before enabling the route in production.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform validate` for the NAT Gateway component.
+- [ ] Confirm the data source returns the expected main/default route table.
+- [ ] Verify existing NAT Gateway configurations produce no changes when both new options remain `false`.
+- [ ] Confirm `route_table_entry = true` creates exactly one `0.0.0.0/0` route for the selected NAT Gateway.
+- [ ] Confirm no conflicting default route already exists.
+- [ ] Verify `publish_to_ccn = true` publishes the created route when route creation is enabled.
+- [ ] Verify `publish_to_ccn = true` with `route_table_entry = false` creates no CCN notification resource.
+- [ ] Test multiple NAT Gateways with CCN publication enabled.
+- [ ] Confirm CFW-managed changes to the route `disabled` state do not produce Terraform drift.
+- [ ] Review CCN route priorities and overlapping CIDR advertisements.
+- [ ] Confirm the final plan contains no unintended route replacement or traffic-path changes.
+
+
+## September 30, 2026
+
+## Summary
+
+This release delivers a repository-wide documentation refresh across Tencent Cloud components and modules, introduces a standalone CKafka module, and updates Redis and TDMQ Pulsar resource implementations. It also begins consolidating bilingual documentation by removing legacy `README_EN.md` files and adding dedicated `README_CN.md` files for selected security modules.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Documentation details and the exact Redis, TDMQ Pulsar, and CKafka resource behavior should be verified against the complete `git diff` before release.
+
+## Added
+
+### CKafka module
+
+Added a new standalone module:
+
+```text
+modules/ckafka/
+```
+
+The module provides a reusable Terraform boundary for Tencent Cloud CKafka provisioning and is expected to include resource definitions, variables, outputs, provider constraints, and usage documentation.
+
+### Network component documentation
+
+Added README documentation for:
+
+- `components/network/clb`
+- `components/network/nat-gateway`
+
+### Chinese documentation
+
+Added dedicated `README_CN.md` files for selected modules:
+
+#### Cloud Firewall
+
+- `cfw-nat-firewall-switch`
+- `cfw-nat-instance`
+- `cfw-nat-policy`
+- `cfw-vpc-firewall-switch`
+- `cfw-vpc-instance`
+- `cfw-vpc-policy`
+
+#### Secrets Manager
+
+- `ssm-secret`
+
+#### Web Application Firewall
+
+- `waf-instance-attack-log-post-config`
+- `waf-log-post-ckafka-flow`
+- `waf-log-post-cls-flow`
+- `waf-saas-domain`
+- `waf-saas-instance`
+- `waf-saas-ip-access-control`
+
+## Changed
+
+### Repository-wide component documentation
+
+Updated README documentation across the following component domains:
+
+- Account Factory baselines, CAM roles, and CAM users
+- CloudAudit, Config, and event alerting
+- Preventive compliance policies
+- ACL, CCN, CCN-VPC, CCN-VPN, DMZ, and security groups
+- Organization AssumeRole, CIC roles, departments, members, service assignments, and tag policies
+- Anti-DDoS, Bastion Host, Cloud Firewall, CSC, KMS, and WAF
+
+These updates improve documentation consistency and align component usage guidance with the current Terraform interfaces and module architecture.
+
+### Repository-wide module documentation
+
+Updated README documentation for modules covering:
+
+- CCN attachments, bandwidth limits, and route tables
+- TencentDB for MySQL
+- Cloud Firewall resources, policies, switches, synchronization, and address templates
+- CloudAudit tracks and event tracks
+- CLS resources, alarms, and notice content
+- Control Center account baseline configuration and batch application
+- COS, CVM, NAT Gateway, SSL, SSM, and tagging
+- Private DNS endpoints, forwarding, records, zones, subscriptions, and VPC attachments
+- Tencent Cloud Organization and Identity Center resources
+- TKE add-ons, endpoints, and node pools
+- VPC ACLs, route tables, subnets, and security groups
+- VPN gateways, connections, routes, SSL clients, and certificates
+- WAF domains, instances, rules, and log-delivery flows
+
+### Redis module
+
+Updated:
+
+- `modules/redis/main.tf`
+- `modules/redis/variables.tf`
+
+The changes affect Redis resource configuration and its input interface. Review the complete diff for new, renamed, removed, or retyped variables and for arguments that may force instance replacement.
+
+### TDMQ Pulsar module
+
+Updated:
+
+- `modules/tdmq-pulsar/main.tf`
+
+The change refines TDMQ Pulsar provisioning or lifecycle behavior. Review the complete diff for cluster, networking, storage, environment, namespace, or permission changes.
+
+## Documentation Standardization
+
+Legacy `README_EN.md` files were removed from selected Cloud Firewall, Secrets Manager, and WAF modules. Corresponding `README.md` files were updated, while dedicated `README_CN.md` files were added for a subset of modules.
+
+Removed legacy English documentation includes:
+
+### Cloud Firewall
+
+- `cfw-address-template/README_EN.md`
+- `cfw-edge-firewall-switch/README_EN.md`
+- `cfw-edge-policy/README_EN.md`
+- `cfw-nat-firewall-switch/README_EN.md`
+- `cfw-nat-instance/README_EN.md`
+- `cfw-nat-policy/README_EN.md`
+- `cfw-sync-asset/README_EN.md`
+- `cfw-sync-route/README_EN.md`
+- `cfw-vpc-firewall-switch/README_EN.md`
+- `cfw-vpc-instance/README_EN.md`
+- `cfw-vpc-policy/README_EN.md`
+
+### Secrets Manager
+
+- `ssm-secret/README_EN.md`
+
+### Web Application Firewall
+
+- `waf-instance-attack-log-post-config/README_EN.md`
+- `waf-log-post-ckafka-flow/README_EN.md`
+- `waf-log-post-cls-flow/README_EN.md`
+- `waf-saas-domain/README_EN.md`
+- `waf-saas-instance/README_EN.md`
+- `waf-saas-ip-access-control/README_EN.md`
+
+This structure appears to standardize the primary documentation filename as `README.md` and use `README_CN.md` where a separate Chinese version is maintained.
+
+## Compatibility
+
+Documentation-only changes do not affect Terraform-managed resources. However, consumers that link directly to removed `README_EN.md` paths must update those references.
+
+The following changes require functional review:
+
+- New CKafka resources and module interface
+- Redis resource and variable updates
+- TDMQ Pulsar resource updates
+
+Potential risks include:
+
+- Redis or Pulsar arguments that trigger resource replacement
+- Changed Redis defaults affecting existing plans
+- New CKafka provider or CAM requirements
+- Broken documentation links following `README_EN.md` removal
+- Inconsistent language navigation between `README.md` and `README_CN.md`
+
+## Migration Notes
+
+1. Update links that reference removed `README_EN.md` files to the corresponding `README.md` files.
+2. Add reciprocal language links between `README.md` and `README_CN.md` where both are present.
+3. Verify all README examples against current variables, outputs, and module source paths.
+4. Review the Redis and TDMQ Pulsar diffs before upgrading existing deployments.
+5. Run `terraform init -upgrade` if CKafka introduces newer provider constraints.
+6. Import existing CKafka resources before managing them with the new module.
+7. Test Redis, TDMQ Pulsar, and CKafka plans in non-production environments.
+
+## Validation Checklist
+
+### Documentation
+
+- [ ] Check all relative links and anchors.
+- [ ] Confirm removed `README_EN.md` files have valid replacements.
+- [ ] Confirm `README.md` and `README_CN.md` language links are reciprocal.
+- [ ] Verify Terraform examples match current input variables and outputs.
+- [ ] Verify module source paths and directory names.
+- [ ] Check Markdown tables and code blocks render correctly on GitHub.
+- [ ] Confirm no documentation references removed or renamed resources.
+
+### Terraform
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform init -backend=false` for CKafka, Redis, and TDMQ Pulsar.
+- [ ] Run `terraform validate` for all three modules.
+- [ ] Verify CKafka networking, specifications, outputs, and CAM requirements.
+- [ ] Verify Redis plans contain no unintended replacement or data loss.
+- [ ] Verify TDMQ Pulsar plans contain no unintended replacement or retention impact.
+- [ ] Review the final plans before applying to production.
+
+
+## September 22, 2026
+
+## Summary
+
+This release fixes protocol-specific argument handling in the CLB listener module, corrects variable references used by certificate and keepalive configuration, and removes the module's listener and rule outputs.
+
+## Fixed
+
+### Multi-certificate evaluation
+
+- Replaced the invalid `each.value.sni_switch` reference with the listener certificate configuration.
+- Defaulted an unset SNI switch to `false` through `coalesce`.
+- Limited `multi_cert_info` generation to:
+  - `TCP_SSL` listeners; or
+  - `HTTPS` listeners with SNI disabled.
+- Preserved the restriction that `multi_cert_info` cannot be used together with the single-certificate arguments.
+
+Updated condition:
+
+```hcl
+for_each = (
+  var.protocol == "TCP_SSL" ||
+  (var.protocol == "HTTPS" && !coalesce(var.certificate.sni_switch, false))
+) && var.multi_cert_info != null ? var.multi_cert_info : []
+```
+
+### HTTP keepalive configuration
+
+- Replaced the incorrect `each.value.keepalive_enable` reference with `var.keepalive_enable`.
+- Applied `keepalive_enable` only to `HTTP` and `HTTPS` listeners.
+- Returned `null` for protocols that do not support this option.
+
+### Protocol-aware SNAT configuration
+
+- Restricted `snat_enable` to `HTTP` and `HTTPS` listeners.
+- Forced the argument to `null` for `TCP`, `UDP`, `TCP_SSL`, QUIC, and other unsupported listener protocols.
+- Prevented Tencent Cloud API errors caused by sending `snat_enable` to unsupported listener types.
+
+## Removed
+
+Removed `modules/clb-listener/output.tf` and the following module outputs:
+
+- `listener_id`
+- `listener_name`
+- `listener_port`
+- `listener_protocol`
+- `rule_id`
+
+## Breaking Changes
+
+> [!WARNING]
+> Removing the output file is a breaking module interface change.
+
+Any Terraform or Terragrunt configuration that references the removed outputs will fail with an unsupported attribute error after upgrading.
+
+Affected references may include:
+
+```hcl
+module.clb_listener.listener_id
+module.clb_listener.listener_name
+module.clb_listener.listener_port
+module.clb_listener.listener_protocol
+module.clb_listener.rule_id
+```
+
+Update downstream consumers before adopting this version. If these values are still required, expose equivalent outputs from the module or obtain them from the relevant CLB resources or data sources.
+
+Removing outputs does not remove the underlying CLB listener or listener-rule resources from Terraform state. It only removes their exported values from the module interface.
+
+## Review Note
+
+If `var.certificate` itself can be `null`, this expression may still fail before `coalesce` is evaluated:
+
+```hcl
+coalesce(var.certificate.sni_switch, false)
+```
+
+Use a null-safe expression when the entire object is optional, for example:
+
+```hcl
+coalesce(try(var.certificate.sni_switch, null), false)
+```
+
+Alternatively, define `certificate` as a non-null object with an optional `sni_switch` attribute that defaults to `false`.
+
+## Migration Notes
+
+1. Search all consumers for references to the five removed outputs.
+2. Replace those references or restore the outputs if they remain part of the public module contract.
+3. Run `terraform plan` for TCP, UDP, TCP_SSL, HTTP, and HTTPS listener configurations.
+4. Confirm that `snat_enable` appears only for HTTP and HTTPS listeners.
+5. Confirm that `keepalive_enable` uses the module variable and is omitted for unsupported protocols.
+6. Validate single-certificate, multi-certificate, SNI-enabled, and SNI-disabled HTTPS scenarios.
+7. Confirm that `var.certificate` cannot be null, or make the SNI expression null-safe.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform validate` for the CLB listener module.
+- [ ] Verify TCP and UDP plans omit `snat_enable`.
+- [ ] Verify HTTP and HTTPS plans set `snat_enable` as configured.
+- [ ] Verify HTTP and HTTPS keepalive configuration.
+- [ ] Verify TCP_SSL multi-certificate configuration.
+- [ ] Verify HTTPS multi-certificate configuration with SNI disabled.
+- [ ] Verify HTTPS with SNI enabled does not configure `multi_cert_info`.
+- [ ] Verify behavior when `certificate.sni_switch` is omitted.
+- [ ] Verify behavior when the complete `certificate` object is null.
+- [ ] Update or remove all downstream references to deleted outputs.
+- [ ] Review the final plan for unintended listener or rule replacement.
+
+
+
+## September 16, 2026
+
+## Summary
+
+This release adds a reusable Private DNS component and a dedicated module for enabling the Tencent Cloud Private DNS zone service. The new structure separates service activation from Private DNS zone orchestration, making Private DNS deployments easier to compose across Landing Zone accounts and VPC environments.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree directory list. Exact resources, variables, outputs, defaults, dependencies, and provider constraints should be verified against the complete `git diff --no-index /dev/null <file>` output or the staged diff before release.
+
+## Added
+
+### Private DNS component
+
+Added:
+
+```text
+components/network/private-dns/
+```
+
+The component provides a component-level entry point for orchestrating Tencent Cloud Private DNS resources and their network dependencies.
+
+Expected responsibilities include:
+
+- Private DNS zone configuration.
+- VPC association and resolution scope management.
+- Private DNS records or related zone settings.
+- Integration with Landing Zone network deployments.
+- Exposing outputs for downstream Terraform or Terragrunt dependencies.
+
+### Private DNS service enablement module
+
+Added:
+
+```text
+modules/private-dns-zone-service-enable/
+```
+
+The module provides a dedicated Terraform boundary for enabling the Tencent Cloud Private DNS zone service before dependent Private DNS resources are provisioned.
+
+This separation allows callers to:
+
+- Enable the service once per required account or region scope.
+- Establish an explicit dependency between service activation and zone creation.
+- Reuse the service-enablement logic across multiple Private DNS deployments.
+- Keep service activation separate from zone and record lifecycle management.
+
+## Architecture
+
+The recommended dependency flow is:
+
+```text
+Private DNS service enablement
+              |
+              v
+     Private DNS component
+              |
+              v
+    Zones, VPC associations,
+       records, and outputs
+```
+
+A typical deployment should enable the Private DNS service first, then pass the required account, region, VPC, and zone configuration to the Private DNS component.
+
+## Compatibility
+
+These additions are backward compatible because no existing files or module paths are shown as modified or removed.
+
+Potential integration considerations include:
+
+- Private DNS service activation may be account- or region-scoped.
+- Existing manually enabled services may need to be imported or treated as externally managed.
+- Existing Private DNS zones must be imported before being managed by the new component.
+- VPC associations must not conflict with zones already managed elsewhere.
+- Required CAM permissions must be granted to the Terraform execution identity.
+
+## Migration Notes
+
+1. Confirm whether the Private DNS service is already enabled in each target account.
+2. Use `modules/private-dns-zone-service-enable` only where Terraform should manage service activation.
+3. Import existing service or zone resources when supported instead of creating duplicates.
+4. Configure `components/network/private-dns` with the correct VPC and zone dependencies.
+5. Verify whether the component manages zones only or also manages records and VPC associations.
+6. Run `terraform init`, `terraform validate`, and `terraform plan` before applying.
+7. Review the plan for duplicate zones, conflicting VPC associations, or unexpected DNS record changes.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -check -recursive`.
+- [ ] Run `terraform init -backend=false` for both new directories.
+- [ ] Run `terraform validate` for the module and component.
+- [ ] Confirm required Terraform and Tencent Cloud provider versions.
+- [ ] Confirm the Terraform identity has the required Private DNS and CAM permissions.
+- [ ] Verify service enablement in a test account.
+- [ ] Verify Private DNS zone creation or import.
+- [ ] Verify VPC associations and DNS resolution scope.
+- [ ] Verify record creation and resolution from associated VPCs, if managed by the component.
+- [ ] Verify outputs required by downstream modules and Terragrunt dependencies.
+- [ ] Confirm repeated applies are idempotent.
+- [ ] Review the final plan for duplicate or destructive DNS changes.
+
+## September 07, 2026
+
+## Summary
+
+This release introduces a modular Terraform implementation for Tencent Cloud EdgeOne (TEO) and updates CloudAudit and TKE permission handling. New modules separate EdgeOne zone, domain, certificate, and acceleration-rule management so each capability can be composed independently.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resource behavior, variables, outputs, CAM permissions, defaults, and compatibility requirements should be verified against the complete `git diff` before release.
+
+## Added
+
+### EdgeOne modules
+
+Added the following standalone Terraform modules:
+
+- `modules/teo` — EdgeOne zone or core service configuration.
+- `modules/teo-domain` — EdgeOne acceleration-domain management.
+- `modules/teo-cert` — EdgeOne certificate management and certificate association.
+- `modules/teo-acc-rule` — EdgeOne acceleration-rule configuration.
+
+The new module structure separates EdgeOne responsibilities:
+
+```text
+modules/
+├── teo/             # EdgeOne zone and core configuration
+├── teo-domain/      # Acceleration domains
+├── teo-cert/        # Certificates and certificate bindings
+└── teo-acc-rule/    # Acceleration rules
+```
+
+This design enables callers to:
+
+- Provision EdgeOne zones independently.
+- Manage multiple acceleration domains under a zone.
+- Configure certificates separately from domain resources.
+- Apply acceleration rules through a dedicated module.
+- Reuse the modules across Landing Zone and application environments.
+
+## Changed
+
+### CloudAudit component
+
+Updated `components/audit-log/cloud-audit/main.tf`.
+
+The change affects CloudAudit resource configuration or storage integration. Review the complete diff for changes to:
+
+- Audit track creation and delivery settings.
+- COS or CLS storage references.
+- Resource dependencies.
+- Account UIN and App ID handling.
+- Conditional resource indexing.
+
+### CloudAudit CAM permissions
+
+Updated CAM configuration for:
+
+- `modules/cloudaudit-events-track`
+- `modules/cloudaudit-track`
+
+The changes revise the permissions or role configuration required for CloudAudit event tracking and audit-track management.
+
+Before upgrading, verify:
+
+- Trusted service principals.
+- Preset and custom policy attachments.
+- Policy action and resource scopes.
+- Service-linked or custom role behavior.
+- Whether existing CAM resources change Terraform addresses.
+
+### TKE instance module
+
+Updated:
+
+- `modules/tke-instance/cam.tf`
+- `modules/tke-instance/main.tf`
+
+The changes affect TKE instance provisioning and its associated CAM permissions. Review cluster resource dependencies, service-role requirements, and the permissions granted to TKE before applying.
+
+## Architecture
+
+A typical EdgeOne composition can now follow this dependency flow:
+
+```text
+TEO zone
+   ├── TEO domain
+   │     └── TEO acceleration rules
+   └── TEO certificate
+         └── Domain certificate binding
+```
+
+Recommended deployment order:
+
+1. Create or import the EdgeOne zone through `modules/teo`.
+2. Add acceleration domains through `modules/teo-domain`.
+3. Create or reference certificates through `modules/teo-cert`.
+4. Configure acceleration behavior through `modules/teo-acc-rule`.
+5. Pass module outputs explicitly between dependent modules.
+
+## Security Considerations
+
+- Review CloudAudit and TKE CAM policy changes against least-privilege requirements.
+- Avoid wildcard actions and resources unless required by Tencent Cloud service behavior.
+- Confirm that EdgeOne certificate inputs do not expose private keys in logs, outputs, or version control.
+- Mark certificate-sensitive variables and outputs as `sensitive = true` where applicable.
+- Confirm that Terraform state containing certificate material is stored in an encrypted remote backend with restricted access.
+- Validate domain ownership and certificate coverage before enabling production traffic.
+
+## Compatibility
+
+The new EdgeOne modules are additive and should not affect existing resources unless current EdgeOne resources are migrated into them.
+
+The modified CloudAudit and TKE modules may introduce compatibility risks if they include:
+
+- CAM role or policy resource-address changes.
+- Added or removed permissions.
+- Changed resource dependencies.
+- New required inputs.
+- Changed conditional resource creation.
+- TKE resource replacement behavior.
+
+Review the complete Terraform plan before applying to existing environments.
+
+## Migration Notes
+
+1. Review the complete diff for CloudAudit and TKE changes before upgrading existing deployments.
+2. Compare CAM policies with current production permissions and approve any privilege expansion.
+3. If CAM resource addresses changed, use `terraform state mv` to preserve existing roles and attachments.
+4. Import existing EdgeOne resources before managing them with the new modules.
+5. Do not create duplicate EdgeOne zones, domains, certificates, or rules for resources that already exist.
+6. Wire module dependencies using zone IDs, domain IDs, and certificate IDs rather than hard-coded values where possible.
+7. Run `terraform init -upgrade` if the new modules introduce updated Tencent Cloud provider requirements.
+8. Validate EdgeOne modules in a non-production zone before routing production traffic.
+
+Example state migration pattern:
+
+```bash
+terraform state mv \
+  '<old-resource-address>' \
+  'module.<edgeone-module>.<new-resource-address>'
+```
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform init -upgrade` for affected stacks.
+- [ ] Run `terraform validate` for CloudAudit, TKE, and all EdgeOne modules.
+- [ ] Review CloudAudit CAM policies for least privilege.
+- [ ] Verify CloudAudit track creation and log delivery.
+- [ ] Review TKE CAM policies for least privilege.
+- [ ] Verify TKE instance creation and update behavior.
+- [ ] Create or import an EdgeOne zone.
+- [ ] Create or import an EdgeOne acceleration domain.
+- [ ] Validate DNS ownership and origin connectivity.
+- [ ] Create or associate a certificate without exposing private key material.
+- [ ] Apply and verify EdgeOne acceleration rules.
+- [ ] Verify module outputs required by downstream modules.
+- [ ] Review the plan for unexpected CAM, CloudAudit, TKE, or EdgeOne replacement.
+- [ ] Test EdgeOne configuration in a non-production environment.
+
+
+## September 03, 2026
+
+## Summary
+
+This release updates IAM policy assignment, KMS key management, CVM configuration, MongoDB provisioning, and Private DNS extended endpoint modules. It also adds MongoDB CAM integration and expands documentation for billing, database, CCN routing, and VPC route-notification modules.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact variable, resource, permission, default-value, and provider-version changes must be verified against the complete `git diff` before release.
+
+## Added
+
+### MongoDB CAM integration
+
+- Added `modules/mongodb/cam.tf`.
+- Introduced dedicated CAM resources or permissions for MongoDB provisioning and management.
+- Separated MongoDB authorization logic from the main database resource implementation.
+
+### Module documentation
+
+Added README documentation for:
+
+- `modules/billing-budget`
+- `modules/billing-instance`
+- `modules/ccn-route-switch`
+- `modules/cdb-postgres`
+- `modules/vpc-notify-routes`
+
+The new documentation improves module discovery and is expected to describe usage, inputs, outputs, dependencies, and examples for the affected modules.
+
+## Changed
+
+### CAM group and user policies
+
+Updated the following IAM modules:
+
+- `modules/cam-group-user-policy`
+- `modules/cam-user-policy`
+
+Changes affect resource implementation and input-variable definitions for attaching policies to CAM groups and users.
+
+Before upgrading, verify:
+
+- Policy ID and policy name handling.
+- Preset and custom policy assignment behavior.
+- Collection types and `for_each` resource keys.
+- User/group association behavior.
+- Whether existing attachment addresses change in Terraform state.
+
+### KMS key module
+
+Updated `modules/kms-key` resource definitions and input variables.
+
+Review the full diff for changes to:
+
+- Key creation and lifecycle settings.
+- Key usage, rotation, description, and tags.
+- BYOK or external key material behavior.
+- Deletion protection and scheduled deletion.
+- Input defaults that could affect existing keys.
+
+### CVM instance module
+
+Updated the `modules/cvm-instance` input-variable interface.
+
+Existing callers should check for added, renamed, removed, or retyped CVM inputs before upgrading.
+
+### MongoDB module
+
+Updated the MongoDB resource implementation and variable interface, alongside the new CAM configuration file.
+
+Review changes related to:
+
+- Instance specifications and topology.
+- Networking and security groups.
+- Authentication or service-role requirements.
+- Backup, encryption, maintenance, and lifecycle settings.
+- Provider permissions required to create or manage MongoDB resources.
+
+### Private DNS extended endpoint module
+
+Updated:
+
+- Resource implementation.
+- Input-variable definitions.
+- Terraform and Tencent Cloud provider compatibility constraints.
+
+Review endpoint networking, VPC association, forwarding, access-control, and lifecycle behavior before upgrading existing deployments.
+
+### Anti-DDoS module compatibility
+
+Updated `modules/anti-ddos/version.tf` to revise Terraform or Tencent Cloud provider compatibility requirements.
+
+## Documentation
+
+The following modules now include dedicated README files:
+
+| Module | Purpose |
+|---|---|
+| `billing-budget` | Billing budget configuration and cost-control thresholds |
+| `billing-instance` | Billing or account-level instance configuration |
+| `ccn-route-switch` | CCN route enablement or route-switch management |
+| `cdb-postgres` | TencentDB for PostgreSQL provisioning |
+| `vpc-notify-routes` | VPC route notification or route propagation configuration |
+
+## Compatibility
+
+No module path removals are shown in the supplied file list. However, changes to resource definitions and variable interfaces may affect existing callers or Terraform state.
+
+Potential compatibility risks include:
+
+- CAM attachment `for_each` key changes causing attachment recreation.
+- KMS argument changes causing key replacement or lifecycle changes.
+- MongoDB CAM permission changes requiring new authorization.
+- MongoDB or Private DNS input changes affecting existing module calls.
+- Updated provider constraints requiring `terraform init -upgrade`.
+- CVM variable changes impacting Terragrunt or Terraform caller validation.
+
+## Migration Notes
+
+1. Review the complete diff for all modified `variables.tf` files.
+2. Update Terraform and Terragrunt callers for renamed or newly required inputs.
+3. Run `terraform init -upgrade` for Anti-DDoS and Private DNS stacks with changed version constraints.
+4. Review CAM policy attachment resource addresses before applying.
+5. If CAM attachment keys changed, migrate existing addresses with `terraform state mv` rather than recreating attachments.
+6. Confirm that the MongoDB deployment identity can create or attach all CAM resources defined in `cam.tf`.
+7. Review KMS plans carefully; avoid replacing or deleting production encryption keys.
+8. Verify that Private DNS extended endpoint networking remains unchanged unless replacement is intended.
+9. Validate each new README against the actual module inputs and outputs.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform init -upgrade` for affected stacks.
+- [ ] Run `terraform validate` for every changed module.
+- [ ] Verify CAM user policy attachments.
+- [ ] Verify CAM group policy attachments.
+- [ ] Review CAM attachment state addresses for replacement.
+- [ ] Verify KMS key plans contain no unintended replacement or deletion.
+- [ ] Verify CVM callers against the updated variable schema.
+- [ ] Verify MongoDB creation and update behavior.
+- [ ] Confirm MongoDB CAM permissions follow least-privilege principles.
+- [ ] Verify Private DNS extended endpoint connectivity and VPC associations.
+- [ ] Confirm Anti-DDoS and Private DNS provider constraints are compatible with consuming stacks.
+- [ ] Validate README examples against current module interfaces.
+- [ ] Review the final plan for unexpected destructive operations.
+
+
+## September 01, 2026
+
+## Summary
+
+This release updates the TencentDB for MySQL primary instance module and introduces a dedicated read-only instance module. The change separates primary and read-only database provisioning responsibilities, enabling read-only capacity to be managed and scaled independently.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resource behavior, input variables, outputs, defaults, and provider constraints should be verified against the complete `git diff` before release.
+
+## Added
+
+### TencentDB for MySQL read-only module
+
+- Added a standalone `modules/cdb-mysql-readonly` module.
+- Introduced a dedicated module boundary for provisioning and managing TencentDB for MySQL read-only instances.
+- Enabled read-only capacity to be configured independently from the primary database instance.
+- Prepared the database module structure for read scaling and primary/read-only topology management.
+
+## Changed
+
+### TencentDB for MySQL primary instance module
+
+Updated `modules/cdb-mysql-instance` across the following files:
+
+- `main.tf` — resource implementation and provisioning behavior.
+- `variables.tf` — module input interface.
+- `output.tf` — exported resource attributes.
+- `version.tf` — Terraform or Tencent Cloud provider compatibility constraints.
+
+The primary instance module is being aligned with the new separation of responsibilities between primary and read-only database resources.
+
+## Architecture
+
+The MySQL module structure is now divided by database role:
+
+```text
+modules/
+├── cdb-mysql-instance/   # Primary TencentDB for MySQL instance
+└── cdb-mysql-readonly/   # Read-only TencentDB for MySQL instance
+```
+
+This design allows callers to:
+
+- Provision a primary instance independently.
+- Add or remove read-only instances without changing ownership of the primary instance.
+- Scale read capacity separately from write capacity.
+- Manage primary and read-only lifecycle settings through dedicated Terraform modules.
+
+## Compatibility
+
+The addition of `cdb-mysql-readonly` is backward compatible by itself. However, changes to the existing `cdb-mysql-instance` resource, variables, outputs, or version constraints may affect current callers.
+
+Before upgrading, verify whether the primary module includes any:
+
+- Renamed, added, or removed input variables.
+- Changed variable types or default values.
+- Renamed or removed outputs.
+- Resource address changes.
+- Changes to instance lifecycle or replacement behavior.
+- Updated Terraform or Tencent Cloud provider requirements.
+
+## Migration Notes
+
+1. Review the full diff for `modules/cdb-mysql-instance` and update existing module calls for any interface changes.
+2. Continue managing the primary database through `cdb-mysql-instance`.
+3. Use `cdb-mysql-readonly` for new read-only database instances.
+4. Pass the required primary instance identifier and networking configuration to the read-only module.
+5. If existing read-only resources are being moved from the primary module, migrate their Terraform state before applying:
+
+   ```bash
+   terraform state mv \
+     '<old-resource-address>' \
+     'module.<readonly-module-name>.<new-resource-address>'
+   ```
+
+6. Run `terraform init -upgrade` if module provider constraints changed.
+7. Review `terraform plan` for unintended primary instance replacement, read-only instance recreation, or output changes.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform init -upgrade` for affected stacks.
+- [ ] Run `terraform validate` for both MySQL modules.
+- [ ] Verify primary instance creation and update behavior.
+- [ ] Verify read-only instance creation against an existing primary instance.
+- [ ] Confirm VPC, subnet, security group, and availability-zone compatibility.
+- [ ] Confirm database engine and version compatibility between primary and read-only instances.
+- [ ] Verify the read-only instance outputs required by downstream modules.
+- [ ] Check whether primary module outputs were renamed or removed.
+- [ ] Review the plan for unexpected database replacement or deletion.
+- [ ] Test application read connectivity and read/write endpoint usage.
+- [ ] Validate deletion protection, backup, and lifecycle settings where applicable.
+
+
+## August 28, 2026
+
+## Summary
+
+This release refactors Control Center service-linked role handling for account baselines and improves CLS index-rule configuration for CloudAudit and Config components. CLS rule sections are now optional, dynamic indexing is supported, and validation prevents unsupported duplicate rule blocks.
+
+> [!WARNING]
+> In the supplied diff, `modules/controlcenter-account-baseline-config/main.tf` removes the declaration of `tencentcloud_cam_service_linked_role.cc_role` but retains it in `depends_on`. Confirm that the resource was moved to another `.tf` file in the module. Otherwise, `terraform validate` will fail with an undeclared-resource error.
+
+## Added
+
+### Account baseline CAM strategy control
+
+Added the following variable to both the Account Baselines component and the Control Center account baseline module:
+
+```hcl
+variable "create_cam_strategy" {
+  type        = bool
+  default     = false
+  description = "Specify whether to create CAM role and relative TKE essential policy. Set to false if you've enable by using TencentCloud Console."
+}
+```
+
+This input is intended to control whether the required CAM role or strategy is created automatically instead of assuming that the component always owns the service-linked role.
+
+### CLS dynamic indexing
+
+Added `dynamic_index` support to the CloudAudit CLS index-rule schema:
+
+```hcl
+dynamic_index = optional(list(object({
+  status = bool
+})), [])
+```
+
+This allows callers to configure the CLS automatic key-value indexing switch.
+
+### CLS rule validation
+
+Added validation to the CloudAudit and Config components to enforce Tencent Cloud CLS rule cardinality constraints:
+
+- A maximum of one top-level `cls_rules` entry.
+- A maximum of one `full_text` block per rule.
+- A maximum of one `key_value` block per rule.
+- A maximum of one `tag` block per rule.
+- A maximum of one `dynamic_index` block per rule.
+
+Invalid configurations now fail during Terraform input validation instead of failing later during provider execution.
+
+## Changed
+
+### Account Baselines component
+
+- Removed the inline lookup of `ControlCenter_QCSLinkedRoleInAccountsEntMng` from `components/account-factory/baseline/account-baselines/main.tf`.
+- Removed inline creation of the Control Center service-linked role from the component's main resource file.
+- Added `create_cam_strategy` with a default value of `false`.
+- Prepared CAM role ownership to be controlled explicitly or implemented separately from the baseline resource logic.
+
+### Control Center account baseline module
+
+- Removed the CAM role lookup and service-linked role declaration from `modules/controlcenter-account-baseline-config/main.tf`.
+- Removed the local `role_list` used to conditionally create the role.
+- Added the `create_cam_strategy` input with a default value of `false`.
+- Simplified the baseline resource dependency formatting.
+
+### CloudAudit CLS index rules
+
+Refactored `cls_rules` so that each index section is optional and defaults to an empty list:
+
+- `full_text`
+- `key_value`
+- `tag`
+- Nested `key_values`
+- Nested field `value` definitions
+
+The following nested field attributes are now optional:
+
+- `tokenizer`
+- `sql_flag`
+- `contain_z_h`
+
+Descriptions and inline comments were expanded to document supported field types, delimiters, SQL analysis, Chinese character handling, and CLS metadata behavior.
+
+### Config CLS index rules
+
+Added the same top-level and nested rule-count validation used by the CloudAudit component, keeping CLS index behavior consistent across both audit components.
+
+## Compatibility
+
+### CLS configuration
+
+The CLS schema change is backward compatible for valid existing configurations because previously required blocks remain accepted. Callers can now omit unused index sections and optional nested properties.
+
+Configurations containing multiple top-level rules or repeated index sections will now fail variable validation. These configurations should be consolidated into one supported CLS rule definition.
+
+### CAM role behavior
+
+The new `create_cam_strategy` variable defaults to `false`, which may change deployment behavior if service-linked role creation is moved behind this flag. Deployments that rely on Terraform to create the Control Center role should explicitly enable the option after confirming its implementation.
+
+## Potential Release Blockers
+
+### Remaining undeclared CAM role dependency
+
+The supplied module diff retains:
+
+```hcl
+depends_on = [tencentcloud_cam_service_linked_role.cc_role]
+```
+
+while removing that resource from `main.tf`. Before release, confirm that `cc_role` exists in another Terraform file. If it does not, either restore/create the resource or remove the stale dependency.
+
+### Unused `create_cam_strategy` input
+
+The supplied diff adds `create_cam_strategy`, but no usage of the variable is visible. Confirm that another file uses it to conditionally create the required CAM resource. Otherwise, the input has no effect and should not be advertised as functional.
+
+### Variable description mismatch
+
+The `create_cam_strategy` description refers to a “TKE essential policy,” while the affected resources relate to the Control Center account baseline service-linked role. Update the description if this wording was copied from a TKE module.
+
+## Migration Notes
+
+1. Determine whether the Control Center service-linked role is managed by Terraform or enabled through the Tencent Cloud Console.
+2. If Terraform should manage it, set `create_cam_strategy = true` after confirming that the variable controls an actual CAM resource.
+3. If the role is externally managed, leave `create_cam_strategy = false` and verify that `ControlCenter_QCSLinkedRoleInAccountsEntMng` already exists.
+4. Consolidate CLS configurations so `cls_rules` contains no more than one rule object.
+5. Ensure each rule contains no more than one `full_text`, `key_value`, `tag`, and `dynamic_index` block.
+6. Remove empty CLS sections where appropriate; they can now be omitted.
+7. Review `terraform plan` for unexpected CAM role deletion or baseline dependency changes.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform validate` for both account baseline layers.
+- [ ] Confirm `tencentcloud_cam_service_linked_role.cc_role` is declared in the module.
+- [ ] Confirm `create_cam_strategy` is used by a resource or module call.
+- [ ] Correct the TKE-specific wording in the CAM strategy variable description.
+- [ ] Verify baseline creation when the Control Center service-linked role already exists.
+- [ ] Verify baseline creation when Terraform must create the required role.
+- [ ] Validate CloudAudit with only a full-text index.
+- [ ] Validate CloudAudit with key-value and tag indexes.
+- [ ] Validate CloudAudit dynamic indexing.
+- [ ] Confirm multiple rule blocks are rejected with clear validation errors.
+- [ ] Validate the Config component with the updated CLS constraints.
+- [ ] Review the final plan for unintended role or baseline replacement.
+
+
+## August 26, 2026
+
+## Summary
+
+This change refactors the CloudAudit component storage configuration, renames the audit account input to use Tencent Cloud UIN terminology, and updates CLS topic references for count-based resource addressing. It also removes the inline COS and CLS storage resource definitions from `main.tf`.
+
+> [!WARNING]
+> The supplied diff removes the COS bucket, COS bucket policy, CLS logset, CLS topic, and CLS index resources, but the CloudAudit track and outputs still reference several of those resources. Unless the resources were moved to other Terraform files that are not included in this diff, the component will fail validation with undeclared-resource errors.
+
+## Changed
+
+### CloudAudit account identifier
+
+- Renamed the component input variable:
+
+  ```text
+  account_id -> account_uin
+  ```
+
+- Updated `tencentcloud_audit_track.track.storage.storage_account_id` to use `var.account_uin` directly.
+- Removed the automatic fallback that previously resolved the current account UIN through `data.tencentcloud_user_info.info.uin`.
+- Retained automatic App ID resolution through `data.tencentcloud_user_info.info.app_id` when `app_id` is not provided.
+
+### CLS topic references
+
+- Updated the CloudAudit track storage reference from:
+
+  ```hcl
+  tencentcloud_cls_topic.topic.id
+  ```
+
+  to:
+
+  ```hcl
+  tencentcloud_cls_topic.topic[0].id
+  ```
+
+- Updated the `topic_id` output to use the same count-indexed CLS topic reference.
+
+### Resource dependencies
+
+- Removed `tencentcloud_cam_role_policy_attachment.role_policies` from the explicit CloudAudit track dependency list.
+- Retained dependencies on the CAM role and storage resources.
+
+### CAM role formatting
+
+- Reformatted the conditional CAM role `count` declaration without changing its behavior.
+
+## Removed
+
+The following inline storage resources were removed from `components/audit-log/cloud-audit/main.tf`:
+
+- `tencentcloud_cos_bucket.bucket`
+- `tencentcloud_cos_bucket_policy.cos_bucket_policy`
+- `tencentcloud_cls_logset.logset`
+- `tencentcloud_cls_topic.topic`
+- `tencentcloud_cls_index.index`
+
+The removed implementation previously managed:
+
+- COS bucket creation and lifecycle rules
+- CloudAudit COS bucket access policy
+- CLS logset and topic provisioning
+- CLS topic retention, partitioning, encryption, and tagging
+- CLS index rules for full-text, key-value, and tag fields
+
+## Breaking Changes
+
+### Input variable rename
+
+All callers must replace `account_id` with `account_uin`.
+
+Before:
+
+```hcl
+module "cloud_audit" {
+  source = "..."
+
+  account_id = "100000000001"
+}
+```
+
+After:
+
+```hcl
+module "cloud_audit" {
+  source = "..."
+
+  account_uin = "100000000001"
+}
+```
+
+### Account UIN is no longer resolved automatically
+
+The previous implementation used the current Tencent Cloud account UIN when `account_id` was not provided. The updated implementation passes `var.account_uin` directly to `storage_account_id`.
+
+Callers must now explicitly provide a valid account UIN unless the provider resource accepts a null value for the selected storage configuration.
+
+### Storage resource ownership
+
+The component no longer defines its COS and CLS storage resources in `main.tf`. If this removal is intentional, storage resources must be provisioned elsewhere and the component interface must accept their identifiers instead of referencing local resources.
+
+Existing Terraform state for removed resources may otherwise be planned for destruction. Review the plan before applying and migrate state if resource ownership is moving to dedicated modules.
+
+## Release Blocker
+
+Based only on the supplied diff, the following references remain after their resource declarations were removed:
+
+```hcl
+tencentcloud_cos_bucket.bucket
+tencentcloud_cls_logset.logset
+tencentcloud_cls_topic.topic
+tencentcloud_cls_index.index
+```
+
+Affected locations include:
+
+- CloudAudit track `storage_name`
+- CloudAudit track `depends_on`
+- `topic_id` output
+- Potentially the existing `bucket_id`, `logset_id`, and `index_id` outputs
+
+Before merging, confirm one of the following:
+
+1. These resources were moved to other `.tf` files in the same component; or
+2. The remaining references and outputs will be replaced with module inputs or dedicated storage module outputs.
+
+## Migration Notes
+
+1. Rename `account_id` to `account_uin` in all Terraform and Terragrunt callers.
+2. Explicitly provide the Tencent Cloud account UIN used by CloudAudit storage.
+3. Confirm whether COS and CLS resources were moved to separate files or dedicated modules.
+4. If storage ownership is moving, add the required bucket, logset, topic, and index IDs as component inputs.
+5. Use `terraform state mv` to transfer existing resources to their new module addresses when applicable.
+6. Run `terraform plan` and verify that no COS bucket, bucket policy, CLS logset, topic, or index is unintentionally destroyed.
+7. Confirm that count-indexed references such as `topic[0].id` match the final CLS resource declaration.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform validate` for the CloudAudit component.
+- [ ] Confirm no undeclared resource references remain.
+- [ ] Confirm all callers use `account_uin` instead of `account_id`.
+- [ ] Verify that `account_uin` is supplied for COS and CLS storage scenarios.
+- [ ] Verify CLS topic count/index behavior.
+- [ ] Verify CloudAudit delivery to COS.
+- [ ] Verify CloudAudit delivery to CLS.
+- [ ] Review output expressions for bucket, logset, topic, and index IDs.
+- [ ] Review the Terraform plan for unintended storage resource destruction.
+- [ ] Migrate Terraform state before applying if storage resources were moved.
+
+
+## August 25, 2026
+
+## Summary
+
+This release updates the CCN VPN, CIC Role, PostgreSQL, CLB, CVM, security, and authorization modules, refreshes Terraform/provider compatibility metadata across multiple modules, and introduces a standalone TDMQ Pulsar module.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Except for the previously reviewed CIC Role changes, exact input, output, resource behavior, and version constraint changes should be verified against the complete `git diff` before release.
+
+## Added
+
+### TDMQ Pulsar
+
+- Added a standalone `modules/tdmq-pulsar` module.
+- Introduced a dedicated module boundary for provisioning and managing Tencent Distributed Message Queue for Pulsar resources.
+- Enabled TDMQ Pulsar to be composed independently in Landing Zone and application infrastructure deployments.
+
+## Changed
+
+### CCN VPN Component
+
+- Updated the `components/network/ccn-vpn` resource implementation.
+- Revised the component input variables and exported outputs.
+- Aligned the CCN VPN component interface with the current modular network architecture.
+
+### CIC Role Component
+
+- Changed preset policy attachment instance keys from policy IDs to policy names:
+
+  ```text
+  <role_name>-<policy_id>
+  ```
+
+  becomes:
+
+  ```text
+  <role_name>-<policy_name>
+  ```
+
+- Renamed the role-assignment input field:
+
+  ```text
+  target_account_name -> target_name
+  ```
+
+- Updated organization member lookup and role assignment logic to use `target_name`.
+- Added the `cic_roles` output, exposing a map of CIC role configuration names to role configuration IDs.
+- Reformatted preset and custom policy attachment outputs for readability.
+
+### PostgreSQL Module
+
+- Updated the `modules/cdb-postgres` resource implementation and input interface.
+- Refreshed module version and provider compatibility metadata.
+- Prepared the module for updated PostgreSQL provisioning requirements.
+
+### CLB Modules
+
+- Updated CLB instance resource configuration and variables.
+- Updated CLB listener resource configuration and variables.
+- Updated CLB redirection behavior.
+- Aligned the CLB module interfaces with the current load-balancing resource model.
+
+### CVM Module
+
+- Updated the `modules/cvm-instance` input variable definitions.
+
+### Module Compatibility Metadata
+
+Updated Terraform/provider version constraints or compatibility metadata for:
+
+- CAM Role
+- TCR
+- TKE Authorization
+- Cloud Firewall address templates
+- Cloud Firewall edge firewall switches and policies
+- Cloud Firewall NAT instances, switches, and policies
+- Cloud Firewall VPC instances, switches, and policies
+- Cloud Firewall asset and route synchronization
+- WAF attack allowlist rules
+- WAF CC protection
+- WAF CLB domains and instances
+- WAF custom rules
+- WAF attack-log delivery configuration
+- WAF CKafka and CLS log-delivery flows
+- WAF SaaS domains, instances, and IP access control
+
+## Breaking Changes
+
+### CIC Role Assignment Input Rename
+
+The `role_assignments` object no longer uses `target_account_name`. Callers must rename it to `target_name`.
+
+Before:
+
+```hcl
+role_assignments = [
+  {
+    role_name           = "Administrator"
+    principal_id        = "u-example"
+    principal_type      = "User"
+    target_account_name = "production"
+    target_type         = "MemberUin"
+  }
+]
+```
+
+After:
+
+```hcl
+role_assignments = [
+  {
+    role_name      = "Administrator"
+    principal_id   = "u-example"
+    principal_type = "User"
+    target_name    = "production"
+    target_type    = "MemberUin"
+  }
+]
+```
+
+### CIC Preset Policy Attachment Keys
+
+Changing the Terraform `for_each` key from the preset policy ID to the policy name changes affected resource addresses. Without state migration, Terraform may plan to destroy and recreate existing policy attachment resources.
+
+Review the plan and migrate state where required:
+
+```bash
+terraform state mv \
+  'tencentcloud_identity_center_role_configuration_permission_policy_attachment.attachment["<role-name>-<policy-id>"]' \
+  'tencentcloud_identity_center_role_configuration_permission_policy_attachment.attachment["<role-name>-<policy-name>"]'
+```
+
+### Other Module Interfaces
+
+The CCN VPN, PostgreSQL, CLB, and CVM variable files have changed. Confirm whether any inputs were added, removed, renamed, or had their types/defaults changed before upgrading consumers.
+
+## Migration Notes
+
+1. Replace every CIC Role assignment field named `target_account_name` with `target_name`.
+2. Run `terraform plan` for CIC Role deployments and identify preset policy attachments whose resource addresses changed.
+3. Use `terraform state mv` for existing CIC policy attachments when the underlying attachment must be preserved.
+4. Review CCN VPN input/output references in all component callers.
+5. Review PostgreSQL, CLB, and CVM module calls against their updated variable definitions.
+6. Run `terraform init -upgrade` where module version constraints or provider requirements changed.
+7. Validate the new TDMQ Pulsar module in a non-production environment before adoption.
+
+## Validation Checklist
+
+- [ ] Run `terraform fmt -recursive`.
+- [ ] Run `terraform init -upgrade` for affected stacks.
+- [ ] Run `terraform validate` for every changed module and component.
+- [ ] Confirm CIC Role callers use `target_name`.
+- [ ] Review CIC preset policy attachment state addresses.
+- [ ] Confirm the new `cic_roles` output is consumed correctly.
+- [ ] Verify CCN VPN inputs and outputs against existing Terragrunt dependencies.
+- [ ] Verify PostgreSQL provisioning and upgrade plans.
+- [ ] Verify CLB instance, listener, and redirection plans.
+- [ ] Verify provider version compatibility across CAM, CFW, TCR, TKE, and WAF modules.
+- [ ] Validate TDMQ Pulsar creation, outputs, and lifecycle behavior.
+- [ ] Review the final plan for unexpected replacement or deletion operations.
+
+
+## August 20, 2026
+
+### Summary
+
+This release enhances CloudAudit components with dedicated CAM permission configuration, updates container and TKE-related access policies, and adds standalone MongoDB and Redis Terraform modules.
+
+- Added 5 new files or module directories
+- Updated 9 existing Terraform files
+- Affected CloudAudit, CAM, TCR, TKE, MongoDB, and Redis capabilities
+
+### Added
+
+#### CloudAudit CAM configuration
+
+- Added `components/audit-log/cloud-audit/cam.tf` for component-level CloudAudit permission management.
+- Added `modules/cloudaudit-events-track/cam.tf` for CAM permissions required by CloudAudit event tracking.
+- Added `modules/cloudaudit-track/cam.tf` for CAM permissions required by CloudAudit tracking and log delivery.
+- Separates IAM authorization from the core CloudAudit resource definitions.
+
+#### MongoDB module
+
+- Added `modules/mongodb/` for standalone TencentDB for MongoDB provisioning and management.
+- Provides a reusable database module for application and Landing Zone deployments.
+
+#### Redis module
+
+- Added `modules/redis/` for standalone TencentDB for Redis provisioning and management.
+- Provides a reusable cache module for application and Landing Zone deployments.
+
+### Changed
+
+#### CloudAudit component
+
+Updated the CloudAudit component implementation and input interface:
+
+- `components/audit-log/cloud-audit/main.tf`
+- `components/audit-log/cloud-audit/variables.tf`
+
+The component is now aligned with the dedicated CAM configuration introduced in `cam.tf`.
+
+#### CloudAudit event tracking module
+
+Updated CloudAudit event tracking resources and variables:
+
+- `modules/cloudaudit-events-track/main.tf`
+- `modules/cloudaudit-events-track/variables.tf`
+
+The module now includes standalone CAM permission configuration.
+
+#### CloudAudit tracking module
+
+Updated CloudAudit tracking resources and variables:
+
+- `modules/cloudaudit-track/main.tf`
+- `modules/cloudaudit-track/variables.tf`
+
+The module now includes standalone CAM permission configuration for audit tracking and delivery workflows.
+
+#### TCR module
+
+- Updated `modules/tcr/cam.tf`.
+- Refined CAM policies or role assignments used by Tencent Container Registry resources.
+
+#### TKE instance module
+
+- Updated `modules/tke-instance/cam.tf`.
+- Refined CAM permissions used during TKE worker node provisioning and operation.
+
+#### TKE native node pool module
+
+- Updated `modules/tke-native-node-pool/main.tf`.
+- Aligned native node pool provisioning with the updated TKE and CAM module structure.
+
+### Compatibility Notes
+
+- CloudAudit consumers should review newly introduced CAM resources and permissions before applying the changes.
+- Existing manually managed CloudAudit roles or policies may overlap with the new Terraform-managed CAM resources.
+- TCR and TKE permission changes may update existing policies or attachments.
+- New MongoDB and Redis modules are additive and do not affect existing deployments unless explicitly referenced.
+
+### Migration Notes
+
+1. Review the new CloudAudit CAM resources and identify any equivalent permissions currently managed outside Terraform.
+2. Import existing CAM roles, policies, or attachments when necessary to avoid duplicate resources.
+3. Compare updated CloudAudit variables with existing component and module calls.
+4. Review TCR and TKE CAM policy changes for least-privilege compliance.
+5. Verify that TKE native node pool identities retain all permissions required for provisioning and operation.
+6. Adopt `modules/mongodb` and `modules/redis` only where the corresponding managed database services are required.
+7. Run `terraform init -upgrade`, `terraform validate`, and `terraform plan` before applying the changes.
+
+### Validation Checklist
+
+- [ ] CloudAudit tracking resources can assume or use the required CAM identities
+- [ ] CloudAudit logs and events are delivered to the intended destinations
+- [ ] No duplicate CAM roles, policies, or attachments are proposed
+- [ ] TCR operations retain the required permissions
+- [ ] TKE worker nodes retain the required CAM permissions
+- [ ] TKE native node pool changes do not trigger unintended replacement
+- [ ] MongoDB module inputs, outputs, encryption, networking, and access controls are validated
+- [ ] Redis module inputs, outputs, encryption, networking, and access controls are validated
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unintended resource destruction or privilege expansion
+
+
+
+## August 20, 2026
+
+### Summary
+
+This release reorganizes security group and PostgreSQL modules, adds standalone SSH key and TCR modules, and expands the modular TKE stack with authorization and log configuration capabilities.
+
+- Added 8 new component, example, or module directories
+- Updated 13 existing Terraform files
+- Removed 10 legacy component, example, and module files
+- Affected CAM, networking, PostgreSQL, SSH key, TCR, and TKE capabilities
+
+### Added
+
+#### Security group component
+
+- Added `components/network/security-group/` as the dedicated security group component.
+- Added the corresponding example under `examples/components/network/security-group/`.
+- Replaces the abbreviated legacy `components/network/sg/` component path.
+
+#### PostgreSQL modules
+
+- Added `modules/cdb-postgres/` for primary TencentDB for PostgreSQL instance management.
+- Added `modules/cdb-postgres-readonly/` for PostgreSQL read-only instance management.
+- Separates primary and read-only database responsibilities into dedicated modules.
+
+#### SSH key module
+
+- Added `modules/ssh-key/` for standalone SSH key management.
+- Enables compute and TKE modules to consume SSH keys through a reusable module interface.
+
+#### TCR module
+
+- Added `modules/tcr/` for Tencent Container Registry resource management.
+- Provides a reusable module for container registry capabilities used by TKE workloads.
+
+#### TKE authorization module
+
+- Added `modules/tke-authz/` for standalone TKE authorization configuration.
+- Separates cluster authorization responsibilities from node instance management.
+
+#### TKE log configuration module
+
+- Added `modules/tke-log-config/` for standalone TKE log collection and delivery configuration.
+- Separates logging configuration from the core TKE cluster and node modules.
+
+### Changed
+
+#### CAM role module
+
+Updated the CAM role module implementation and interface:
+
+- `modules/cam-role/main.tf`
+- `modules/cam-role/variables.tf`
+- `modules/cam-role/outputs.tf`
+- `modules/cam-role/versions.tf`
+
+Consumers should review input variables, outputs, and provider constraints before upgrading.
+
+#### TKE cluster endpoint module
+
+Updated TKE cluster endpoint resource definitions and input variables:
+
+- `modules/tke-cluster-endpoint/main.tf`
+- `modules/tke-cluster-endpoint/variables.tf`
+
+Consumers should review endpoint access, network, and security-related arguments for compatibility.
+
+#### TKE instance module
+
+Updated TKE node instance and CAM integration:
+
+- `modules/tke-instance/cam.tf`
+- `modules/tke-instance/main.tf`
+- `modules/tke-instance/variables.tf`
+- `modules/tke-instance/outputs.tf`
+
+The changes align instance provisioning with the expanded TKE module structure, including standalone authorization and SSH key capabilities.
+
+#### TKE native node pool module
+
+Updated native node pool resource definitions, variables, and outputs:
+
+- `modules/tke-native-node-pool/main.tf`
+- `modules/tke-native-node-pool/variables.tf`
+- `modules/tke-native-node-pool/outputs.tf`
+
+Consumers should review node pool arguments and downstream output references before upgrading.
+
+### Removed
+
+#### Legacy security group component
+
+Removed `components/network/sg/`, including:
+
+- `README.md`
+- `main.tf`
+- `outputs.tf`
+- `variables.tf`
+- `versions.tf`
+
+Also removed the legacy example:
+
+- `examples/components/network/sg/main.tf`
+
+Use the new `components/network/security-group/` path and example instead.
+
+#### Legacy PostgreSQL instance module
+
+Removed `modules/cdb-postgres-instance/`, including:
+
+- `main.tf`
+- `variables.tf`
+- `outputs.tf`
+- `version.tf`
+
+Use the following modules instead:
+
+- `modules/cdb-postgres/` for primary PostgreSQL instances
+- `modules/cdb-postgres-readonly/` for read-only PostgreSQL instances
+
+### Breaking Changes
+
+> This refactoring changes component and module source paths and may also change variables, outputs, provider constraints, and Terraform resource addresses.
+
+- `components/network/sg` has been removed and replaced by `components/network/security-group`.
+- `modules/cdb-postgres-instance` has been removed and replaced by separate primary and read-only PostgreSQL modules.
+- Existing references to removed module outputs will fail until updated.
+- CAM role and TKE module interfaces may have changed.
+- TKE authorization and logging responsibilities may now require explicit standalone module declarations.
+- Moving existing resources to new module paths without Terraform state migration may cause unexpected resource destruction or recreation.
+
+### Migration Notes
+
+1. Replace references to `components/network/sg` with `components/network/security-group`.
+2. Update security group examples and documentation to use the new component path.
+3. Replace `modules/cdb-postgres-instance` with `modules/cdb-postgres` for primary instances.
+4. Use `modules/cdb-postgres-readonly` for read-only database instances.
+5. Compare old and new PostgreSQL variables and outputs before changing module sources.
+6. Review changes to `modules/cam-role`, including provider constraints and output names.
+7. Review TKE cluster endpoint, instance, and native node pool input and output changes.
+8. Add `modules/tke-authz` and `modules/tke-log-config` explicitly where authorization and logging are required.
+9. Adopt `modules/ssh-key` and `modules/tcr` where shared SSH key or container registry resources should be managed independently.
+10. Use Terraform `moved` blocks, `terraform state mv`, or resource imports when transferring existing resources to new module addresses.
+11. Run `terraform init -upgrade`, `terraform validate`, and `terraform plan` before applying the upgrade.
+
+### Validation Checklist
+
+- [ ] All security group component references use `components/network/security-group`
+- [ ] Security group examples use the new component path
+- [ ] PostgreSQL callers use the appropriate primary or read-only module
+- [ ] Existing PostgreSQL resources have been mapped to their new Terraform state addresses
+- [ ] CAM role consumers match the updated variables and outputs
+- [ ] TKE endpoint access settings remain correct
+- [ ] TKE instance and native node pool plans contain no unintended replacement
+- [ ] TKE authorization is configured through the intended module
+- [ ] TKE log collection and delivery are configured through the intended module
+- [ ] SSH keys and TCR resources are created only where required
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unintended resource destruction or recreation
+
+
+## August 19, 2026
+
+### Summary
+
+Added a new Terraform component for managing CIC roles within the Tencent Cloud organization structure.
+
+### Added
+
+#### CIC role component
+
+- Added the new `components/organization/cic-role/` component.
+- Provides a dedicated organization-level component for CIC role configuration and lifecycle management.
+- Separates CIC role management from other organization and identity components.
+
+### Validation Checklist
+
+- [ ] The component includes the required Terraform resource definitions
+- [ ] Input variables are documented and use appropriate types and defaults
+- [ ] Required outputs are exposed for downstream components
+- [ ] Tencent Cloud provider version constraints are defined
+- [ ] Example usage or README documentation is included
+- [ ] `terraform fmt -check` passes
+- [ ] `terraform init -backend=false` succeeds
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains only the intended CIC role resources
+
+
+
+## August 19, 2026
+
+### Summary
+
+This release restructures the Terraform networking stack by replacing legacy CCN components with a consolidated CCN component, extracting NAT Gateway and EIP management into dedicated modules, and introducing a standalone CCN route-switch module.
+
+- Added 4 new component or module directories
+- Updated 12 existing Terraform files
+- Removed 9 files from legacy CCN implementations
+- Refactored CCN, VPC, NAT Gateway, EIP, and CLS-related module interfaces
+
+### Added
+
+#### Consolidated CCN component
+
+- Added `components/network/ccn/` as the consolidated component for CCN provisioning and orchestration.
+- Replaces the legacy `components/network/ccn-instance/` component.
+
+#### NAT Gateway component
+
+- Added `components/network/nat-gateway/` to provide component-level orchestration for NAT Gateway resources.
+- Separates NAT Gateway deployment from the core VPC module.
+
+#### CCN route-switch module
+
+- Added `modules/ccn-route-switch/` for independently managing CCN route switching behavior.
+- Replaces the legacy `modules/ccn-routes/` implementation.
+
+#### EIP module
+
+- Added `modules/eip/` for standalone Elastic IP provisioning and management.
+- Enables EIP resources to be managed independently from NAT Gateway and VPC resources.
+
+### Changed
+
+#### CCN-VPC component
+
+Updated the CCN-VPC component resource definitions, variables, and outputs:
+
+- `components/network/ccn-vpc/main.tf`
+- `components/network/ccn-vpc/variables.tf`
+- `components/network/ccn-vpc/outputs.tf`
+
+The component has been aligned with the refactored CCN module structure and standalone network modules.
+
+#### CCN instance module
+
+Updated the CCN instance module resource definitions and input interface:
+
+- `modules/ccn-instance/main.tf`
+- `modules/ccn-instance/variables.tf`
+
+Consumers should review module arguments for compatibility with the consolidated CCN component.
+
+#### NAT Gateway module
+
+Updated the NAT Gateway module implementation, variables, and outputs:
+
+- `modules/nat-gateway/main.tf`
+- `modules/nat-gateway/variables.tf`
+- `modules/nat-gateway/output.tf`
+
+The module is now intended to work with the dedicated NAT Gateway component and standalone EIP module.
+
+#### VPC module
+
+Updated the VPC module implementation, variables, and outputs:
+
+- `modules/vpc/main.tf`
+- `modules/vpc/variables.tf`
+- `modules/vpc/output.tf`
+
+The VPC module continues to be decoupled from auxiliary network resources, which are now managed through dedicated modules and components.
+
+#### CLS Create module
+
+- Updated `modules/cls-create/variables.tf`.
+- Consumers should review the changed variable definitions before upgrading.
+
+### Removed
+
+#### Legacy CCN instance component
+
+Removed `components/network/ccn-instance/`, including:
+
+- `README.md`
+- `main.tf`
+- `outputs.tf`
+- `variables.tf`
+- `versions.tf`
+
+Use `components/network/ccn/` instead.
+
+#### Legacy CCN routes module
+
+Removed `modules/ccn-routes/`, including:
+
+- `main.tf`
+- `outputs.tf`
+- `variables.tf`
+- `version.tf`
+
+Use `modules/ccn-route-switch/` for CCN route switching behavior.
+
+### Breaking Changes
+
+> This network module refactoring may require updates to module sources, variables, outputs, and Terraform state addresses.
+
+- `components/network/ccn-instance` has been removed and replaced by `components/network/ccn`.
+- `modules/ccn-routes` has been removed and replaced by `modules/ccn-route-switch`.
+- Existing references to removed CCN component outputs will fail until updated.
+- NAT Gateway and EIP responsibilities are now separated into dedicated modules and components.
+- VPC, NAT Gateway, CCN-VPC, CCN instance, and CLS variable or output contracts may have changed.
+- Moving existing resources to new module paths without state migration may cause Terraform to propose resource recreation or destruction.
+
+### Migration Notes
+
+1. Replace references to `components/network/ccn-instance` with `components/network/ccn`.
+2. Replace references to `modules/ccn-routes` with `modules/ccn-route-switch`.
+3. Compare the old and new CCN variables and outputs, then update all consumer references.
+4. Move NAT Gateway orchestration to `components/network/nat-gateway` where appropriate.
+5. Manage Elastic IP resources through `modules/eip` instead of embedding them in VPC or NAT Gateway configurations.
+6. Review changes to `components/network/ccn-vpc` and update dependency outputs.
+7. Review the updated `modules/cls-create` variable contract.
+8. Use Terraform `moved` blocks, `terraform state mv`, or resource imports to preserve resources transferred to new module addresses.
+9. Run `terraform init -upgrade`, `terraform validate`, and `terraform plan` before applying the upgrade.
+
+### Validation Checklist
+
+- [ ] All references to the removed CCN component and route module have been updated
+- [ ] CCN-VPC dependencies use the new CCN outputs
+- [ ] NAT Gateway and EIP resources are managed by the intended dedicated modules
+- [ ] No obsolete VPC, NAT Gateway, or CCN inputs and outputs remain in calling configurations
+- [ ] CLS Create consumers match the updated variable definitions
+- [ ] Terraform state has been migrated for resources moved to new module paths
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unintended resource destruction or replacement
+
+
+## August 18, 2026
+
+### Summary
+
+This release expands Account Factory baseline capabilities, improves organization AssumeRole identity assignments, standardizes CCN module inputs, and simplifies the VPC module to focus exclusively on VPC and subnet provisioning.
+
+The VPC module refactoring and CCN variable renaming introduce breaking changes that require updates in consuming configurations.
+
+### Added
+
+#### Account notification baseline
+
+- Added support for the `TCC-AF_ACCOUNT_NOTIFICATION` account baseline.
+- Added the optional `account_message` input with the following subscription attributes:
+  - `msg_type`
+  - `channel`
+  - `names`
+- Encoded account notification subscriptions into the baseline `configuration` payload.
+- Account notification configuration is included when both `account_contact.enabled` and `account_message.enabled` are enabled.
+
+Example:
+
+```hcl
+account_message = {
+  enabled = true
+  messages = [
+    {
+      msg_type = "..."
+      channel  = "..."
+      names    = ["..."]
+    }
+  ]
+}
+```
+
+#### Shared image baseline
+
+- Added support for the `TCC-AF_SHARE_IMAGE` account baseline.
+- Added the optional `share_image` input with the following image attributes:
+  - `region`
+  - `image_id`
+  - `image_name`
+- Encoded shared image definitions into the baseline `configuration` payload.
+
+Example:
+
+```hcl
+share_image = {
+  enabled = true
+  images = [
+    {
+      region     = "ap-singapore"
+      image_id   = "img-xxxxxxxx"
+      image_name = "shared-base-image"
+    }
+  ]
+}
+```
+
+### Changed
+
+#### Organization AssumeRole identity assignments
+
+- Removed the hard-coded administrator identity ID (`1`) from member identity attachments.
+- Member attachments now contain only the identity created for the corresponding AssumeRole policy.
+- Changed the `for_each` key from `member_uin` to a composite key containing the AssumeRole name and member UIN:
+
+  ```text
+  <assume_role_name>-<member_uin>
+  ```
+
+- Allows the same organization member to receive identities from multiple AssumeRole policies without duplicate map key collisions.
+- Separates identity assignments by policy instead of implicitly including the administrator identity in every attachment.
+
+#### CCN attachment
+
+- Reordered `ccn_uin` alongside `ccn_id` in the CCN attachment resource definition for consistency.
+- No functional or interface change is expected from this formatting adjustment.
+
+#### CCN instance
+
+- Renamed CCN input variables for clearer module-level namespacing:
+
+  | Previous variable | New variable |
+  |---|---|
+  | `bandwidth_limit_type` | `ccn_bandwidth_limit_type` |
+  | `charge_type` | `ccn_charge_type` |
+
+- Added `null` as the default value for `src_region`, making the source region optional when a bandwidth limit is not configured.
+
+#### VPC subnet
+
+- Reordered the subnet resource arguments for consistency.
+- No functional or interface change is expected.
+
+#### VPN Gateway
+
+- Adjusted resource formatting for readability.
+- No functional or interface change is expected.
+
+### Refactored
+
+#### VPC module scope reduction
+
+The VPC module has been simplified to manage only:
+
+- One Tencent Cloud VPC
+- Zero or more subnets within the newly created VPC
+
+The module now always creates `tencentcloud_vpc.vpc` and directly associates its subnets with that VPC.
+
+Additional behavior changes include:
+
+- Removed conditional VPC creation.
+- Removed support for deploying subnets into an existing VPC.
+- Removed automatic availability zone discovery.
+- Subnet `availability_zone` values must now be explicitly supplied.
+- Removed custom and default route table selection logic.
+- Removed route table association from subnet resources.
+- Simplified `vpc_id` output to reference the directly managed VPC resource.
+
+### Removed
+
+#### VPC module resources and capabilities
+
+The following capabilities have been removed from `modules/vpc`:
+
+- Existing VPC lookup and reuse
+- Conditional VPC creation
+- Availability zone discovery
+- Custom route table creation
+- Route table entry creation
+- VPN Gateway creation
+- Network ACL creation and subnet attachment
+- NAT Gateway and EIP creation
+- VPC attachment to CCN
+
+These capabilities should be managed through dedicated Terraform modules.
+
+#### VPC module inputs
+
+Removed inputs include, but are not limited to:
+
+- `vpc_region`
+- `create_vpc`
+- `vpc_id`
+- `default_subnet_name`
+- `availability_zones`
+- Route table and route entry inputs
+- VPN Gateway inputs
+- Network ACL inputs
+- NAT Gateway and EIP inputs
+- CCN attachment inputs
+
+#### VPC module outputs
+
+Removed outputs include:
+
+- `route_table_id`
+- `route_entry_id`
+- `availability_zones`
+- `tags`
+- `vpn_gateway_id`
+- `vpn_gateway_public_ip_address`
+- `network_acl_id`
+- `nat_gateway_id`
+- `nat_public_ips`
+
+The remaining outputs are:
+
+- `vpc_id`
+- `subnet_ids`
+
+### Breaking Changes
+
+#### VPC module
+
+> The VPC module refactoring is a major interface and behavior change.
+
+- The module can no longer manage or reuse an existing VPC through `vpc_id`.
+- `create_vpc = false` is no longer supported.
+- Removed resources must be migrated to dedicated modules before upgrading.
+- Consumers referencing removed outputs will fail during Terraform validation.
+- Each subnet must explicitly define `availability_zone`; automatic zone selection has been removed.
+- Existing Terraform state addresses may no longer match the refactored resource addresses.
+- Removing the old resources without migrating state or configuration may cause Terraform to propose resource destruction.
+
+#### CCN instance module
+
+Consumers must rename the following arguments:
+
+```hcl
+bandwidth_limit_type = "OUTER_REGION_LIMIT"
+charge_type          = "POSTPAID"
+```
+
+to:
+
+```hcl
+ccn_bandwidth_limit_type = "OUTER_REGION_LIMIT"
+ccn_charge_type          = "POSTPAID"
+```
+
+#### AssumeRole identity attachments
+
+Removing the hard-coded administrator identity may update existing organization member identity attachments. Review the Terraform plan to confirm that required administrative access is not unintentionally removed.
+
+### Migration Notes
+
+1. Update all CCN module calls to use `ccn_bandwidth_limit_type` and `ccn_charge_type`.
+2. Identify every removed `modules/vpc` input and output used by calling configurations.
+3. Move route tables, routes, VPN Gateways, network ACLs, NAT Gateways, EIPs, and CCN attachments to dedicated modules.
+4. If an existing VPC must be reused, use dedicated subnet and network component modules instead of the refactored VPC module.
+5. Add an explicit `availability_zone` to every item in `subnet_cidrs`.
+6. Update references to removed VPC outputs with outputs from the corresponding dedicated modules.
+7. Use Terraform `moved` blocks, `terraform state mv`, or resource imports where resources are transferred to dedicated modules.
+8. Review AssumeRole attachment changes and explicitly manage any administrator identity that is still required.
+9. Enable and configure the new account notification and shared image baselines only where required.
+10. Run `terraform validate` and carefully review `terraform plan` before applying the upgrade.
+
+### Validation Checklist
+
+- [ ] Account notification payloads contain valid message types, channels, and recipient names
+- [ ] Account notification behavior with the `account_contact.enabled` dependency is confirmed
+- [ ] Shared image IDs exist in the specified regions and can be shared with target accounts
+- [ ] The same organization member can be assigned to multiple AssumeRole policies
+- [ ] Required administrator identities remain attached after the AssumeRole change
+- [ ] All CCN instance calls use the renamed input variables
+- [ ] Every subnet specifies an explicit availability zone
+- [ ] Removed VPC capabilities are managed by dedicated modules
+- [ ] No calling configuration references removed VPC inputs or outputs
+- [ ] Terraform state has been migrated before removing legacy VPC-managed resources
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unintended resource destruction or replacement
+
+### Suggested Release Title
+
+```text
+feat(account-factory)!: add new baselines and simplify network modules
+```
+
+### Suggested Commit Message
+
+```text
+feat(account-factory)!: add notification and shared image baselines
+
+- add account notification and shared image baseline configurations
+- support multiple AssumeRole policies for the same organization member
+- remove implicit administrator identity attachments
+- namespace CCN instance input variables
+- simplify the VPC module to manage only VPCs and subnets
+- remove route, VPN, ACL, NAT, and CCN attachment management from the VPC module
+
+BREAKING CHANGE: the VPC module no longer supports existing VPCs or auxiliary
+network resources, and CCN input variables have been renamed.
+```
+
+
+## August 18, 2026
+
+### Summary
+
+Fixed account baseline batch application to preserve and pass each baseline item's configuration to the Tencent Cloud provider resource.
+
+### Fixed
+
+#### Account baseline configuration
+
+- Updated the `baseline_config_items` dynamic block in `components/account-factory/baseline/account-baselines/main.tf`.
+- Included both `identifier` and `configuration` when constructing the collection used by `for_each`.
+- Ensured `baseline_config_items.value.configuration` is available when rendering each baseline configuration item.
+- Prevented baseline configuration values from being dropped before they are passed to `tencentcloud_batch_apply_account_baselines`.
+
+### Before
+
+```hcl
+for_each = [
+  for item in local.baseline_items : {
+    identifier = item.identifier
+  }
+]
+```
+
+### After
+
+```hcl
+for_each = [
+  for item in local.baseline_items : {
+    identifier    = item.identifier
+    configuration = item.configuration
+  }
+]
+```
+
+### Impact
+
+This fix allows account baselines that require configuration data to be applied correctly. No input variable or module interface changes are introduced.
+
+### Validation Checklist
+
+- [ ] `terraform fmt -check` passes
+- [ ] `terraform validate` passes
+- [ ] Every baseline item contains the expected `identifier` and `configuration`
+- [ ] `terraform plan` includes the intended baseline configuration values
+- [ ] Batch baseline application completes without a missing `configuration` attribute error
+- [ ] Existing baseline assignments without custom configuration remain unaffected
+
+### Suggested Release Title
+
+```text
+fix(account-baselines): preserve baseline item configuration
+```
+
+### Suggested Commit Message
+
+```text
+fix(account-baselines): pass baseline item configuration
+
+- include configuration in the baseline_config_items iteration value
+- preserve configuration when applying account baselines in batch
+- prevent missing configuration attribute errors
+```
+
+
+## August 13, 2026
+
+### Summary
+
+Added configurable server-side encryption support to the COS bucket Terraform module. Consumers can now use COS-managed encryption or a Tencent Cloud KMS key without changing the module's default behavior.
+
+### Added
+
+#### COS bucket server-side encryption
+
+- Added the `encryption_algorithm` input variable.
+  - Supported values: `AES256`, `KMS`, and `SM4`.
+  - Defaults to `null`, preserving the existing behavior when encryption is not configured.
+- Added the `kms_id` input variable.
+  - Specifies the KMS master key ID when `encryption_algorithm` is set to `KMS`.
+  - Defaults to `null`, allowing COS to use the default KMS key when no key ID is provided.
+- Passed both encryption settings to the `tencentcloud_cos_bucket` resource.
+
+### Usage
+
+#### Enable AES256 encryption
+
+```hcl
+module "cos_bucket" {
+  source = "..."
+
+  bucket_name         = "example-bucket"
+  encryption_algorithm = "AES256"
+}
+```
+
+#### Enable KMS encryption with a specified key
+
+```hcl
+module "cos_bucket" {
+  source = "..."
+
+  bucket_name          = "example-bucket"
+  encryption_algorithm = "KMS"
+  kms_id               = "your-kms-key-id"
+}
+```
+
+#### Enable KMS encryption with the default key
+
+```hcl
+module "cos_bucket" {
+  source = "..."
+
+  bucket_name          = "example-bucket"
+  encryption_algorithm = "KMS"
+}
+```
+
+### Compatibility
+
+This change is backward compatible. Both new variables default to `null`, so existing module consumers do not need to update their configurations.
+
+When specifying `kms_id`, `encryption_algorithm` must be set to `KMS`.
+
+### Validation Checklist
+
+- [ ] `terraform fmt -check` passes
+- [ ] `terraform validate` passes
+- [ ] Existing configurations without encryption produce no unexpected changes
+- [ ] `AES256` and `SM4` encryption plans contain the expected COS settings
+- [ ] KMS encryption works with both the default key and a specified `kms_id`
+- [ ] The Terraform plan contains no unintended bucket replacement
+
+### Suggested Release Title
+
+```text
+feat(cos): add server-side encryption support for COS buckets
+```
+
+### Suggested Commit Message
+
+```text
+feat(cos): add configurable server-side bucket encryption
+
+- support AES256, KMS, and SM4 encryption algorithms
+- allow specifying a KMS master key ID
+- preserve existing behavior with optional encryption settings
+```
+
+## August 12, 2026
+
+### Summary
+
+This update improves the portability of preventive organization policies by accepting policy content directly instead of reading it from a local file. It also refreshes the delegated service assignment reference with the latest service IDs and supported services.
+
+### Changed
+
+#### Preventive compliance policies
+
+- Updated `components/compliance/preventive` to accept inline policy content through `org_service_policies[*].content`.
+- Replaced the local file lookup:
+
+  ```hcl
+  content = file(item.path)
+  ```
+
+  with direct content assignment:
+
+  ```hcl
+  content = item.content
+  ```
+
+- Renamed the `org_service_policies` object field from `path` to `content`.
+- Removed the module's dependency on policy files being available on the local filesystem.
+- Policy content can now be passed from variables, templates, remote configuration, or another Terraform module.
+
+#### Organization service assignments
+
+- Updated the delegated service reference in `components/organization/service-assign/variables.tf`.
+- Refreshed service names and IDs:
+
+  | Service | Previous ID | Current ID |
+  |---|---:|---:|
+  | WAF | 24 | 28 |
+  | Cloud Security Center / CSIP | 15 | 23 |
+  | Key Management Service | 25 | 29 |
+  | Control Center | 17 | 24 |
+  | CloudAudit | 12 | 12 |
+  | Billing Center | 13 | 13 |
+  | Config | 18 | 18 |
+
+- Added references for newly supported services:
+  - Quota Center (`27`)
+  - Firewall Manager (`30`)
+  - Identity Center Management (`25`)
+- Removed obsolete references for:
+  - ICP (`22`)
+  - Cloud Virtual Machine (`23`)
+  - Andon (`20`)
+
+### Breaking Changes
+
+> The preventive policy input schema has changed and requires updates in all calling configurations.
+
+The following configuration is no longer supported:
+
+```hcl
+org_service_policies = [
+  {
+    name = "prevent-public-access"
+    path = "${path.module}/policies/prevent-public-access.json"
+    targets = []
+  }
+]
+```
+
+Pass the policy document through `content` instead:
+
+```hcl
+org_service_policies = [
+  {
+    name    = "prevent-public-access"
+    content = file("${path.module}/policies/prevent-public-access.json")
+    targets = []
+  }
+]
+```
+
+This moves file loading responsibility from the component to its caller. Existing callers using `path` will fail Terraform type validation until migrated.
+
+### Migration Notes
+
+1. Locate every `org_service_policies` declaration that uses `path`.
+2. Rename `path` to `content`.
+3. If the policy is still stored in a file, wrap the path with `file(...)` in the calling module.
+4. Update any variable definitions, Terragrunt inputs, examples, and documentation that expose the old `path` field.
+5. Review `service_assign_list` values and replace obsolete delegated service IDs with the current IDs.
+6. Pay particular attention to ID `23`, which now refers to CSIP rather than CVM in the updated reference.
+7. Run `terraform validate` and `terraform plan` before applying the changes.
+
+### Validation Checklist
+
+- [ ] All preventive policy callers use `content` instead of `path`
+- [ ] JSON policy documents are valid before being passed to the component
+- [ ] No Terragrunt or CI/CD inputs still depend on the old `path` field
+- [ ] Delegated service IDs match the updated Tencent Cloud organization service catalog
+- [ ] Removed service IDs are no longer used by `service_assign_list`
+- [ ] `terraform fmt -check -recursive` passes
+- [ ] `terraform validate` passes
+- [ ] `terraform plan` contains no unexpected policy replacement or service assignment changes
+
+### Suggested Release Title
+
+```text
+feat(compliance): support inline policy content and refresh delegated service IDs
+```
+
+## August 10, 2026
+
+### Summary
+
+This release focuses on the **modularization of the TKE Terraform module**. It also adds support for CLB logging and free SSL certificates, while updating Terraform definitions across networking, organization, security, and foundational infrastructure modules.
+
+- Added 8 standalone Terraform modules
+- Updated 19 existing files
+- Removed 28 files from the legacy monolithic TKE module and its examples
+- Affected networking, organization, security, database, compute, load balancing, certificate, and container service capabilities
+
+### Added
+
+#### New Modules
+
+- `modules/clb-log/`
+  - Added a module for managing CLB logs.
+- `modules/ssl-free-certificate/`
+  - Added a module for requesting and managing free SSL certificates.
+- `modules/tke-addon/`
+  - Added a standalone module for managing TKE cluster add-ons.
+- `modules/tke-cluster-endpoint/`
+  - Added a standalone module for managing TKE cluster access endpoints.
+- `modules/tke-instance/`
+  - Added a module for managing TKE cluster node instances.
+- `modules/tke-native-node-pool/`
+  - Added a module for managing TKE native node pools.
+- `modules/tke-node-pool/`
+  - Added a module for managing standard TKE node pools.
+- `modules/tke-serverless-node-pool/`
+  - Added a module for managing TKE Serverless node pools.
+
+### Changed
+
+#### Networking
+
+- Updated resource definitions and input variables for the ACL component:
+  - `components/network/acl/main.tf`
+  - `components/network/acl/variables.tf`
+- Updated resource definitions, input variables, and outputs for the CCN-VPC component:
+  - `components/network/ccn-vpc/main.tf`
+  - `components/network/ccn-vpc/variables.tf`
+  - `components/network/ccn-vpc/outputs.tf`
+- Updated resource definitions for the NAT Gateway module:
+  - `modules/nat-gateway/main.tf`
+
+#### Organization
+
+- Updated resource definitions and input variables for the department hierarchy component:
+  - `components/organization/departments/main.tf`
+  - `components/organization/departments/variables.tf`
+
+#### Security
+
+- Updated the Cloud Firewall VPC route reconfiguration logic:
+  - `components/security/cfw/fw-vpc-route-reconfig/main.tf`
+- Updated resource definitions, input variables, and outputs for the WAF component:
+  - `components/security/waf/main.tf`
+  - `components/security/waf/variables.tf`
+  - `components/security/waf/outputs.tf`
+- Updated the SSL Certificate module documentation:
+  - `modules/ssl-certificate/README.md`
+
+#### Compute and Database
+
+- Updated resource definitions, input variables, and outputs for the CDB for MySQL instance module:
+  - `modules/cdb-mysql-instance/main.tf`
+  - `modules/cdb-mysql-instance/variables.tf`
+  - `modules/cdb-mysql-instance/output.tf`
+- Updated resource definitions, input variables, and outputs for the CVM instance module:
+  - `modules/cvm-instance/main.tf`
+  - `modules/cvm-instance/variables.tf`
+  - `modules/cvm-instance/output.tf`
+
+### Removed
+
+#### Legacy TKE Module
+
+Removed the monolithic `modules/tke/` module, including:
+
+- Core cluster resource definitions
+- CAM permission configuration
+- Input variables and outputs
+- Provider and version constraints
+- Module documentation
+
+#### Legacy TKE Examples
+
+Removed examples bundled with the legacy module:
+
+- `all-in-one`
+- `kubernetes`
+- `managed-node-pool`
+- `new-addons`
+- `pod-identity`
+- `vpc-cni-cluster`
+
+### Breaking Changes
+
+> This TKE refactoring introduces potentially breaking changes. Consumers of the legacy `modules/tke` module cannot upgrade without migration work.
+
+- The monolithic `modules/tke` module has been removed and must be replaced with the new standalone TKE modules.
+- Variables, outputs, and Terraform resource addresses may have changed.
+- Capabilities previously managed internally by the legacy module, including CAM permissions, node pools, add-ons, and cluster endpoints, may now require explicit module declarations.
+- Deployment workflows based on the legacy examples must be updated to use the new module composition.
+- Replacing the module source directly may cause Terraform to interpret existing resources as deleted and recreated. Review state addresses and the execution plan before upgrading.
+
+### Migration Notes
+
+1. Pin the current module version and back up the Terraform state before upgrading production environments.
+2. Select the new TKE modules required by the existing deployment:
+   - Add-ons: `tke-addon`
+   - Cluster endpoints: `tke-cluster-endpoint`
+   - Node instances: `tke-instance`
+   - Standard node pools: `tke-node-pool`
+   - Native node pools: `tke-native-node-pool`
+   - Serverless node pools: `tke-serverless-node-pool`
+3. Compare the variables and outputs of the old and new modules, then update all consumer references.
+4. Migrate Terraform state with `moved` blocks, `terraform state mv`, or resource imports to prevent unintended recreation.
+5. Run `terraform init -upgrade`, `terraform validate`, and `terraform plan`, and confirm that no unexpected deletions or replacements are proposed.
+6. Pay particular attention to cluster endpoints, node pools, add-ons, networking configuration, and CAM permissions.
+
+## March 30, 2026
+
+- **Project initialization:** Add the first set of core **components** and supporting **modules**.
