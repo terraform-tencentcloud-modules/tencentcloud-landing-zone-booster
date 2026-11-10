@@ -1,3 +1,196 @@
+## November 10, 2026
+
+## Summary
+
+This release replaces the legacy all-in-one TKE authorization module with three focused modules for CAM OIDC configuration, TKE authorization attachment, and TKE user permissions.
+
+The new structure separates identity-provider configuration, authorization attachment, and permission assignment into independently reusable Terraform modules.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resources, variables, outputs, provider constraints, and migration addresses must be verified against the complete `git diff` before release.
+
+## Added
+
+### CAM OIDC configuration module
+
+Added:
+
+```text
+modules/cam-oidc-config/
+```
+
+This module provides a dedicated Terraform boundary for CAM OpenID Connect configuration used by TKE or related identity-integration workflows.
+
+Review the module implementation for:
+
+* OIDC provider or configuration lifecycle.
+* Issuer, client, endpoint, certificate, and claim settings.
+* CAM permissions and trusted identity configuration.
+* Sensitive inputs and outputs.
+* Import requirements for existing OIDC configurations.
+
+### TKE authorization attachment module
+
+Added:
+
+```text
+modules/tke-authz-attachment/
+```
+
+This module separates TKE authorization attachment management from user-permission assignment. It is intended to manage the relationship between a TKE cluster and its authorization or identity configuration independently.
+
+Review the module implementation for:
+
+* Cluster and authorization identifiers.
+* Attachment lifecycle and dependencies.
+* CAM OIDC integration.
+* Resource replacement behavior.
+* Outputs consumed by downstream modules.
+
+### TKE user-permissions module
+
+Added:
+
+```text
+modules/tke-user-permissions/
+```
+
+This module provides a dedicated boundary for assigning TKE permissions to CAM users or roles.
+
+Expected responsibilities include:
+
+* Cluster-level and namespace-level authorization.
+* Built-in and custom TKE role assignment.
+* CAM user or role targeting.
+* Permission lifecycle and downstream outputs.
+
+Verify the complete diff for the final input model, including whether it retains the previous `authz_permissions` map, supports name-based CAM lookup, and uses keyed `for_each` resource addressing.
+
+## Removed
+
+### Legacy TKE authorization module
+
+Removed the complete legacy module:
+
+```text
+modules/tke-authz/
+```
+
+Deleted files:
+
+* `modules/tke-authz/README.md`
+* `modules/tke-authz/main.tf`
+* `modules/tke-authz/output.tf`
+* `modules/tke-authz/variables.tf`
+* `modules/tke-authz/version.tf`
+
+Consumers must migrate to one or more of the new modules according to their responsibilities:
+
+* `modules/cam-oidc-config`
+* `modules/tke-authz-attachment`
+* `modules/tke-user-permissions`
+
+## Architecture
+
+The module split establishes the following responsibility boundaries:
+
+```text
+CAM OIDC configuration
+          |
+          v
+TKE authorization attachment
+          |
+          v
+TKE user permissions
+```
+
+This separation enables callers to:
+
+* Manage CAM OIDC configuration independently from TKE clusters.
+* Reuse one identity configuration across supported authorization workflows.
+* Attach authorization configuration to TKE separately from permission grants.
+* Manage user and role permissions without coupling them to OIDC lifecycle changes.
+* Apply least-privilege permissions and ownership boundaries to each layer.
+
+## Breaking Changes
+
+> [!WARNING]
+> Removing `modules/tke-authz` is a breaking module source-path, interface, output, and Terraform state-address change.
+
+Existing consumers must review and update:
+
+* Module source paths.
+* Input variables.
+* Output references.
+* Dependencies between identity configuration, cluster attachment, and permission assignment.
+* Terraform and Terragrunt dependency outputs.
+* Resource addresses stored in Terraform state.
+
+Without state migration or import, Terraform may propose deleting resources previously managed under `module.tke_authz` and recreating them under the new module paths.
+
+## Migration Guidance
+
+1. Inventory all consumers of `modules/tke-authz`.
+2. Identify which legacy resources belong to CAM OIDC configuration, TKE authorization attachment, and TKE user permissions.
+3. Replace the old module with the required new modules.
+4. Map legacy variables and outputs to each new module contract.
+5. Connect modules using explicit outputs rather than hard-coded identifiers.
+6. Inspect current resource addresses with `terraform state list`.
+7. Use `moved` blocks, `terraform state mv`, or resource import to preserve existing infrastructure.
+8. Run `terraform plan` in a non-production environment before upgrading production stacks.
+
+Generic state-migration pattern:
+
+```bash
+terraform state mv \
+  'module.tke_authz.<legacy_resource_address>' \
+  'module.<new_module>.<new_resource_address>'
+```
+
+Do not run state migration using placeholder addresses. Determine the exact source and destination addresses from the legacy state and new module implementation first.
+
+## Compatibility and Security Considerations
+
+* Existing OIDC configurations should be imported rather than recreated when they are already in use.
+* Verify whether deleting or replacing an authorization attachment temporarily removes cluster access.
+* Confirm TKE user and role permissions remain present throughout migration.
+* Review CAM and TKE policies for least privilege.
+* Treat issuer URLs, client identifiers, certificates, tokens, and secrets as sensitive where applicable.
+* Store Terraform state in an encrypted backend with restricted access.
+* Ensure new module outputs do not expose sensitive OIDC configuration.
+* Preserve stable `for_each` keys if permission resources use map-based addressing.
+
+## Validation Checklist
+
+### Module validation
+
+* [ ] Run `terraform fmt -check -recursive`.
+* [ ] Run `terraform init -upgrade` for affected stacks.
+* [ ] Run `terraform validate` for all three new modules.
+* [ ] Verify required Terraform and Tencent Cloud provider versions.
+* [ ] Confirm module READMEs describe final inputs, outputs, dependencies, and examples.
+
+### Migration validation
+
+* [ ] Locate every reference to `modules/tke-authz`.
+* [ ] Map every legacy resource to the correct new module.
+* [ ] Update all Terraform and Terragrunt dependencies.
+* [ ] Back up and inspect Terraform state before migration.
+* [ ] Move or import existing resources using verified addresses.
+* [ ] Confirm the final plan contains no unintended resource destruction or recreation.
+
+### Functional validation
+
+* [ ] Verify CAM OIDC configuration and trust settings.
+* [ ] Verify TKE authorization attachment to the intended cluster.
+* [ ] Verify CAM user and role permission assignments.
+* [ ] Test cluster-level and namespace-level access.
+* [ ] Test built-in and custom TKE roles where supported.
+* [ ] Confirm existing administrators retain access throughout migration.
+* [ ] Test rollback and emergency-access procedures before production rollout.
+
+
+
 ## November 03, 2026
 
 ## Summary

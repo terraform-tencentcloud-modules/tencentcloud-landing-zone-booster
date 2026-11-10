@@ -1,7 +1,7 @@
 ################################################################################
 ### TKE cluster user permissions outputs
 ################################################################################
-output "id" {
-  description = "ID of the resource"
-  value       = try(tencentcloud_kubernetes_user_permissions.authz[0].id, null)
+output "user_permission_ids" {
+  description = "IDs of the resources"
+  value       = [for k, v in tencentcloud_kubernetes_user_permissions.authz : v.id]
 }
