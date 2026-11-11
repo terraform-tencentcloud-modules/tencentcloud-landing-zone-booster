@@ -47,3 +47,12 @@ variable "auto_install_pod_identity_webhook_addon" {
   default     = null
   description = "Creating the PodIdentityWebhook component. If `auto_create_oidc_config` is true, this field must be set to true."
 }
+
+################################################################################
+### CAM OIDC config data variables
+################################################################################
+variable "result_output_file" {
+  type        = string
+  default     = null
+  description = "Used to save the query results to a local file."
+}
