@@ -66,3 +66,8 @@ resource "tencentcloud_mysql_readonly_instance" "ro_remaining" {
 
   depends_on = [tencentcloud_mysql_readonly_instance.ro_first]
 }
+
+resource "tencentcloud_mysql_ssl" "ro" {
+  ro_group_id = local.use_existing_group ? var.ro_basic.ro_group_id : tencentcloud_mysql_readonly_instance.ro_first[0].ro_group_id
+  status      = var.ssl_enabled ? "ON" : "OFF"
+}

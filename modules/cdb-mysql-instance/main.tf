@@ -106,6 +106,11 @@ resource "tencentcloud_mysql_instance" "this" {
       root_password
     ]
   }
+
+  depends_on = [
+    tencentcloud_cam_role.QcsRole,
+    tencentcloud_cam_role_policy_attachment.role_policies
+  ]
 }
 
 resource "tencentcloud_mysql_instance_encryption_operation" "this" {
@@ -114,6 +119,11 @@ resource "tencentcloud_mysql_instance_encryption_operation" "this" {
   instance_id = local.instance_id
   key_id      = var.encryption_key_id
   key_region  = var.encryption_key_region
+}
+
+resource "tencentcloud_mysql_ssl" "instance" {
+  instance_id = local.instance_id
+  status      = var.ssl_enabled ? "ON" : "OFF"
 }
 
 resource "tencentcloud_mysql_backup_policy" "this" {

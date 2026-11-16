@@ -33,3 +33,11 @@ output "ro_status" {
   description = "The status of the MySQL readonly instances."
   value       = { for k, v in local.all_instances : k => v.status }
 }
+
+#################
+# MySQL SSL
+#################
+output "ssl_url" {
+  description = "The certificate download link. Example value: http://testdownload.url."
+  value       = tencentcloud_mysql_ssl.ro.url
+}

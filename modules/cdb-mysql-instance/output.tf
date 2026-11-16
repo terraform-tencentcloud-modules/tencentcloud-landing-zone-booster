@@ -47,6 +47,14 @@ output "root_password" {
 }
 
 #################
+# MySQL SSL
+#################
+output "ssl_url" {
+  description = "The certificate download link. Example value: http://testdownload.url."
+  value       = tencentcloud_mysql_ssl.instance.url
+}
+
+#################
 # MySQL backup policy
 #################
 output "backup_policy_id" {

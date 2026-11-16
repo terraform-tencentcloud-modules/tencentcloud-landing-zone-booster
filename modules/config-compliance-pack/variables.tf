@@ -4,6 +4,10 @@ variable "compliance_packs" {
     compliance_pack_name = string
     # Risk level of the compliance pack. Valid values: 1 (high), 2 (medium), 3 (low).
     risk_level = number
+    # Description of the compliance pack.
+    description = optional(string)
+    # Compliance pack status. Valid values: ACTIVE, UN_ACTIVE. Defaults to ACTIVE when omitted.
+    status = optional(string)
     # List of compliance pack rules. The set is keyed by `identifier`.
     config_rules = set(object({
       # Rule identifier (managed rule name or custom rule cloud function ARN). Required.
@@ -27,10 +31,6 @@ variable "compliance_packs" {
         value         = optional(string)
       })), [])
     }))
-    # Description of the compliance pack.
-    description = optional(string)
-    # Compliance pack status. Valid values: ACTIVE, UN_ACTIVE. Defaults to ACTIVE when omitted.
-    status = optional(string)
   }))
 
   validation {

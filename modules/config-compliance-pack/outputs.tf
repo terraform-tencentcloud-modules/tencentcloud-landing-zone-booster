@@ -11,17 +11,3 @@ output "status" {
     for k, v in tencentcloud_config_compliance_pack.this : k => v.status
   }
 }
-
-output "create_time" {
-  description = "Map of compliance pack logical name to its creation time."
-  value = {
-    for k, v in tencentcloud_config_compliance_pack.this : k => v.create_time
-  }
-}
-
-output "config_rules" {
-  description = "Map of compliance pack logical name to its resolved config rules (with computed fields like status and compliance_result)."
-  value = {
-    for k, v in tencentcloud_config_compliance_pack.this : k => v.config_rules
-  }
-}

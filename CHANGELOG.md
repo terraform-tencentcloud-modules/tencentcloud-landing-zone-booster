@@ -1,3 +1,184 @@
+## November 16, 2026
+
+## Summary
+
+This release adds SSL lifecycle management and certificate URL outputs to TencentDB for MySQL primary and read-only deployments. It also strengthens MySQL KMS dependency ordering and simplifies the public output contract of the Config Compliance Pack module.
+
+## Added
+
+### SSL management for MySQL instances
+
+Added `tencentcloud_mysql_ssl.instance` to `modules/cdb-mysql-instance`.
+
+The module now manages SSL explicitly for the primary MySQL instance:
+
+```hcl
+resource "tencentcloud_mysql_ssl" "instance" {
+  instance_id = local.instance_id
+  status      = var.ssl_enabled ? "ON" : "OFF"
+}
+```
+
+A new optional input controls the desired SSL state:
+
+```hcl
+ssl_enabled = false
+```
+
+The default remains disabled, preserving the previous effective SSL setting unless consumers opt in.
+
+### SSL management for read-only groups
+
+Added `tencentcloud_mysql_ssl.ro` to `modules/cdb-mysql-readonly`.
+
+The resource targets either:
+
+* An existing read-only group supplied through `var.ro_basic.ro_group_id`; or
+* The read-only group created by `tencentcloud_mysql_readonly_instance.ro_first`.
+
+The read-only module also introduces the optional `ssl_enabled` input, defaulting to `false`.
+
+### SSL certificate URL outputs
+
+Added `ssl_url` to both MySQL modules:
+
+* `modules/cdb-mysql-instance/output.tf`
+* `modules/cdb-mysql-readonly/outputs.tf`
+
+The output exposes the certificate download URL returned by `tencentcloud_mysql_ssl`.
+
+### KMS strategy input
+
+Added the following input to `modules/cdb-mysql-instance`:
+
+```hcl
+create_kms_strategy = false
+```
+
+This input is intended to control creation of the KMS access strategy required by MySQL encryption workflows. Confirm its final resource wiring before release because its usage is not visible in the supplied diff.
+
+## Changed
+
+### MySQL KMS dependency ordering
+
+The primary MySQL instance now explicitly depends on the MySQL service role and its policy attachments:
+
+```hcl
+depends_on = [
+  tencentcloud_cam_role.QcsRole,
+  tencentcloud_cam_role_policy_attachment.role_policies
+]
+```
+
+This ensures that CAM authorization is established before instance provisioning proceeds. Tencent Cloud requires the `MySQL_QCSRole` role and the `QcloudAccessForMySQLRole` preset policy before enabling MySQL data-at-rest encryption through KMS.
+
+### Config Compliance Pack variable organization
+
+Moved the optional compliance-pack-level fields before `config_rules` in the object definition:
+
+* `description`
+* `status`
+
+This is a schema-organization change only; their types and optional behavior remain unchanged in the supplied diff.
+
+### Config Compliance Pack formatting
+
+Aligned Terraform attribute formatting in `modules/config-compliance-pack/main.tf`. No resource behavior change is shown for these formatting-only edits.
+
+## Removed
+
+### Config Compliance Pack outputs
+
+Removed the following outputs from `modules/config-compliance-pack`:
+
+* `create_time`
+* `config_rules`
+
+The remaining public outputs shown in the diff are unchanged, including `status`.
+
+## Breaking Changes
+
+> [!WARNING]
+> Removing `create_time` and `config_rules` is a breaking module-interface change.
+
+Terraform or Terragrunt consumers referencing either output will fail with an unsupported attribute error after upgrading.
+
+Affected references may include:
+
+```hcl
+module.config_compliance_pack.create_time
+module.config_compliance_pack.config_rules
+```
+
+The new MySQL SSL resources also introduce lifecycle ownership for SSL status. Even with `ssl_enabled = false`, the modules now explicitly manage the SSL state as `OFF`. Existing instances or read-only groups with SSL enabled outside Terraform may therefore receive a plan to disable SSL unless callers set:
+
+```hcl
+ssl_enabled = true
+```
+
+Review existing SSL status before applying this release.
+
+## Migration Notes
+
+### MySQL SSL adoption
+
+1. Query the current SSL status of each primary instance and read-only group.
+2. Set `ssl_enabled = true` wherever SSL is already enabled or should remain enabled.
+3. Leave `ssl_enabled = false` only where Terraform should enforce SSL as disabled.
+4. Review the plan for unexpected `ON` to `OFF` transitions.
+5. Confirm the target MySQL edition and topology support SSL management.
+6. Treat the exported certificate URL as operationally sensitive and avoid exposing it unnecessarily in logs or downstream outputs.
+
+### Config Compliance Pack consumers
+
+1. Search all Terraform and Terragrunt configurations for `create_time` and `config_rules` references.
+2. Remove or replace those references before upgrading.
+3. If the values remain required, obtain them from an appropriate Config data source or restore compatible module outputs.
+4. Removing outputs does not delete the underlying compliance packs or rules from Terraform state.
+
+### KMS authorization
+
+1. Confirm whether `create_kms_strategy` is fully connected to the intended CAM resources.
+2. Verify that `MySQL_QCSRole` and `QcloudAccessForMySQLRole` exist before enabling data-at-rest encryption.
+3. Review `depends_on` behavior when KMS strategy creation is disabled or when the role is managed externally.
+4. Confirm that existing CAM resources are imported or referenced correctly to avoid duplicates.
+
+## Validation Checklist
+
+### General
+
+* [ ] Run `terraform fmt -check -recursive`.
+* [ ] Run `terraform init -upgrade` for affected stacks.
+* [ ] Run `terraform validate` for all three modules.
+* [ ] Review the final plans for unintended updates, replacement, or deletion.
+
+### MySQL SSL
+
+* [ ] Test a primary MySQL instance with `ssl_enabled = true`.
+* [ ] Test a primary MySQL instance with `ssl_enabled = false`.
+* [ ] Test a newly created read-only group with SSL enabled and disabled.
+* [ ] Test an existing read-only group supplied through `ro_group_id`.
+* [ ] Confirm `ssl_url` is populated when SSL is enabled.
+* [ ] Confirm behavior of `ssl_url` when SSL is disabled.
+* [ ] Verify current externally managed SSL settings are not unintentionally disabled.
+* [ ] Confirm applications trust the downloaded certificate and can establish SSL connections.
+
+### KMS and CAM
+
+* [ ] Confirm MySQL service-role creation precedes instance provisioning.
+* [ ] Confirm required role policies are attached before encryption operations.
+* [ ] Verify `create_kms_strategy` is used by the intended resources.
+* [ ] Test configurations where KMS strategy resources are disabled or externally managed.
+* [ ] Confirm encryption plans contain no unintended instance replacement.
+
+### Config Compliance Pack
+
+* [ ] Update all consumers of the removed `create_time` output.
+* [ ] Update all consumers of the removed `config_rules` output.
+* [ ] Verify remaining outputs continue to satisfy downstream dependencies.
+* [ ] Confirm compliance-pack plans contain no functional changes from field reordering or formatting.
+
+
 ## November 10, 2026
 
 ## Summary

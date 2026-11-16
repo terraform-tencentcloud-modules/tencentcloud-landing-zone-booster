@@ -38,3 +38,10 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# ---------------- ssl ----------------
+variable "ssl_enabled" {
+  description = "Enable SSL."
+  type        = bool
+  default     = false
+}

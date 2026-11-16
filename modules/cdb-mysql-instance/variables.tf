@@ -15,6 +15,12 @@ variable "project_id" {
   default     = 0
 }
 
+variable "create_kms_strategy" {
+  description = "Create KMS strategy. Default false."
+  type        = bool
+  default     = false
+}
+
 # ---------------- Required ----------------
 variable "instance_name" {
   description = "The name of a MySQL instance."
@@ -258,6 +264,13 @@ variable "encryption_key_region" {
   description = "Key region for data encryption."
   type        = string
   default     = null
+}
+
+# ---------------- ssl ----------------
+variable "ssl_enabled" {
+  description = "Enable SSL."
+  type        = bool
+  default     = false
 }
 
 # ---------------- Parameters & Engine ----------------
