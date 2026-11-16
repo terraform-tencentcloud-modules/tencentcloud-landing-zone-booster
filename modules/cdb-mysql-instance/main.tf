@@ -122,8 +122,10 @@ resource "tencentcloud_mysql_instance_encryption_operation" "this" {
 }
 
 resource "tencentcloud_mysql_ssl" "instance" {
+  count = var.ssl_enabled ? 1 : 0
+
   instance_id = local.instance_id
-  status      = var.ssl_enabled ? "ON" : "OFF"
+  status      = var.ssl_status ? "ON" : "OFF"
 }
 
 resource "tencentcloud_mysql_backup_policy" "this" {

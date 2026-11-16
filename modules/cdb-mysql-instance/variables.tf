@@ -273,6 +273,12 @@ variable "ssl_enabled" {
   default     = false
 }
 
+variable "ssl_status" {
+  description = "SSL status."
+  type        = bool
+  default     = true
+}
+
 # ---------------- Parameters & Engine ----------------
 variable "parameters" {
   description = "List of parameters to use (key-value map)."
