@@ -13,3 +13,16 @@ resource "tencentcloud_kubernetes_auth_attachment" "this" {
   auto_create_client_id                   = var.auto_create_client_id
   auto_install_pod_identity_webhook_addon = var.auto_install_pod_identity_webhook_addon
 }
+
+################################################################################
+### CAM OIDC config data source
+################################################################################
+data "tencentcloud_cam_oidc_config" "this" {
+  name = var.cluster_id
+
+  result_output_file = var.result_output_file
+
+  depends_on = [
+    tencentcloud_kubernetes_auth_attachment.this
+  ]
+}
