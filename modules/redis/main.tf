@@ -99,13 +99,13 @@ resource "tencentcloud_redis_ssl" "redis_ssl_config" {
 }
 
 # Backup configuration
-resource "tencentcloud_redis_backup_config" "backup" {
+resource "tencentcloud_redis_backup_config" "this" {
   count       = var.backup_strategy != null ? 1 : 0
   redis_id    = tencentcloud_redis_instance.redis_instance.id
   backup_time = var.backup_strategy.backup_time
 }
 
-resource "tencentcloud_redis_backup_operation" "example" {
+resource "tencentcloud_redis_backup_operation" "this" {
   count        = var.storage_strategy != null ? 1 : 0
   instance_id  = tencentcloud_redis_instance.redis_instance.id
   storage_days = var.storage_strategy.storage_days
