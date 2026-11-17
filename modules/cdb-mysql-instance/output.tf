@@ -51,7 +51,7 @@ output "root_password" {
 #################
 output "ssl_url" {
   description = "The certificate download link. Example value: http://testdownload.url."
-  value       = tencentcloud_mysql_ssl.instance.url
+  value       = try(tencentcloud_mysql_ssl.instance.0.url, null)
 }
 
 #################

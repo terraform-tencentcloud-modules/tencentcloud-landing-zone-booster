@@ -45,3 +45,9 @@ variable "ssl_enabled" {
   type        = bool
   default     = false
 }
+
+variable "ssl_status" {
+  description = "SSL status."
+  type        = bool
+  default     = true
+}

@@ -39,5 +39,5 @@ output "ro_status" {
 #################
 output "ssl_url" {
   description = "The certificate download link. Example value: http://testdownload.url."
-  value       = tencentcloud_mysql_ssl.ro.url
+  value       = try(tencentcloud_mysql_ssl.ro.url, null)
 }
