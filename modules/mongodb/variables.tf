@@ -2,19 +2,20 @@ variable "mongodb_instance" {
   description = "Mongodb instance configuration"
   type = object({
     name                     = string                               # Instance name used for secret naming
-    available_zone           = string                               # The availability zone of the instance. For example, ap-singapore-2.     
-    memory                   = optional(number, 4)                  # Memory size in GB.      
-    volume                   = optional(number, 100)                # Storage capacity in GB.
-    machine_type             = optional(string, "HIO10G")           # Type of Mongodb instance, and available values include HIO and HIO10G
-    engine_version           = optional(string, "MONGO_50_WT")      # Version of the Mongodb, and available values like MONGO_50_WT (MongoDB 5.0 WiredTiger Edition), MONGO_40_WT (MongoDB 4.0 WiredTiger Edition) 
+    available_zone           = string                               # The availability zone of the instance. For example, ap-singapore-2.
+    machine_type             = string                               # Type of Mongodb instance. Use HIO or HIO10G (GIO/TGIO are deprecated aliases). ForceNew.
+    engine_version           = string                               # Mongodb version: MONGO_40_WT, MONGO_42_WT, MONGO_44_WT, MONGO_50_WT, MONGO_60_WT, MONGO_70_WT, MONGO_80_WT, MONGO_83_WT.   
+    memory                   = number                               # Memory size in GB (minimum 2). Memory and volume must be scaled together.
+    volume                   = number                               # Storage capacity in GB (minimum 25). Memory and volume must be scaled together.
+    cpu                      = optional(number)                     # The CPU core count of the MongoDB instance after the configuration change. Unit: C. When this parameter is empty, the current CPU size of the instance is used by default. The supported CPU specifications can be obtained through the DescribeSpecInfo API.
     auto_renew_flag          = optional(number, 0)                  # Auto renew flag. Valid values are 0(NOTIFY_AND_MANUAL_RENEW), 1(NOTIFY_AND_AUTO_RENEW) and 2(DISABLE_NOTIFY_AND_MANUAL_RENEW). Default value is 0. Note: only works for PREPAID instance.
-    availability_zone_list   = list(string)                         # A list of nodes deployed in multiple availability zones.
+    availability_zone_list   = optional(list(string))               # A list of nodes deployed in multiple availability zones.
     hidden_zone              = optional(string)                     # The availability zone to which the Hidden node belongs. 
     node_num                 = optional(number, 3)                  # The number of nodes in each replica set. at least 3 for replicas set.Default value: 3.
-    vpc_id                   = string                               # VPC ID
-    subnet_id                = string                               # subnet ID
+    vpc_id                   = optional(string)                     # VPC ID
+    subnet_id                = optional(string)                     # subnet ID
     charge_type              = optional(string, "POSTPAID_BY_HOUR") # Billing mode. POSTPAID_BY_HOUR: Pay-As-You-Go
-    prepaid_period           = optional(number, 1)                  # The tenancy (time unit is month) of the prepaid instance. Valid values are 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 24, 36. NOTE: it only works when charge_type is set to PREPAID.
+    prepaid_period           = optional(number)                     # The tenancy (time unit is month) of the prepaid instance. Valid values are 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 24, 36. NOTE: it only works when charge_type is set to PREPAID.
     user_name                = optional(string)                     # The new account name
     user_desc                = optional(string, "")                 # new user account remarks.
     enable_ssl               = optional(bool, false)                # Whether to enable SSL
@@ -24,6 +25,9 @@ variable "mongodb_instance" {
     security_group_ids       = optional(list(string), [])           # List of security group IDs to attach to the MongoDB instance.
     password_length          = optional(number, 32)                 # Length of auto-generated passwords.
     password_rotation_months = optional(number, 0)                  # Password rotation period in months. 0 means disabled.
+    maintenance_start        = optional(string)                     # Maintenance window start time, any full/half hour from 00:00-23:00, e.g. "02:00". Requires maintenance_end.
+    maintenance_end          = optional(string)                     # Maintenance window end time, any full/half hour from 00:00-23:00, duration 30min~3h. Requires maintenance_start.
+    project_id               = optional(number, 0)                  # ID of the project which the instance belongs to.
   })
 }
 

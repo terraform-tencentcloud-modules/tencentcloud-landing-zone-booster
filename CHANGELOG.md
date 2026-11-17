@@ -1,3 +1,187 @@
+## November 17, 2026
+
+## Summary
+
+This release expands the TencentDB for MongoDB Terraform module set with dedicated modules for read-only, sharded, and standby deployments. It also updates the existing MongoDB module implementation, input interface, and documentation to align with the expanded topology-specific module structure.
+
+> [!NOTE]
+> This changelog is based on the supplied Git working-tree file list. Exact resources, variables, outputs, defaults, provider constraints, and state impact must be verified against the complete `git diff` before release.
+
+## Added
+
+### MongoDB read-only module
+
+Added:
+
+```text
+modules/mongodb-readonly/
+```
+
+The new module provides a dedicated Terraform boundary for MongoDB read-only capacity and read-scaling workflows.
+
+TencentDB for MongoDB read-only nodes are designed for read-intensive workloads. They synchronize data through the operation log and can reduce read pressure on the primary node without participating in primary election.
+
+Review the final implementation for:
+
+* Parent instance or replica-set dependencies.
+* Read-only node count and specifications.
+* Network, subnet, security-group, and availability-zone settings.
+* Connection endpoints and exported outputs.
+* Replication delay, scaling, and lifecycle behavior.
+
+### MongoDB sharding module
+
+Added:
+
+```text
+modules/mongodb-sharding/
+```
+
+The new module provides a dedicated Terraform boundary for MongoDB sharded-cluster deployments.
+
+A sharded cluster distributes data across multiple shards for horizontal scaling. Each shard is based on a replica set, while the routing and configuration layers coordinate access and metadata.
+
+Review the final implementation for:
+
+* Shard and mongos quantities and specifications.
+* Storage and capacity configuration.
+* Network and security settings.
+* Version and engine constraints.
+* Resource scaling, replacement, and exported connection information.
+
+### MongoDB standby module
+
+Added:
+
+```text
+modules/mongodb-standby/
+```
+
+The new module separates standby or secondary-node management from the core MongoDB module.
+
+Review the final implementation for:
+
+* Parent instance and node dependencies.
+* Secondary or standby node specifications.
+* Availability-zone placement and high-availability behavior.
+* Election, failover, and lifecycle settings.
+* Outputs required by downstream modules and applications.
+
+## Changed
+
+### Existing MongoDB module
+
+Updated:
+
+* `modules/mongodb/main.tf`
+* `modules/mongodb/variables.tf`
+* `modules/mongodb/README.md`
+
+The changes revise the existing MongoDB resource implementation, public input contract, and usage documentation. The updates are expected to align the base module with the new topology-specific modules and clarify which responsibilities remain in `modules/mongodb`.
+
+Review the complete diff for:
+
+* New, renamed, removed, or retyped variables.
+* Changed defaults or validation rules.
+* Resource-address or `for_each` key changes.
+* Topology responsibilities moved into the new modules.
+* Output compatibility and downstream dependency changes.
+* Updated examples, prerequisites, and migration guidance.
+
+### Documentation
+
+Updated `modules/mongodb/README.md` to reflect the current MongoDB interface and the expanded module structure.
+
+The documentation should clearly distinguish when consumers should use:
+
+* The base MongoDB module.
+* The read-only module.
+* The sharding module.
+* The standby module.
+
+## Removed
+
+No files or module directories are shown as removed in the supplied working-tree status.
+
+If resources were moved out of `modules/mongodb` into the new topology-specific modules, those removals and their state impact must be documented after reviewing the complete diff.
+
+## Breaking Changes
+
+No breaking change can be confirmed from the supplied file list alone.
+
+Potential compatibility risks include:
+
+* Existing callers failing because of renamed, removed, or newly required inputs.
+* Resource recreation caused by changes to resource addresses, topology selection, or immutable MongoDB arguments.
+* Existing read-only, sharded, or standby resources moving to new module paths.
+* Downstream configurations failing because of changed outputs.
+* Duplicate resources if existing MongoDB topology resources are created by the new modules without state migration or import.
+
+> [!WARNING]
+> If existing resources are transferred from `modules/mongodb` into the new modules, treat the release as breaking and migrate Terraform state before applying.
+
+## Migration Notes
+
+1. Compare the previous and updated `modules/mongodb` variables and resources.
+2. Determine whether existing read-only, sharding, or standby resources have moved to the new modules.
+3. Update module source paths and calling configurations where responsibilities were separated.
+4. Inspect existing resource addresses with `terraform state list`.
+5. Use `moved` blocks, `terraform state mv`, or import to preserve resources moved to new module addresses.
+6. Import existing externally managed MongoDB resources before adopting the new modules.
+7. Update downstream output and Terragrunt dependency references.
+8. Run `terraform plan` in a non-production environment before upgrading production deployments.
+
+Generic state-migration pattern:
+
+```bash
+terraform state mv \
+  'module.mongodb.<existing_resource_address>' \
+  'module.<mongodb_topology_module>.<new_resource_address>'
+```
+
+Do not execute state migration with placeholder addresses. Confirm the source and destination addresses from the current state and final module implementation first.
+
+## Architecture and Operational Considerations
+
+* Replica-set deployments provide high availability through primary and secondary nodes.
+* Read-only nodes support read scaling but do not participate in primary election.
+* Sharded clusters provide horizontal capacity scaling and introduce shard, routing, and configuration-layer dependencies.
+* Validate replication delay and application read consistency before directing production reads to read-only nodes.
+* Validate shard-key design and data distribution before adopting sharding for existing databases.
+* Confirm failover behavior and availability-zone placement for standby or secondary nodes.
+* Back up critical data and validate rollback procedures before topology migration.
+
+## Validation Checklist
+
+### General
+
+* [ ] Run `terraform fmt -check -recursive`.
+* [ ] Run `terraform init -upgrade` for affected stacks.
+* [ ] Run `terraform validate` for all four MongoDB modules.
+* [ ] Verify required Terraform and Tencent Cloud provider versions.
+* [ ] Confirm every module README matches its final variables, outputs, and examples.
+
+### Compatibility and state
+
+* [ ] Compare the old and new base-module interfaces.
+* [ ] Identify resources moved to topology-specific modules.
+* [ ] Back up and inspect Terraform state before migration.
+* [ ] Move or import existing resources using verified addresses.
+* [ ] Update all downstream output and dependency references.
+* [ ] Confirm the final plan contains no unintended destruction or recreation.
+
+### Functional validation
+
+* [ ] Validate base MongoDB instance creation and updates.
+* [ ] Validate read-only node creation, scaling, endpoints, and replication behavior.
+* [ ] Validate sharded-cluster creation, shard and mongos configuration, and connection behavior.
+* [ ] Validate standby or secondary-node creation and failover behavior.
+* [ ] Verify VPC, subnet, security-group, and availability-zone placement.
+* [ ] Review storage, backup, version, and lifecycle settings.
+* [ ] Test application connectivity and rollback procedures in non-production.
+
+
+
 ## November 16, 2026
 
 ## Summary

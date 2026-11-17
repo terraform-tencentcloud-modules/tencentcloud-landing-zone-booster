@@ -65,10 +65,10 @@ Key capabilities:
 |-----------|------|----------|---------|-------------|
 | `name` | `string` | yes | – | Instance name (also used for secret naming). |
 | `available_zone` | `string` | yes | – | Availability zone of the instance, e.g. `ap-singapore-2`. |
-| `memory` | `number` | no | `4` | Memory size in GB. |
-| `volume` | `number` | no | `100` | Storage capacity in GB. |
-| `machine_type` | `string` | no | `"HIO10G"` | Instance type. `HIO` or `HIO10G`. |
-| `engine_version` | `string` | no | `"MONGO_50_WT"` | MongoDB version. e.g. `MONGO_50_WT` (5.0), `MONGO_40_WT` (4.0). |
+| `memory` | `number` | no | `4` | Memory size in GB (minimum 2). Memory and volume must be scaled together. |
+| `volume` | `number` | no | `100` | Storage capacity in GB (minimum 25). Memory and volume must be scaled together. |
+| `machine_type` | `string` | no | `"HIO10G"` | Instance type. Use `HIO` or `HIO10G` (`GIO`/`TGIO` are deprecated aliases). ForceNew. |
+| `engine_version` | `string` | no | `"MONGO_50_WT"` | MongoDB version: `MONGO_40_WT`, `MONGO_42_WT`, `MONGO_44_WT`, `MONGO_50_WT`, `MONGO_60_WT`, `MONGO_70_WT`, `MONGO_80_WT`, `MONGO_83_WT`. |
 | `auto_renew_flag` | `number` | no | `0` | Auto renew flag: `0` (notify & manual), `1` (notify & auto), `2` (disable notify & manual). Only for PREPAID. |
 | `availability_zone_list` | `list(string)` | yes | – | List of AZs where nodes are deployed. |
 | `hidden_zone` | `string` | no | – | AZ to which the Hidden node belongs. |
@@ -77,6 +77,7 @@ Key capabilities:
 | `subnet_id` | `string` | yes | – | Subnet ID. |
 | `charge_type` | `string` | no | `"POSTPAID_BY_HOUR"` | Billing mode. `POSTPAID_BY_HOUR` or `PREPAID`. |
 | `prepaid_period` | `number` | no | `1` | Prepaid tenancy in months. Valid: 1–12, 24, 36. Only for PREPAID. |
+| `project_id` | `number` | no | `0` | ID of the project which the instance belongs to. |
 | `user_name` | `string` | no | – | New account name. Account created only when set. |
 | `user_desc` | `string` | no | `""` | New user account remarks. |
 | `enable_ssl` | `bool` | no | `false` | Whether to enable SSL. |
@@ -86,6 +87,8 @@ Key capabilities:
 | `security_group_ids` | `list(string)` | no | `[]` | Security group IDs attached to the instance. |
 | `password_length` | `number` | no | `32` | Length of auto-generated passwords. |
 | `password_rotation_months` | `number` | no | `0` | Password rotation period in months. `0` disables rotation. |
+| `maintenance_start` | `string` | no | – | Maintenance window start time, any full/half hour from `00:00`–`23:00`, e.g. `02:00`. Requires `maintenance_end`. |
+| `maintenance_end` | `string` | no | – | Maintenance window end time, any full/half hour from `00:00`–`23:00`, duration 30min–3h. Requires `maintenance_start`. |
 
 ### `backup` object
 

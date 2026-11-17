@@ -1,0 +1,210 @@
+# MongoDB Sharding Terraform Module
+
+This module provisions a **Tencent Cloud MongoDB sharding instance** (`tencentcloud_mongodb_sharding_instance`) — a distributed cluster composed of multiple shards plus `mongos` routing nodes — with optional supporting resources managed through a single `mongodb_sharding` configuration object.
+
+Key capabilities:
+
+- **Sharded cluster provisioning** — configurable shard quantity (`shard_quantity`), nodes per shard (`nodes_per_shard`), and `mongos` specs (`mongos_cpu` / `mongos_memory` / `mongos_node_num`). Multi-AZ deployment via `availability_zone_list` / `hidden_zone`.
+- **SSL** — optional, controlled by `mongodb_sharding.enable_ssl`.
+- **Transparent Data Encryption (TDE)** — optional, controlled by `mongodb_sharding.enable_encryption` (requires `kms_region` / `kms_key_id`).
+- **Backup rule** — optional, controlled by `backup.enabled` (method, time, retention, frequency).
+- **Account** — optional MongoDB user account, created when `mongodb_sharding.user_name` is set, with configurable `auth_roles`.
+- **Password management** — system (`root`) and application user passwords can be auto-generated (`random_password`) or provided via variables. Optional rotation via `time_rotating` when `password_rotation_months > 0`.
+- **SSM secrets** — optionally stores admin and user credentials in Tencent Cloud SSM (`tencentcloud_ssm_secret`), controlled by `store_credentials_in_ssm`.
+- **KMS service-linked role** — optionally creates the MongoDB KMS linked role (`tencentcloud_cam_service_linked_role`), controlled by `create_kms_strategy`.
+
+## Requirements
+
+| Name | Version |
+|------|---------|
+| terraform | >= 1.0.0 |
+| tencentcloud | >= 1.81.0 |
+| random | >= 3.0 |
+| time | >= 0.9 |
+
+## Providers
+
+| Provider | Source |
+|----------|--------|
+| tencentcloud | tencentcloudstack/tencentcloud |
+| random | hashicorp/random |
+| time | hashicorp/time |
+
+## Resources
+
+| Name | Type |
+|------|------|
+| `tencentcloud_mongodb_sharding_instance.instance` | resource |
+| `tencentcloud_mongodb_instance_ssl.ssl` | resource (count = 1 when `enable_ssl`) |
+| `tencentcloud_mongodb_instance_transparent_data_encryption.encryption` | resource (count = 1 when `enable_encryption`) |
+| `tencentcloud_mongodb_instance_backup_rule.backup` | resource (count = 1 when `backup.enabled`) |
+| `tencentcloud_mongodb_instance_account.account` | resource (count = 1 when `user_name` set) |
+| `random_password.system_password` | resource (auto-generated root password) |
+| `random_password.user_password` | resource (auto-generated user password) |
+| `time_rotating.rotation` | resource (password rotation timer) |
+| `tencentcloud_ssm_secret.mongodb_creds` | resource (admin secret) |
+| `tencentcloud_ssm_secret.mongodb_user_creds` | resource (user secret) |
+| `tencentcloud_cam_service_linked_role.role` | resource (KMS linked role, count = 1 when `create_kms_strategy`) |
+
+## Inputs
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| <a name="input_mongodb_sharding"></a> [mongodb\_sharding](#input\_mongodb\_sharding) | `object` | yes | – | MongoDB sharding instance configuration. See structure below. |
+| <a name="input_backup"></a> [backup](#input\_backup) | `object` | no | enabled `true`, method `1`, time `2`, retention `7`, version `1`, frequency `24` | MongoDB instance backup rule configuration. |
+| <a name="input_auth_roles"></a> [auth\_roles](#input\_auth\_roles) | `list(object)` | no | `[{}]` | Account permission info. Each item: `mask` (default `3`), `namespace` (default `"*"`). |
+| <a name="input_system_user_password"></a> [system\_user\_password](#input\_system\_user\_password) | `string` (sensitive) | no | `""` | Root account password. Leave empty to auto-generate. |
+| <a name="input_user_password"></a> [user\_password](#input\_user\_password) | `string` (sensitive) | no | `""` | Application user password. Leave empty to auto-generate. |
+| <a name="input_store_credentials_in_ssm"></a> [store\_credentials\_in\_ssm](#input\_store\_credentials\_in\_ssm) | `bool` | no | `true` | Whether to store credentials in SSM. |
+| <a name="input_create_kms_strategy"></a> [create\_kms\_strategy](#input\_create\_kms\_strategy) | `bool` | no | `false` | Whether to create the MongoDB KMS service-linked role. |
+| <a name="input_tags"></a> [tags](#input\_tags) | `map(string)` | no | `{}` | Tags for the MongoDB instance. |
+
+### `mongodb_sharding` object
+
+| Attribute | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | `string` | yes | – | Instance name (`instance_name`). Also used for secret naming. |
+| `available_zone` | `string` | yes | – | Availability zone of the instance, e.g. `ap-singapore-2`. |
+| `cpu` | `number` | no | – | Per-shard CPU core count. When empty, the default spec is used. Optional/Computed. |
+| `memory` | `number` | yes | – | Per-shard memory size in GB (minimum 2). Memory and volume must be scaled together. |
+| `volume` | `number` | yes | – | Per-shard storage capacity in GB (minimum 25). Memory and volume must be scaled together. |
+| `machine_type` | `string` | no | `"HIO10G"` | Instance type. Use `HIO` or `HIO10G` (`GIO`/`TGIO` are deprecated aliases). ForceNew. |
+| `engine_version` | `string` | no | `"MONGO_50_WT"` | MongoDB version: `MONGO_40_WT`, `MONGO_42_WT`, `MONGO_44_WT`, `MONGO_50_WT`, `MONGO_60_WT`, `MONGO_70_WT`, `MONGO_80_WT`, `MONGO_83_WT`. |
+| `shard_quantity` | `number` | yes | – | Number of shards. Range `[2,20]`. ForceNew. |
+| `nodes_per_shard` | `number` | yes | – | Nodes per shard (3 = 1 primary + 2 secondary). Allowed: `3`, `5`, `7`. ForceNew. |
+| `mongos_cpu` | `number` | no | `1` | Mongos CPU core count. Optional/Computed. |
+| `mongos_memory` | `number` | no | `2` | Mongos memory size in GB. Optional/Computed. |
+| `mongos_node_num` | `number` | no | `3` | Number of mongos nodes. Optional/Computed. |
+| `availability_zone_list` | `list(string)` | no | – | List of AZs where nodes are deployed (cross-AZ). Optional/Computed. |
+| `hidden_zone` | `string` | no | – | AZ to which the Hidden node belongs. Required in cross-AZ deployment. |
+| `add_node_list` | `list(object)` | no | – | Add node list. Each item: `role` (`SECONDARY`, `READONLY`, `MONGOS`), `zone`. |
+| `remove_node_list` | `list(object)` | no | – | Remove node list. Each item: `role`, `node_name` (e.g. `cmgo-xxxx_0-node-readonly0`), `zone`. |
+| `in_maintenance` | `number` | no | – | Switch time for config changes. `0`: immediately (default); `1`: within maintenance window. Shard/node count changes do not support the window. |
+| `vpc_id` | `string` | no | `""` | VPC ID. Must be set together with `subnet_id`. ForceNew. |
+| `subnet_id` | `string` | no | – | Subnet ID. Must be set together with `vpc_id`. ForceNew. |
+| `charge_type` | `string` | no | `"POSTPAID_BY_HOUR"` | Billing mode. `POSTPAID_BY_HOUR` or `PREPAID`. ForceNew. |
+| `prepaid_period` | `number` | no | `1` | Prepaid tenancy in months. Valid: 1–12, 24, 36. Only for PREPAID. |
+| `project_id` | `number` | no | `0` | ID of the project which the instance belongs to. |
+| `auto_renew_flag` | `number` | no | `0` | Auto renew flag: `0` (notify & manual), `1` (notify & auto), `2` (disable notify & manual). Only for PREPAID. |
+| `user_name` | `string` | no | – | New account name. Account created only when set. |
+| `user_desc` | `string` | no | `""` | New user account remarks. |
+| `enable_ssl` | `bool` | no | `false` | Whether to enable SSL. |
+| `enable_encryption` | `bool` | no | `false` | Whether to enable transparent data encryption (via the dedicated TDE resource). |
+| `data_encryption` | `string` | no | – | Storage encryption mode on the instance at creation: `"No_Encryption"` or `"TDE"`. Immutable. |
+| `encryption_key_source` | `string` | no | – | KMS key source when TDE is selected: `"auto"` or `"manual"`. Immutable. |
+| `kms_region` | `string` | no | – | KMS region, e.g. `ap-shanghai`. |
+| `kms_key_id` | `string` | no | – | KMS key ID (CMK alias). If empty and manual source, Tencent Cloud auto-generates a key (not managed by Terraform). |
+| `security_group_ids` | `list(string)` | no | `[]` | Security group IDs attached to the instance. |
+| `password_length` | `number` | no | `32` | Length of auto-generated passwords. |
+| `password_rotation_months` | `number` | no | `0` | Password rotation period in months. `0` disables rotation. |
+
+### `backup` object
+
+| Attribute | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `enabled` | `bool` | no | `true` | Whether to enable the backup rule. |
+| `backup_method` | `number` | no | `1` | `0` (logical), `1` (physical), `3` (snapshot). |
+| `backup_time` | `number` | no | `2` | Auto backup start hour, range `[0,23]`. |
+| `backup_retention_period` | `number` | no | `7` | Retention period in days, range `[7,365]`. |
+| `backup_version` | `number` | no | `1` | `0` (old), `1` (advanced). |
+| `backup_frequency` | `number` | no | `24` | `12` (twice daily), `24` (once daily). |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_mongodb_instance_id"></a> [mongodb\_instance\_id](#output\_mongodb\_instance\_id) | ID of the MongoDB sharding instance. |
+| <a name="output_mongodb_vip"></a> [mongodb\_vip](#output\_mongodb\_vip) | VIP of the MongoDB sharding instance. |
+| <a name="output_mongodb_port"></a> [mongodb\_port](#output\_mongodb\_port) | Port of the MongoDB sharding instance. |
+| <a name="output_admin_secret_name"></a> [admin\_secret\_name](#output\_admin\_secret\_name) | Name of the SSM secret for admin credentials (null when `store_credentials_in_ssm` is false). |
+| <a name="output_user_secret_name"></a> [user\_secret\_name](#output\_user\_secret\_name) | Name of the SSM secret for user credentials (null when disabled or no user). |
+
+## Usage
+
+### Basic sharding instance with auto-generated password and SSL
+
+```hcl
+module "mongodb_sharding" {
+  source = "./modules/mongodb-sharding"
+
+  tags = {
+    env = "prod"
+  }
+
+  mongodb_sharding = {
+    name                   = "my-mongodb-sharding"
+    available_zone         = "ap-singapore-2"
+    memory                 = 4
+    volume                 = 100
+    machine_type           = "HIO10G"
+    engine_version         = "MONGO_50_WT"
+    shard_quantity         = 2
+    nodes_per_shard        = 3
+    mongos_cpu             = 1
+    mongos_memory          = 2
+    mongos_node_num        = 3
+    availability_zone_list = ["ap-singapore-2", "ap-singapore-3"]
+    vpc_id                 = "vpc-xxxxxxxx"
+    subnet_id              = "subnet-xxxxxxxx"
+    charge_type            = "POSTPAID_BY_HOUR"
+    enable_ssl             = true
+    password_length        = 32
+  }
+
+  backup = {
+    enabled                 = true
+    backup_method           = 1
+    backup_time             = 2
+    backup_retention_period = 7
+    backup_version          = 1
+    backup_frequency        = 24
+  }
+}
+```
+
+### With application user, TDE encryption, password rotation and SSM storage
+
+```hcl
+module "mongodb_sharding" {
+  source = "./modules/mongodb-sharding"
+
+  create_kms_strategy      = true
+  store_credentials_in_ssm = true
+
+  mongodb_sharding = {
+    name                   = "my-mongodb-sharding-secure"
+    available_zone         = "ap-shanghai-2"
+    availability_zone_list = ["ap-shanghai-2", "ap-shanghai-3", "ap-shanghai-4"]
+    memory                 = 8
+    volume                 = 200
+    shard_quantity         = 3
+    nodes_per_shard        = 3
+    mongos_cpu             = 2
+    mongos_memory          = 4
+    mongos_node_num        = 3
+    vpc_id                 = "vpc-xxxxxxxx"
+    subnet_id              = "subnet-xxxxxxxx"
+    charge_type            = "PREPAID"
+    prepaid_period         = 12
+    auto_renew_flag        = 1
+    project_id             = 0
+    user_name              = "appuser"
+    user_desc              = "Application read-write user"
+    enable_ssl             = true
+    enable_encryption      = true
+    kms_region             = "ap-shanghai"
+    kms_key_id             = "kms-key-xxxxxxxx"
+    password_length        = 32
+    password_rotation_months = 3
+  }
+
+  auth_roles = [
+    {
+      mask      = 3
+      namespace = "appdb"
+    }
+  ]
+}
+```
+
+> **Note**: When `password_rotation_months > 0` and a password is auto-generated, the `random_password` resource uses a `time_rotating` keeper so the password rotates automatically. Provided (non-empty) passwords are not rotated.

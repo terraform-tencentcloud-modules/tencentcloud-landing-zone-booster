@@ -2,11 +2,13 @@
 ### MongoDB instance
 ################################################################################
 resource "tencentcloud_mongodb_instance" "instance" {
+  project_id             = var.mongodb_instance.project_id
   instance_name          = var.mongodb_instance.name
   security_groups        = var.mongodb_instance.security_group_ids
   vpc_id                 = var.mongodb_instance.vpc_id
   subnet_id              = var.mongodb_instance.subnet_id
   available_zone         = var.mongodb_instance.available_zone
+  cpu                    = var.mongodb_instance.cpu
   memory                 = var.mongodb_instance.memory
   volume                 = var.mongodb_instance.volume
   engine_version         = var.mongodb_instance.engine_version
@@ -18,8 +20,14 @@ resource "tencentcloud_mongodb_instance" "instance" {
   charge_type            = var.mongodb_instance.charge_type
   auto_renew_flag        = var.mongodb_instance.charge_type == "PREPAID" ? var.mongodb_instance.auto_renew_flag : null
   prepaid_period         = var.mongodb_instance.charge_type == "PREPAID" ? var.mongodb_instance.prepaid_period : null
+  maintenance_start      = var.mongodb_instance.maintenance_start
+  maintenance_end        = var.mongodb_instance.maintenance_end
 
   tags = var.tags
+
+  depends_on = [
+    tencentcloud_cam_service_linked_role.role
+  ]
 }
 
 # MongoDB SSL
