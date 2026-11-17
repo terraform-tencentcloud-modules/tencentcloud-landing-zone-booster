@@ -15,7 +15,7 @@ variable "instances" {
   type = map(object({
     instance_name            = string
     zone_name                = string
-    multi_zone_flag          = optional(bool, false)
+    multi_zone_flag          = optional(bool)
     zone_names               = optional(set(string))
     vpc_id                   = optional(string)
     subnet_id                = optional(string)
@@ -23,7 +23,7 @@ variable "instances" {
     period                   = optional(number)               # prepaid purchase time in months
     instance_type            = optional(number)               # description of instance type
     specifications_type      = optional(string, "profession") # standard / profession / premium
-    upgrade_strategy         = optional(number, 1)            # POSTPAID_BY_HOUR scale-down mode: 1 stable, 2 high-speed
+    upgrade_strategy         = optional(number)               # POSTPAID_BY_HOUR scale-down mode: 1 stable, 2 high-speed
     kafka_version            = optional(string)               # 0.10.2 / 1.1.1 / 2.4.1
     disk_type                = optional(string)               # CLOUD_SSD / CLOUD_BASIC (profession only)
     disk_size                = optional(number)               # disk size (GB)

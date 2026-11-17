@@ -22,7 +22,7 @@ resource "tencentcloud_ckafka_instance" "this" {
   instance_name            = each.value.instance_name
   zone_id                  = local.zone_id_map[each.value.zone_name]
   multi_zone_flag          = each.value.multi_zone_flag
-  zone_ids                 = each.value.multi_zone_flag ? toset([
+  zone_ids                 = each.value.multi_zone_flag != null && each.value.multi_zone_flag ? toset([
     for zone in each.value.zone_names : local.zone_id_map[zone]
   ]) : null
   vpc_id                   = each.value.vpc_id
