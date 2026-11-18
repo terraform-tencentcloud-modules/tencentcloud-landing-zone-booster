@@ -23,7 +23,6 @@ variable "zones" {
       uin         = string # Account UIN
       uniq_vpc_id = string # VPC ID
       region      = string # Region
-      vpc_name    = optional(string) # VPC name
     })), [])
 
     # Tags

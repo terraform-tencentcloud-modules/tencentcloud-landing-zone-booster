@@ -25,7 +25,6 @@ resource "tencentcloud_private_dns_zone" "zones" {
       uin         = account_vpc_set.value.uin
       uniq_vpc_id = account_vpc_set.value.uniq_vpc_id
       region      = account_vpc_set.value.region
-      vpc_name    = account_vpc_set.value.vpc_name
     }
   }
 
